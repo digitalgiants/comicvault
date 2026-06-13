@@ -1,29 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
-import api from '../api/client'
-
-interface Comic {
-  id: number
-  publisher: string | null
-  name: string
-  volume: string | null
-  number: string | null
-  variant: string | null
-  writer: string | null
-  artist: string | null
-}
-
-interface UserComic {
-  id: number
-  comic: Comic
-  number_of_books: number
-  price_paid: number | null
-  signed: boolean
-  remarked: boolean
-  notes: string | null
-  buy_date: string | null
-  sell_date: string | null
-}
+import { useEffect, useState, useCallback } from 'react'
+import { Search, Pencil, Tag, Trash2 } from 'lucide-react'
+import { getCollection, sellUserComic, deleteUserComic, getColumnPrefs } from '../api/collection'
+import type { UserComic, ColumnVisibility } from '../types'
+import { COLLECTION_COLUMNS } from '../types'
+import EditComicModal from '../components/Collection/EditComicModal'
+import BulkEditModal from '../components/Collection/BulkEditModal'
+import ColumnPicker from '../components/Collection/ColumnPicker'
+import BugReportButton from '../components/BugReportButton'
 
 export default function CollectionPage() {
   const [items, setItems] = useState<UserComic[]>([])
@@ -31,58 +14,112 @@ export default function CollectionPage() {
   const [search, setSearch] = useState('')
   const [publisherFilter, setPublisherFilter] = useState('')
   const [writerFilter, setWriterFilter] = useState('')
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [editing, setEditing] = useState<UserComic | null>(null)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [visibility, setVisibility] = useState<ColumnVisibility>({})
+  const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
-  const fetchCollection = async () => {
+  useEffect(() => {
+    getColumnPrefs('collection').then(p => setVisibility(p.columns))
+  }, [])
+
+  const fetchCollection = useCallback(async () => {
     setLoading(true)
     try {
       const params: Record<string, string> = {}
       if (search) params.name = search
       if (publisherFilter) params.publisher = publisherFilter
       if (writerFilter) params.writer = writerFilter
-      const { data } = await api.get('/comics/collection', { params })
-      setItems(data)
+      setItems(await getCollection(params))
     } finally {
       setLoading(false)
     }
-  }
+  }, [search, publisherFilter, writerFilter])
 
   useEffect(() => { fetchCollection() }, [])
 
+  const visibleCols = COLLECTION_COLUMNS.filter(c => visibility[c.key] !== false)
+
+  const toggleSelect = (id: number) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const toggleAll = () => {
+    setSelected(prev => prev.size === items.length ? new Set() : new Set(items.map(i => i.id)))
+  }
+
+  const handleSell = async (uc: UserComic) => {
+    if (!confirm(`Mark "${uc.comic.name}" as sold?`)) return
+    await sellUserComic(uc.id)
+    setItems(prev => prev.filter(i => i.id !== uc.id))
+    setSelected(prev => { const n = new Set(prev); n.delete(uc.id); return n })
+  }
+
+  const handleDelete = async (uc: UserComic) => {
+    if (!confirm(`Permanently delete "${uc.comic.name}" from your collection?`)) return
+    await deleteUserComic(uc.id)
+    setItems(prev => prev.filter(i => i.id !== uc.id))
+    setSelected(prev => { const n = new Set(prev); n.delete(uc.id); return n })
+  }
+
+  const handleSaved = (updated: UserComic) => {
+    setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
+    setEditing(null)
+  }
+
+  const selectedItems = items.filter(i => selected.has(i.id))
+
+  const fmt = (uc: UserComic, key: string): string => {
+    if (key in uc.comic) {
+      const v = (uc.comic as Record<string, unknown>)[key]
+      if (v === null || v === undefined) return '—'
+      if (key === 'average_price') return `$${Number(v).toFixed(2)}`
+      if (key === 'direct') return v ? 'Yes' : 'No'
+      return String(v)
+    }
+    const v = (uc as Record<string, unknown>)[key]
+    if (v === null || v === undefined) return '—'
+    if (key === 'price_paid') return `$${Number(v).toFixed(2)}`
+    if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
+    if (key === 'buy_date' || key === 'sell_date') return new Date(v as string).toLocaleDateString()
+    return String(v)
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">My Collection</h1>
+    <div className="max-w-full px-4 py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">My Collection</h1>
+        <div className="flex items-center gap-2">
+          {selected.size > 0 && (
+            <button
+              onClick={() => setBulkOpen(true)}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
+            >
+              Bulk Edit ({selected.size})
+            </button>
+          )}
+          <ColumnPicker page="collection" columns={COLLECTION_COLUMNS} visibility={visibility} onChange={setVisibility} />
+        </div>
+      </div>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
         <div className="relative flex-1">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetchCollection()}
+            value={search} onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && fetchCollection()}
             placeholder="Search by title…"
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
-        <input
-          value={publisherFilter}
-          onChange={(e) => setPublisherFilter(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && fetchCollection()}
-          placeholder="Publisher"
-          className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40"
-        />
-        <input
-          value={writerFilter}
-          onChange={(e) => setWriterFilter(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && fetchCollection()}
-          placeholder="Writer"
-          className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40"
-        />
-        <button
-          onClick={fetchCollection}
-          className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition"
-        >
-          Search
-        </button>
+        <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchCollection()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+        <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchCollection()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+        <button onClick={fetchCollection} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
       </div>
 
       {loading ? (
@@ -97,36 +134,36 @@ export default function CollectionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
-                <th className="px-4 py-3 text-left">Publisher</th>
-                <th className="px-4 py-3 text-left">Title</th>
-                <th className="px-4 py-3 text-left">Vol</th>
-                <th className="px-4 py-3 text-left">#</th>
-                <th className="px-4 py-3 text-left">Variant</th>
-                <th className="px-4 py-3 text-left">Writer</th>
-                <th className="px-4 py-3 text-right">Qty</th>
-                <th className="px-4 py-3 text-right">Paid</th>
-                <th className="px-4 py-3 text-center">Signed</th>
+                <th className="px-3 py-3">
+                  <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-brand-500" />
+                </th>
+                {visibleCols.map(c => <th key={c.key} className="px-4 py-3 text-left whitespace-nowrap">{c.label}</th>)}
+                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {items.map((uc) => (
-                <tr key={uc.id} className="hover:bg-gray-800/50 transition">
-                  <td className="px-4 py-3 text-gray-400">{uc.comic.publisher ?? '—'}</td>
-                  <td className="px-4 py-3 font-medium">{uc.comic.name}</td>
-                  <td className="px-4 py-3 text-gray-400">{uc.comic.volume ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-400">{uc.comic.number ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-400">{uc.comic.variant ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-400">{uc.comic.writer ?? '—'}</td>
-                  <td className="px-4 py-3 text-right">{uc.number_of_books}</td>
-                  <td className="px-4 py-3 text-right">
-                    {uc.price_paid != null ? `$${uc.price_paid.toFixed(2)}` : '—'}
+              {items.map(uc => (
+                <tr key={uc.id} className={`hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
+                  <td className="px-3 py-3">
+                    <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    {uc.signed ? (
-                      <span className="text-green-400 font-bold">✓</span>
-                    ) : (
-                      <span className="text-gray-600">—</span>
-                    )}
+                  {visibleCols.map(c => (
+                    <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
+                      {fmt(uc, c.key)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => handleSell(uc)} title="Mark as Sold" className="p-1.5 text-gray-400 hover:text-yellow-400 hover:bg-gray-700 rounded-lg transition">
+                        <Tag size={14} />
+                      </button>
+                      <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -134,6 +171,10 @@ export default function CollectionPage() {
           </table>
         </div>
       )}
+
+      {editing && <EditComicModal item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />}
+      {bulkOpen && <BulkEditModal selected={selectedItems} onClose={() => setBulkOpen(false)} onSaved={() => { setBulkOpen(false); setSelected(new Set()); fetchCollection() }} />}
+      <BugReportButton activeComic={activeComic} />
     </div>
   )
 }

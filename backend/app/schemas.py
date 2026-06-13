@@ -56,6 +56,25 @@ class ComicCreate(ComicBase):
     pass
 
 
+class ComicUpdate(BaseModel):
+    average_price: Optional[float] = None
+    publisher: Optional[str] = None
+    name: Optional[str] = None
+    volume: Optional[str] = None
+    number: Optional[str] = None
+    print: Optional[str] = None
+    cover: Optional[str] = None
+    variant: Optional[str] = None
+    direct: Optional[bool] = None
+    writer: Optional[str] = None
+    artist: Optional[str] = None
+    pencils: Optional[str] = None
+    inker: Optional[str] = None
+    cover_artist: Optional[str] = None
+    print_ratio: Optional[str] = None
+    upc: Optional[str] = None
+
+
 class ComicOut(ComicBase):
     id: int
     created_at: datetime
@@ -79,6 +98,26 @@ class UserComicBase(BaseModel):
 
 class UserComicCreate(UserComicBase):
     comic_id: int
+
+
+class UserComicUpdate(BaseModel):
+    number_of_books: Optional[int] = None
+    price_paid: Optional[float] = None
+    point_of_purchase: Optional[str] = None
+    buy_date: Optional[datetime] = None
+    signed: Optional[bool] = None
+    remarked: Optional[bool] = None
+    notes: Optional[str] = None
+    sell_date: Optional[datetime] = None
+
+
+class BulkUpdateItem(BaseModel):
+    id: int
+    update: UserComicUpdate
+
+
+class BulkUpdateRequest(BaseModel):
+    updates: list[BulkUpdateItem]
 
 
 class UserComicOut(UserComicBase):
@@ -128,3 +167,51 @@ class ComicSearchParams(BaseModel):
     volume: Optional[str] = None
     number: Optional[str] = None
     variant: Optional[str] = None
+
+
+# --- Column Preferences ---
+
+class ColumnPreferenceOut(BaseModel):
+    page: str
+    columns: dict[str, bool]
+
+    class Config:
+        from_attributes = True
+
+
+class ColumnPreferenceUpdate(BaseModel):
+    columns: dict[str, bool]
+
+
+# --- Collection Snapshots ---
+
+class SnapshotOut(BaseModel):
+    date: str
+    comic_count: int
+    total_paid: float
+    total_value: float
+
+    class Config:
+        from_attributes = True
+
+
+# --- Bug Reports ---
+
+class BugReportCreate(BaseModel):
+    text: str
+    comic_id: Optional[int] = None
+    page_url: Optional[str] = None
+
+
+class BugReportOut(BaseModel):
+    id: int
+    text: str
+    comic_id: Optional[int] = None
+    page_url: Optional[str] = None
+    resolved: bool
+    created_at: datetime
+    user_email: str
+    comic_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True

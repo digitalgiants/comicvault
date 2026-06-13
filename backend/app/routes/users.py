@@ -5,7 +5,7 @@ from app import crud
 from app.auth import create_access_token, get_current_user, verify_password
 from app.database import get_db
 from app.models import User
-from app.schemas import Token, UserCreate, UserLogin, UserOut
+from app.schemas import SnapshotOut, Token, UserCreate, UserLogin, UserOut
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -28,3 +28,20 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/snapshots", response_model=list[SnapshotOut])
+def get_snapshots(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    snaps = crud.get_user_snapshots(db, current_user.id)
+    return [
+        SnapshotOut(
+            date=str(s.date),
+            comic_count=s.comic_count,
+            total_paid=s.total_paid,
+            total_value=s.total_value,
+        )
+        for s in snaps
+    ]

@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage'
 import CollectionPage from './pages/CollectionPage'
 import UploadPage from './pages/UploadPage'
 import AdminPage from './pages/AdminPage'
+import SoldPage from './pages/SoldPage'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth()
@@ -30,6 +31,7 @@ function AppRoutes() {
         <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
         <Route path="/collection" element={<RequireAuth><CollectionPage /></RequireAuth>} />
         <Route path="/upload" element={<RequireAuth><UploadPage /></RequireAuth>} />
+        <Route path="/sold" element={<RequireAuth><SoldPage /></RequireAuth>} />
         <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

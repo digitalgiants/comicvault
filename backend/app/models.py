@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey,
-    Integer, JSON, String, Text
+    Integer, JSON, String, Text, UniqueConstraint, Date
 )
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,9 @@ class User(Base):
     user_comics = relationship("UserComic", back_populates="user")
     csv_imports = relationship("CSVImport", back_populates="user")
     comics_added = relationship("Comic", back_populates="created_by_user")
+    column_preferences = relationship("UserColumnPreference", back_populates="user")
+    snapshots = relationship("CollectionSnapshot", back_populates="user")
+    bug_reports = relationship("BugReport", back_populates="user")
 
 
 class Comic(Base):
@@ -87,3 +90,45 @@ class CSVImport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="csv_imports")
+
+
+class CollectionSnapshot(Base):
+    __tablename__ = "collection_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    date = Column(Date, nullable=False)
+    comic_count = Column(Integer, default=0)
+    total_paid = Column(Float, default=0.0)
+    total_value = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="snapshots")
+
+
+class UserColumnPreference(Base):
+    __tablename__ = "user_column_preferences"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    page = Column(String, nullable=False)  # 'collection' or 'sold'
+    columns = Column(JSON, nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "page", name="uq_user_page_prefs"),)
+
+    user = relationship("User", back_populates="column_preferences")
+
+
+class BugReport(Base):
+    __tablename__ = "bug_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    text = Column(Text, nullable=False)
+    comic_id = Column(Integer, ForeignKey("comics.id"), nullable=True)
+    page_url = Column(String, nullable=True)
+    resolved = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="bug_reports")
+    comic = relationship("Comic")

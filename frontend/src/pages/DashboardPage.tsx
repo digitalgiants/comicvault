@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { Upload, BookOpen, Search } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import api from '../api/client'
+import CollectionGraph from '../components/Dashboard/CollectionGraph'
+import BugReportButton from '../components/BugReportButton'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -16,6 +18,10 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="mb-10">
+        <CollectionGraph />
+      </div>
+
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-2">Welcome back</h1>
         <p className="text-gray-400">{user?.email}</p>
@@ -57,6 +63,7 @@ export default function DashboardPage() {
           <span className="text-gray-400 text-sm text-center">Filter by title, writer, publisher & more</span>
         </Link>
       </div>
+      <BugReportButton />
     </div>
   )
 }

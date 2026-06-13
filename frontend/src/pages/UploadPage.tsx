@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import BugReportButton from '../components/BugReportButton'
 import { useDropzone } from 'react-dropzone'
 import { Upload, CheckCircle, XCircle, FileText } from 'lucide-react'
 import api from '../api/client'
@@ -124,6 +125,8 @@ export default function UploadPage() {
           )}
         </div>
       )}
+
+      <BugReportButton />
 
       <div className="mt-8 bg-gray-900 rounded-xl p-5 border border-gray-800">
         <h3 className="font-medium text-gray-300 mb-3">Expected CSV Columns</h3>

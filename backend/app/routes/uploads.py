@@ -72,6 +72,14 @@ async def upload_csv(
                 comic = crud.create_comic(db, ComicCreate(**comic_data), user_id=current_user.id)
                 new_added += 1
 
+            if crud.user_already_owns(db, current_user.id, comic.id):
+                row_errors.append({
+                    "row": row.get("_row_num", "?"),
+                    "comic": row.get("name", "unknown"),
+                    "error": "Duplicate: already in your collection",
+                })
+                continue
+
             uc_data = UserComicCreate(
                 comic_id=comic.id,
                 number_of_books=row.get("number_of_books") or 1,
@@ -93,6 +101,7 @@ async def upload_csv(
                 "error": str(e),
             })
 
+    crud.record_snapshot(db, current_user.id)
     crud.create_csv_import(
         db,
         user_id=current_user.id,
