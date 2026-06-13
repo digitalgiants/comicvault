@@ -20,7 +20,6 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    userns_mode: keep-id
     volumes:
       - ./backend:/app:z
     environment:
