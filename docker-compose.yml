@@ -7,8 +7,12 @@ services:
       - "3002:3000"
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/.env:/app/.env
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=/api
+      - VITE_PROXY_TARGET=http://backend:8000
+      - VITE_ALLOWED_HOST=cv.digitalgiants.net
     depends_on:
       - backend
 

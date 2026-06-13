@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
       allowedHosts: env.VITE_ALLOWED_HOST ? [env.VITE_ALLOWED_HOST] : [],
       proxy: {
         '/api': {
-          target: 'http://backend:8000',
+          target: env.VITE_PROXY_TARGET || process.env.VITE_PROXY_TARGET || 'http://localhost:8000',
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api/, ''),
         },
