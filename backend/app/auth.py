@@ -2,31 +2,31 @@ import base64
 import hashlib
 from datetime import datetime, timedelta
 
+import bcrypt
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.models import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 bearer_scheme = HTTPBearer()
 
 
-def _prehash(password: str) -> str:
+def _prehash(password: str) -> bytes:
     digest = hashlib.sha256(password.encode()).digest()
-    return base64.b64encode(digest).decode()
+    return base64.b64encode(digest)
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(_prehash(password))
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode()
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(_prehash(plain), hashed)
+    return bcrypt.checkpw(_prehash(plain), hashed.encode())
 
 
 def create_access_token(user_id: int) -> str:
@@ -46,7 +46,7 @@ def _get_user_from_token(token: str, db: Session) -> User:
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = db.query(User).filter(User.id == int(user_id)).first()
