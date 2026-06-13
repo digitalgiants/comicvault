@@ -6,7 +6,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
-      allowedHosts: env.VITE_ALLOWED_HOST ? [env.VITE_ALLOWED_HOST] : [],
+      allowedHosts: (env.VITE_ALLOWED_HOST || process.env.VITE_ALLOWED_HOST)
+        ? [env.VITE_ALLOWED_HOST || process.env.VITE_ALLOWED_HOST as string]
+        : [],
       proxy: {
         '/api': {
           target: env.VITE_PROXY_TARGET || process.env.VITE_PROXY_TARGET || 'http://localhost:8000',

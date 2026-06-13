@@ -6,9 +6,7 @@ services:
     ports:
       - "3002:3000"
     volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/vite.config.ts:/app/vite.config.ts
-      - ./frontend/.env:/app/.env
+      - ./frontend/src:/app/src:z
     environment:
       - VITE_API_URL=/api
       - VITE_PROXY_TARGET=http://backend:8000
@@ -23,12 +21,13 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app
+      - ./backend:/app:z
     environment:
       - DATABASE_URL=postgresql://comicvault:comicvault@postgres:5432/comicvault
       - JWT_SECRET=${JWT_SECRET:-supersecretchangeme}
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRE_MINUTES=10080
+      - WATCHFILES_FORCE_POLLING=true
     depends_on:
       postgres:
         condition: service_healthy
