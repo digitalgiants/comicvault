@@ -20,6 +20,7 @@ class UserOut(BaseModel):
     id: int
     email: str
     is_admin: bool
+    is_kiosk: bool
     created_at: datetime
 
     class Config:
@@ -50,6 +51,7 @@ class ComicBase(BaseModel):
     average_price: Optional[float] = None
     print_ratio: Optional[str] = None
     upc: Optional[str] = None
+    cover_image_url: Optional[str] = None
 
 
 class ComicCreate(ComicBase):
@@ -83,6 +85,39 @@ class ComicOut(ComicBase):
         from_attributes = True
 
 
+# --- Sales ---
+
+class SaleOut(BaseModel):
+    id: int
+    user_comic_id: int
+    sell_date: datetime
+    sell_price: Optional[float] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class SaleCreate(BaseModel):
+    sell_date: datetime
+    sell_price: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class SaleWithComicOut(BaseModel):
+    id: int
+    user_comic_id: int
+    sell_date: datetime
+    sell_price: Optional[float] = None
+    notes: Optional[str] = None
+    created_at: datetime
+    comic: ComicOut
+
+    class Config:
+        from_attributes = True
+
+
 # --- UserComics ---
 
 class UserComicBase(BaseModel):
@@ -93,7 +128,6 @@ class UserComicBase(BaseModel):
     signed: Optional[bool] = False
     remarked: Optional[bool] = False
     notes: Optional[str] = None
-    sell_date: Optional[datetime] = None
 
 
 class UserComicCreate(UserComicBase):
@@ -108,7 +142,6 @@ class UserComicUpdate(BaseModel):
     signed: Optional[bool] = None
     remarked: Optional[bool] = None
     notes: Optional[str] = None
-    sell_date: Optional[datetime] = None
 
 
 class BulkUpdateItem(BaseModel):
@@ -126,6 +159,7 @@ class UserComicOut(UserComicBase):
     comic_id: int
     comic: ComicOut
     created_at: datetime
+    sales: list[SaleOut] = []
 
     class Config:
         from_attributes = True
@@ -155,6 +189,7 @@ class AdminUserOut(UserOut):
 
 class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
+    is_kiosk: Optional[bool] = None
 
 
 # --- Search ---

@@ -5,6 +5,7 @@ interface User {
   id: number
   email: string
   is_admin: boolean
+  is_kiosk: boolean
   created_at: string
 }
 

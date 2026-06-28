@@ -29,12 +29,18 @@ def update_user(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin),
 ):
+    user = None
     if update.is_admin is not None:
         user = crud.set_user_admin(db, user_id, update.is_admin)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        return user
-    raise HTTPException(status_code=400, detail="Nothing to update")
+    if update.is_kiosk is not None:
+        user = crud.set_user_kiosk(db, user_id, update.is_kiosk)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    if user is None:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    return user
 
 
 @router.delete("/users/{user_id}", status_code=204)

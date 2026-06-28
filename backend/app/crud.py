@@ -1,15 +1,15 @@
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
 from app.models import (
     BugReport, CollectionSnapshot, Comic, CSVImport,
-    User, UserComic, UserColumnPreference,
+    Sale, User, UserComic, UserColumnPreference,
 )
 from app.schemas import (
-    BugReportCreate, ComicCreate, ComicUpdate,
+    BugReportCreate, ComicCreate, ComicUpdate, SaleCreate,
     UserComicCreate, UserComicUpdate, UserCreate,
 )
 
@@ -26,8 +26,8 @@ DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
 }
 
 DEFAULT_SOLD_COLUMNS: dict[str, bool] = {
-    **DEFAULT_COLLECTION_COLUMNS,
-    "sell_date": True,
+    "publisher": True, "name": True, "volume": True, "number": True,
+    "writer": True, "sell_date": True, "sell_price": True, "notes": True,
 }
 
 
@@ -67,6 +67,16 @@ def set_user_admin(db: Session, user_id: int, is_admin: bool) -> Optional[User]:
     if not user:
         return None
     user.is_admin = is_admin
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def set_user_kiosk(db: Session, user_id: int, is_kiosk: bool) -> Optional[User]:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    user.is_kiosk = is_kiosk
     db.commit()
     db.refresh(user)
     return user
@@ -144,7 +154,6 @@ def user_already_owns(db: Session, user_id: int, comic_id: int) -> bool:
     return db.query(UserComic).filter(
         UserComic.user_id == user_id,
         UserComic.comic_id == comic_id,
-        UserComic.sell_date.is_(None),
     ).first() is not None
 
 
@@ -162,16 +171,6 @@ def update_user_comic(db: Session, user_id: int, uc_id: int, update: UserComicUp
         return None
     for field, value in update.model_dump(exclude_unset=True).items():
         setattr(uc, field, value)
-    db.commit()
-    db.refresh(uc)
-    return uc
-
-
-def sell_user_comic(db: Session, user_id: int, uc_id: int) -> Optional[UserComic]:
-    uc = get_user_comic_by_id(db, user_id, uc_id)
-    if not uc:
-        return None
-    uc.sell_date = datetime.utcnow()
     db.commit()
     db.refresh(uc)
     return uc
@@ -203,7 +202,8 @@ def get_user_collection(
     q = (
         db.query(UserComic)
         .join(Comic)
-        .filter(UserComic.user_id == user_id, UserComic.sell_date.is_(None))
+        .options(joinedload(UserComic.sales))
+        .filter(UserComic.user_id == user_id)
     )
     if name:
         q = q.filter(Comic.name.ilike(f"%{name}%"))
@@ -214,6 +214,27 @@ def get_user_collection(
     return q.offset(skip).limit(limit).all()
 
 
+def get_kiosk_collection(
+    db: Session,
+    name: Optional[str] = None,
+    publisher: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 500,
+) -> list[UserComic]:
+    """Return all UserComics across all users that have at least one available copy."""
+    q = (
+        db.query(UserComic)
+        .join(Comic)
+        .options(joinedload(UserComic.sales))
+    )
+    if name:
+        q = q.filter(Comic.name.ilike(f"%{name}%"))
+    if publisher:
+        q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
+    items = q.offset(skip).limit(limit).all()
+    return [uc for uc in items if (uc.number_of_books or 1) > len(uc.sales)]
+
+
 def get_sold_collection(
     db: Session,
     user_id: int,
@@ -221,17 +242,19 @@ def get_sold_collection(
     publisher: Optional[str] = None,
     skip: int = 0,
     limit: int = 500,
-) -> list[UserComic]:
+) -> list[Sale]:
     q = (
-        db.query(UserComic)
+        db.query(Sale)
+        .join(UserComic)
         .join(Comic)
-        .filter(UserComic.user_id == user_id, UserComic.sell_date.isnot(None))
+        .options(joinedload(Sale.user_comic).joinedload(UserComic.comic))
+        .filter(UserComic.user_id == user_id)
     )
     if name:
         q = q.filter(Comic.name.ilike(f"%{name}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
-    return q.order_by(UserComic.sell_date.desc()).offset(skip).limit(limit).all()
+    return q.order_by(Sale.sell_date.desc()).offset(skip).limit(limit).all()
 
 
 def get_user_comic_by_id(db: Session, user_id: int, uc_id: int) -> Optional[UserComic]:
@@ -251,18 +274,56 @@ def delete_user_comic(db: Session, user_id: int, uc_id: int) -> bool:
     return True
 
 
+# --- Sales ---
+
+def create_sale(db: Session, user_id: int, uc_id: int, sale_in: SaleCreate) -> Optional[Sale]:
+    uc = get_user_comic_by_id(db, user_id, uc_id)
+    if not uc:
+        return None
+    total_copies = uc.number_of_books or 1
+    if len(uc.sales) >= total_copies:
+        return None  # over-sell guard; caller checks for None
+    sale = Sale(
+        user_comic_id=uc_id,
+        sell_date=sale_in.sell_date,
+        sell_price=sale_in.sell_price,
+        notes=sale_in.notes,
+    )
+    db.add(sale)
+    db.commit()
+    db.refresh(sale)
+    return sale
+
+
+def delete_sale(db: Session, user_id: int, uc_id: int, sale_id: int) -> bool:
+    sale = (
+        db.query(Sale)
+        .join(UserComic)
+        .filter(Sale.id == sale_id, Sale.user_comic_id == uc_id, UserComic.user_id == user_id)
+        .first()
+    )
+    if not sale:
+        return False
+    db.delete(sale)
+    db.commit()
+    return True
+
+
 # --- Collection Snapshots ---
 
 def record_snapshot(db: Session, user_id: int) -> None:
     active = (
         db.query(UserComic)
+        .options(joinedload(UserComic.sales))
         .join(Comic)
-        .filter(UserComic.user_id == user_id, UserComic.sell_date.is_(None))
+        .filter(UserComic.user_id == user_id)
         .all()
     )
-    comic_count = sum(uc.number_of_books or 0 for uc in active)
-    total_paid = sum((uc.price_paid or 0) * (uc.number_of_books or 1) for uc in active)
-    total_value = sum((uc.comic.average_price or 0) * (uc.number_of_books or 1) for uc in active)
+    # Only count UserComics that still have available copies
+    available = [uc for uc in active if (uc.number_of_books or 1) > len(uc.sales)]
+    comic_count = sum(uc.number_of_books or 0 for uc in available)
+    total_paid = sum((uc.price_paid or 0) * (uc.number_of_books or 1) for uc in available)
+    total_value = sum((uc.comic.average_price or 0) * (uc.number_of_books or 1) for uc in available)
 
     today = date.today()
     existing = (

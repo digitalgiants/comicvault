@@ -1,13 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Trash2 } from 'lucide-react'
-import { getSold, deleteUserComic, getColumnPrefs } from '../api/collection'
-import type { UserComic, ColumnVisibility } from '../types'
-import { SOLD_COLUMNS } from '../types'
+import { Search } from 'lucide-react'
+import { getSold, getColumnPrefs } from '../api/collection'
+import { type SaleWithComic, type ColumnVisibility, SOLD_COLUMNS } from '../types'
 import ColumnPicker from '../components/Collection/ColumnPicker'
 import BugReportButton from '../components/BugReportButton'
 
 export default function SoldPage() {
-  const [items, setItems] = useState<UserComic[]>([])
+  const [items, setItems] = useState<SaleWithComic[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [publisherFilter, setPublisherFilter] = useState('')
@@ -31,27 +30,15 @@ export default function SoldPage() {
 
   useEffect(() => { fetchSold() }, [])
 
-  const handleDelete = async (uc: UserComic) => {
-    if (!confirm(`Permanently delete "${uc.comic.name}" from sold history?`)) return
-    await deleteUserComic(uc.id)
-    setItems(prev => prev.filter(i => i.id !== uc.id))
-  }
-
   const visibleCols = SOLD_COLUMNS.filter(c => visibility[c.key] !== false)
 
-  const fmt = (uc: UserComic, key: string): string => {
-    if (key in uc.comic) {
-      const v = (uc.comic as Record<string, unknown>)[key]
-      if (v === null || v === undefined) return '—'
-      if (key === 'average_price') return `$${Number(v).toFixed(2)}`
-      if (key === 'direct') return v ? 'Yes' : 'No'
-      return String(v)
-    }
-    const v = (uc as Record<string, unknown>)[key]
+  const fmt = (sale: SaleWithComic, key: string): string => {
+    if (key === 'sell_date') return new Date(sale.sell_date).toLocaleDateString()
+    if (key === 'sell_price') return sale.sell_price != null ? `$${sale.sell_price.toFixed(2)}` : '—'
+    if (key === 'notes') return sale.notes ?? '—'
+    const v = (sale.comic as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
-    if (key === 'price_paid') return `$${Number(v).toFixed(2)}`
-    if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
-    if (key === 'buy_date' || key === 'sell_date') return new Date(v as string).toLocaleDateString()
+    if (key === 'average_price') return `$${Number(v).toFixed(2)}`
     return String(v)
   }
 
@@ -60,7 +47,7 @@ export default function SoldPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">Sold / Traded</h1>
-          <p className="text-gray-400 text-sm mt-0.5">{items.length} comics</p>
+          <p className="text-gray-400 text-sm mt-0.5">{items.length} sale{items.length !== 1 ? 's' : ''}</p>
         </div>
         <ColumnPicker page="sold" columns={SOLD_COLUMNS} visibility={visibility} onChange={setVisibility} />
       </div>
@@ -83,8 +70,8 @@ export default function SoldPage() {
         <div className="text-center text-gray-400 py-16">Loading…</div>
       ) : items.length === 0 ? (
         <div className="text-center text-gray-400 py-16">
-          <p className="text-lg">No sold comics yet.</p>
-          <p className="text-sm mt-1">Use the tag icon in your collection to mark a comic as sold.</p>
+          <p className="text-lg">No sales recorded yet.</p>
+          <p className="text-sm mt-1">Use the $ icon in your collection to record a sale.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-800">
@@ -92,22 +79,16 @@ export default function SoldPage() {
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
                 {visibleCols.map(c => <th key={c.key} className="px-4 py-3 text-left whitespace-nowrap">{c.label}</th>)}
-                <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {items.map(uc => (
-                <tr key={uc.id} className="hover:bg-gray-800/50 transition">
+              {items.map(sale => (
+                <tr key={sale.id} className="hover:bg-gray-800/50 transition">
                   {visibleCols.map(c => (
                     <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
-                      {fmt(uc, c.key)}
+                      {fmt(sale, c.key)}
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-right">
-                    <button onClick={() => handleDelete(uc)} title="Delete permanently" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
-                      <Trash2 size={14} />
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>

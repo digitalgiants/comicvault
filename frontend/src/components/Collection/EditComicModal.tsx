@@ -1,31 +1,33 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
-import { updateUserComic } from '../../api/collection'
-import type { UserComic } from '../../types'
-import { EDITABLE_FIELDS } from '../../types'
+import { X, Trash2 } from 'lucide-react'
+import { updateUserComic, deleteSale } from '../../api/collection'
+import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
 
 interface Props {
   item: UserComic
   onClose: () => void
   onSaved: (updated: UserComic) => void
+  onItemChange?: (updated: UserComic) => void
 }
 
-export default function EditComicModal({ item, onClose, onSaved }: Props) {
+export default function EditComicModal({ item, onClose, onSaved, onItemChange }: Props) {
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
     EDITABLE_FIELDS.forEach(({ key }) => {
       const val = item[key]
-      if (key === 'buy_date' || key === 'sell_date') {
+      if (key === 'buy_date') {
         initial[key] = val ? (val as string).split('T')[0] : ''
       } else {
         initial[key] = val ?? (key === 'signed' || key === 'remarked' ? false : '')
       }
     })
     setForm(initial)
+    setLocalSales(item.sales ?? [])
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -45,13 +47,23 @@ export default function EditComicModal({ item, onClose, onSaved }: Props) {
         else payload[key] = val === '' ? null : val
       })
       const updated = await updateUserComic(item.id, payload)
-      onSaved(updated)
+      onSaved({ ...updated, sales: localSales })
     } catch {
       setError('Failed to save. Please try again.')
     } finally {
       setSaving(false)
     }
   }
+
+  const handleDeleteSale = async (sale: Sale) => {
+    if (!confirm('Remove this sale record?')) return
+    await deleteSale(item.id, sale.id)
+    const updated = localSales.filter(s => s.id !== sale.id)
+    setLocalSales(updated)
+    onItemChange?.({ ...item, sales: updated })
+  }
+
+  const avail = availableCopies({ ...item, sales: localSales })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
@@ -124,6 +136,42 @@ export default function EditComicModal({ item, onClose, onSaved }: Props) {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Sales History */}
+          <div className="mt-6 pt-4 border-t border-gray-800">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wider">Sales History</p>
+              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                {avail}/{item.number_of_books ?? 1} available
+              </span>
+            </div>
+            {localSales.length === 0 ? (
+              <p className="text-sm text-gray-600 italic">No sales recorded yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {localSales.map(sale => (
+                  <div key={sale.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
+                    <div className="flex items-center gap-4">
+                      <span className="text-gray-300">{new Date(sale.sell_date).toLocaleDateString()}</span>
+                      {sale.sell_price != null && (
+                        <span className="text-green-400">${sale.sell_price.toFixed(2)}</span>
+                      )}
+                      {sale.notes && (
+                        <span className="text-gray-500 italic truncate max-w-32">{sale.notes}</span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleDeleteSale(sale)}
+                      className="p-1 text-gray-600 hover:text-red-400 transition"
+                      title="Delete sale"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

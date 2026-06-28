@@ -9,7 +9,7 @@ REQUIRED_COLUMNS = {"name"}
 BOOLEAN_FIELDS = {"direct", "signed", "remarked"}
 FLOAT_FIELDS = {"pricePaid", "averagePrice"}
 INT_FIELDS = {"numberOfBooks"}
-DATE_FIELDS = {"buyDate", "sellDate"}
+DATE_FIELDS = {"buyDate"}
 
 COLUMN_MAP = {
     "publisher": "publisher",
@@ -34,7 +34,6 @@ COLUMN_MAP = {
     "signed": "signed",
     "remarked": "remarked",
     "notes": "notes",
-    "selldate": "sell_date",
 }
 
 
@@ -113,7 +112,7 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
                     row[db_col] = _parse_float(val)
                 elif csv_col == "numberofbooks":
                     row[db_col] = _parse_int(val) or 1
-                elif csv_col in ("buydate", "selldate"):
+                elif csv_col == "buydate":
                     row[db_col] = _parse_date(val)
                 else:
                     row[db_col] = val if val and str(val).strip() else None

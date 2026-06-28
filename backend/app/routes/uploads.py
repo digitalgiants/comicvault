@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app import crud
-from app.auth import get_current_user
+from app.auth import get_current_non_kiosk
 from app.database import get_db
 from app.models import User
 from app.schemas import CSVImportResult, ComicCreate, UserComicCreate
@@ -17,7 +17,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 async def upload_csv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_non_kiosk),
 ):
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="Only CSV files are accepted")
@@ -89,7 +89,6 @@ async def upload_csv(
                 signed=row.get("signed") or False,
                 remarked=row.get("remarked") or False,
                 notes=row.get("notes"),
-                sell_date=row.get("sell_date"),
             )
             crud.create_user_comic(db, current_user.id, uc_data)
             imported += 1
@@ -127,6 +126,6 @@ async def upload_csv(
 @router.get("/history")
 def get_upload_history(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_non_kiosk),
 ):
     return crud.get_user_csv_imports(db, current_user.id)

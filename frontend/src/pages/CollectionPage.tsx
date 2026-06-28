@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, Tag, Trash2 } from 'lucide-react'
-import { getCollection, sellUserComic, deleteUserComic, getColumnPrefs } from '../api/collection'
-import type { UserComic, ColumnVisibility } from '../types'
-import { COLLECTION_COLUMNS } from '../types'
+import { Search, Pencil, DollarSign, Trash2 } from 'lucide-react'
+import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
+import { availableCopies, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
 import BugReportButton from '../components/BugReportButton'
+import RecordSaleModal from '../components/Collection/RecordSaleModal'
 
 export default function CollectionPage() {
   const [items, setItems] = useState<UserComic[]>([])
@@ -16,6 +16,7 @@ export default function CollectionPage() {
   const [writerFilter, setWriterFilter] = useState('')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [editing, setEditing] = useState<UserComic | null>(null)
+  const [selling, setSelling] = useState<UserComic | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [activeComic, setActiveComic] = useState<UserComic | null>(null)
@@ -53,13 +54,6 @@ export default function CollectionPage() {
     setSelected(prev => prev.size === items.length ? new Set() : new Set(items.map(i => i.id)))
   }
 
-  const handleSell = async (uc: UserComic) => {
-    if (!confirm(`Mark "${uc.comic.name}" as sold?`)) return
-    await sellUserComic(uc.id)
-    setItems(prev => prev.filter(i => i.id !== uc.id))
-    setSelected(prev => { const n = new Set(prev); n.delete(uc.id); return n })
-  }
-
   const handleDelete = async (uc: UserComic) => {
     if (!confirm(`Permanently delete "${uc.comic.name}" from your collection?`)) return
     await deleteUserComic(uc.id)
@@ -72,9 +66,19 @@ export default function CollectionPage() {
     setEditing(null)
   }
 
+  const handleSaleSaved = async (ucId: number, sell_date: string, sell_price?: number | null, notes?: string | null) => {
+    const sale = await recordSale(ucId, sell_date, sell_price, notes)
+    setItems(prev => prev.map(i => i.id === ucId ? { ...i, sales: [...i.sales, sale] } : i))
+    setSelling(null)
+  }
+
   const selectedItems = items.filter(i => selected.has(i.id))
 
   const fmt = (uc: UserComic, key: string): string => {
+    if (key === 'available') {
+      const avail = availableCopies(uc)
+      return `${avail}/${uc.number_of_books ?? 1}`
+    }
     if (key in uc.comic) {
       const v = (uc.comic as Record<string, unknown>)[key]
       if (v === null || v === undefined) return '—'
@@ -86,7 +90,7 @@ export default function CollectionPage() {
     if (v === null || v === undefined) return '—'
     if (key === 'price_paid') return `$${Number(v).toFixed(2)}`
     if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
-    if (key === 'buy_date' || key === 'sell_date') return new Date(v as string).toLocaleDateString()
+    if (key === 'buy_date') return new Date(v as string).toLocaleDateString()
     return String(v)
   }
 
@@ -142,37 +146,63 @@ export default function CollectionPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
-              {items.map(uc => (
-                <tr key={uc.id} className={`hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
-                  <td className="px-3 py-3">
-                    <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
-                  </td>
-                  {visibleCols.map(c => (
-                    <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
-                      {fmt(uc, c.key)}
+              {items.map(uc => {
+                const avail = availableCopies(uc)
+                return (
+                  <tr key={uc.id} className={`hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
+                    <td className="px-3 py-3">
+                      <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
                     </td>
-                  ))}
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
-                        <Pencil size={14} />
-                      </button>
-                      <button onClick={() => handleSell(uc)} title="Mark as Sold" className="p-1.5 text-gray-400 hover:text-yellow-400 hover:bg-gray-700 rounded-lg transition">
-                        <Tag size={14} />
-                      </button>
-                      <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    {visibleCols.map(c => (
+                      <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
+                        {c.key === 'available' ? (
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                            {avail}/{uc.number_of_books ?? 1}
+                          </span>
+                        ) : fmt(uc, c.key)}
+                      </td>
+                    ))}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setSelling(uc)}
+                          title="Record Sale"
+                          disabled={avail === 0}
+                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <DollarSign size={14} />
+                        </button>
+                        <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {editing && <EditComicModal item={editing} onClose={() => setEditing(null)} onSaved={handleSaved} />}
+      {editing && (
+        <EditComicModal
+          item={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+          onItemChange={updated => setItems(prev => prev.map(i => i.id === updated.id ? updated : i))}
+        />
+      )}
+      {selling && (
+        <RecordSaleModal
+          item={selling}
+          onClose={() => setSelling(null)}
+          onSaved={handleSaleSaved}
+        />
+      )}
       {bulkOpen && <BulkEditModal selected={selectedItems} onClose={() => setBulkOpen(false)} onSaved={() => { setBulkOpen(false); setSelected(new Set()); fetchCollection() }} />}
       <BugReportButton activeComic={activeComic} />
     </div>

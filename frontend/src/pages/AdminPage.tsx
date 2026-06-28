@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor } from 'lucide-react'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import type { BugReport } from '../types'
@@ -9,6 +9,7 @@ interface AdminUser {
   id: number
   email: string
   is_admin: boolean
+  is_kiosk: boolean
   created_at: string
 }
 
@@ -32,6 +33,11 @@ export default function AdminPage() {
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_admin: !u.is_admin } : u))
   }
 
+  const toggleKiosk = async (user: AdminUser) => {
+    await api.patch(`/admin/users/${user.id}`, { is_kiosk: !user.is_kiosk })
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_kiosk: !u.is_kiosk } : u))
+  }
+
   const deleteUser = async (user: AdminUser) => {
     if (!confirm(`Delete user ${user.email}? This cannot be undone.`)) return
     await api.delete(`/admin/users/${user.id}`)
@@ -48,6 +54,12 @@ export default function AdminPage() {
   }
 
   const unresolvedCount = reports.filter(r => !r.resolved).length
+
+  const roleLabel = (user: AdminUser) => {
+    if (user.is_admin) return { label: 'Admin', cls: 'bg-yellow-500/20 text-yellow-400' }
+    if (user.is_kiosk) return { label: 'Kiosk', cls: 'bg-blue-500/20 text-blue-400' }
+    return { label: 'User', cls: 'bg-gray-700 text-gray-400' }
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -83,27 +95,41 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
-                {users.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-800/50 transition">
-                    <td className="px-6 py-4">{user.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${user.is_admin ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-700 text-gray-400'}`}>
-                        {user.is_admin ? 'Admin' : 'User'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => toggleAdmin(user)} title={user.is_admin ? 'Revoke admin' : 'Make admin'} className="p-2 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-gray-700 transition">
-                          <UserCog size={16} />
-                        </button>
-                        <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {users.map(user => {
+                  const role = roleLabel(user)
+                  return (
+                    <tr key={user.id} className="hover:bg-gray-800/50 transition">
+                      <td className="px-6 py-4">{user.email}</td>
+                      <td className="px-6 py-4">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
+                          {role.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => toggleAdmin(user)}
+                            title={user.is_admin ? 'Revoke admin' : 'Make admin'}
+                            className="p-2 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-gray-700 transition"
+                          >
+                            <UserCog size={16} />
+                          </button>
+                          <button
+                            onClick={() => toggleKiosk(user)}
+                            title={user.is_kiosk ? 'Disable kiosk' : 'Enable kiosk'}
+                            className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
+                          >
+                            <Monitor size={16} />
+                          </button>
+                          <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}

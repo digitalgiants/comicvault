@@ -16,6 +16,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False)
+    is_kiosk = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -69,12 +70,25 @@ class UserComic(Base):
     signed = Column(Boolean, default=False)
     remarked = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
-    sell_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     user = relationship("User", back_populates="user_comics")
     comic = relationship("Comic", back_populates="user_comics")
+    sales = relationship("Sale", back_populates="user_comic", cascade="all, delete-orphan", order_by="Sale.sell_date")
+
+
+class Sale(Base):
+    __tablename__ = "sales"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_comic_id = Column(Integer, ForeignKey("user_comics.id"), nullable=False, index=True)
+    sell_date = Column(DateTime, nullable=False, default=datetime.utcnow)
+    sell_price = Column(Float, nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user_comic = relationship("UserComic", back_populates="sales")
 
 
 class CSVImport(Base):
