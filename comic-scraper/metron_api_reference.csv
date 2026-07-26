@@ -1,0 +1,290 @@
+Resource,Endpoint,Row_Type,Name,Type_or_Lookup,Notes
+API,https://metron.cloud/api/,Info,base_url,-,All endpoints below are relative to this base.
+API,https://metron.cloud/api/,Info,auth,HTTP Basic Auth or session cookie,Confirmed via live request: GET /api/issue/1/ returns 401 'Authentication credentials were not provided' without credentials. Free account signup required at metron.cloud.
+API,https://metron.cloud/api/,Info,permission_model,DjangoModelPermissions,Read access requires the authenticated user to hold Django 'view' permission on that model; write (add/change/delete) needs elevated permission.
+API,https://metron.cloud/api/,Info,rate_limit_burst,20/minute,Confirmed via response headers x-ratelimit-burst-limit and Django settings DEFAULT_THROTTLE_RATES.
+API,https://metron.cloud/api/,Info,rate_limit_sustained,5000/day,Confirmed via response headers x-ratelimit-sustained-limit and Django settings DEFAULT_THROTTLE_RATES.
+API,https://metron.cloud/api/,Info,pagination,"PageNumberPagination, page_size=100",Django REST Framework default pagination; list endpoints return 100 results per page.
+API,https://metron.cloud/api/,Info,license,CC BY-SA 4.0,Per OpenAPI schema info.license at /api/schema/.
+API,https://metron.cloud/api/,Info,schema,/api/schema/,OpenAPI 3.0.3 schema endpoint; full path/operation detail requires authentication to render (anonymous request only returns the schema-of-the-schema-endpoint itself).
+Issue,/api/issue/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",Full ModelViewSet; write ops require elevated Django permission on top of auth.
+Issue,/api/issue/,Response Field (detail),id,AutoField,Primary key
+Issue,/api/issue/,Response Field (detail),series,FK -> Series,"Nested IssueSeriesSerializer on read (id, name, sort_name, volume, year_began, series_type, genres)"
+Issue,/api/issue/,Response Field (detail),publisher,FK -> Publisher (via series),"Read-only nested BasicPublisherSerializer (id, name); derived from series.publisher"
+Issue,/api/issue/,Response Field (detail),imprint,FK -> Imprint (via series),"Read-only nested BasicImprintSerializer (id, name); derived from series.imprint"
+Issue,/api/issue/,Response Field (detail),number,CharField(25),"Issue number, e.g. '1', 'Annual 1'"
+Issue,/api/issue/,Response Field (detail),alt_number,CharField(25),Alternate numbering scheme
+Issue,/api/issue/,Response Field (detail),title,CharField(255),"Collection title, used for TPB/GN issues"
+Issue,/api/issue/,Response Field (detail),name,ArrayField(CharField(150)),List of story titles
+Issue,/api/issue/,Response Field (detail),cover_date,DateField,
+Issue,/api/issue/,Response Field (detail),store_date,"DateField, nullable",In-store release date
+Issue,/api/issue/,Response Field (detail),foc_date,"DateField, nullable",Final Order Cutoff date
+Issue,/api/issue/,Response Field (detail),price,MoneyField,"Cover price; read returns decimal string, price_currency gives ISO code (USD/GBP)"
+Issue,/api/issue/,Response Field (detail),rating,FK -> Rating,"Read-only nested RatingSerializer (id, name, short_description, description)"
+Issue,/api/issue/,Response Field (detail),sku,CharField(12),Distributor SKU
+Issue,/api/issue/,Response Field (detail),isbn,CharField(13),"ISBN, mainly for TPB/GN/HC"
+Issue,/api/issue/,Response Field (detail),upc,CharField(20),UPC code for the BASE issue (primary cover/printing). THIS is the field to filter scanned 12-digit UPCs against.
+Issue,/api/issue/,Response Field (detail),page,"PositiveSmallIntegerField, nullable",Page count
+Issue,/api/issue/,Response Field (detail),desc,TextField,Synopsis
+Issue,/api/issue/,Response Field (detail),image,ImageField,Cover image URL
+Issue,/api/issue/,Response Field (detail),cover_hash,CharField(16),"Perceptual hash of cover image, used for image-based matching"
+Issue,/api/issue/,Response Field (detail),arcs,M2M -> Arc,Story arc(s) this issue belongs to
+Issue,/api/issue/,Response Field (detail),credits,reverse FK -> Credits (via credits_set),"List of {id, creator, role[]} — THIS is how you get the cover artist: filter role list for a 'Cover' role entry"
+Issue,/api/issue/,Response Field (detail),characters,M2M -> Character,
+Issue,/api/issue/,Response Field (detail),teams,M2M -> Team,
+Issue,/api/issue/,Response Field (detail),universes,M2M -> Universe,
+Issue,/api/issue/,Response Field (detail),reprints,M2M -> Issue (self),Other issues this one reprints
+Issue,/api/issue/,Response Field (detail),variants,reverse FK -> Variant,"List of {name, price, sku, upc, image} — ONE ROW PER VARIANT COVER, each with its OWN upc. Match your scanned 17-digit (UPC+EAN5) value against variant.upc to identify the exact cover/printing scanned."
+Issue,/api/issue/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",Comic Vine cross-reference ID
+Issue,/api/issue/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",Grand Comics Database cross-reference ID
+Issue,/api/issue/,Response Field (detail),resource_url,SerializerMethodField,Absolute URL to the HTML detail page
+Issue,/api/issue/,Response Field (detail),modified,DateTimeField,"Last-modified timestamp, auto"
+Issue,/api/issue/,Response Field (list),id,AutoField,
+Issue,/api/issue/,Response Field (list),series,nested,"id, name, volume, year_began only"
+Issue,/api/issue/,Response Field (list),number,CharField,
+Issue,/api/issue/,Response Field (list),issue,computed str,Human-readable 'Series Name #N (Year)' label
+Issue,/api/issue/,Response Field (list),cover_date,DateField,
+Issue,/api/issue/,Response Field (list),store_date,DateField,
+Issue,/api/issue/,Response Field (list),image,ImageField,
+Issue,/api/issue/,Response Field (list),cover_hash,CharField,
+Issue,/api/issue/,Response Field (list),modified,DateTimeField,
+Issue,/api/issue/,Query Filter,upc,iexact,Filter issues by base UPC code — primary lookup for this project
+Issue,/api/issue/,Query Filter,sku,iexact,Distributor SKU
+Issue,/api/issue/,Query Filter,number,iexact,
+Issue,/api/issue/,Query Filter,alt_number,iexact,
+Issue,/api/issue/,Query Filter,cover_year,year on cover_date,
+Issue,/api/issue/,Query Filter,cover_month,month on cover_date,
+Issue,/api/issue/,Query Filter,series_id,exact,
+Issue,/api/issue/,Query Filter,series_name,"icontains, multi-word AND",
+Issue,/api/issue/,Query Filter,series_volume,exact,
+Issue,/api/issue/,Query Filter,series_year_began,exact,
+Issue,/api/issue/,Query Filter,publisher_id,exact (via series),
+Issue,/api/issue/,Query Filter,publisher_name,icontains (via series),
+Issue,/api/issue/,Query Filter,imprint_id,exact (via series),
+Issue,/api/issue/,Query Filter,imprint_name,icontains (via series),
+Issue,/api/issue/,Query Filter,store_date_range,range (after/before),
+Issue,/api/issue/,Query Filter,foc_date_range,range (after/before),
+Issue,/api/issue/,Query Filter,rating,iexact on rating name,
+Issue,/api/issue/,Query Filter,cover_hash,iexact,For perceptual/near-duplicate cover matching
+Issue,/api/issue/,Query Filter,cv_id,exact,
+Issue,/api/issue/,Query Filter,missing_cv_id,isnull,
+Issue,/api/issue/,Query Filter,gcd_id,exact,
+Issue,/api/issue/,Query Filter,missing_gcd_id,isnull,
+Issue,/api/issue/,Query Filter,creator_id,"exact, distinct",
+Issue,/api/issue/,Query Filter,character_id,"exact, distinct",
+Issue,/api/issue/,Query Filter,team_id,"exact, distinct",
+Issue,/api/issue/,Query Filter,universe_id,"exact, distinct",
+Issue,/api/issue/,Query Filter,role_id,"in, distinct","Comma-separated list of Role IDs, e.g. filter issues with a specific creator role present"
+Issue,/api/issue/,Query Filter,modified_gt,gt on modified,Incremental sync: fetch only records changed since a timestamp
+Variant,/api/variant/,Endpoint Info,methods,"GET (list/detail), POST, PUT, PATCH, DELETE",Also embedded read-only under Issue.variants[]
+Variant,/api/variant/,Response Field (detail),id,AutoField,
+Variant,/api/variant/,Response Field (detail),issue,FK -> Issue,Parent issue
+Variant,/api/variant/,Response Field (detail),name,CharField(255),"Variant cover description, e.g. 'Cover B'"
+Variant,/api/variant/,Response Field (detail),image,ImageField,Variant cover image
+Variant,/api/variant/,Response Field (detail),price,"MoneyField, nullable",May differ from base issue price
+Variant,/api/variant/,Response Field (detail),sku,CharField(12),
+Variant,/api/variant/,Response Field (detail),upc,CharField(20),UPC code SPECIFIC TO THIS VARIANT — this is the field that carries the distinguishing EAN-5 (cover/printing) digits for that particular scanned cover.
+Variant,/api/variant/,Query Filter,(none - no filterset_class defined),-,"Variant endpoint has no custom filters; query via Issue.upc first, then match variant.upc client-side, or GET /api/variant/{id}/ directly if you already resolved the ID."
+Credit,/api/credit/,Endpoint Info,methods,"GET (list/detail), POST, PUT, PATCH, DELETE",Also embedded read-only under Issue.credits[]
+Credit,/api/credit/,Response Field (detail),id,AutoField,
+Credit,/api/credit/,Response Field (detail),issue,FK -> Issue,
+Credit,/api/credit/,Response Field (detail),creator,FK -> Creator,
+Credit,/api/credit/,Response Field (detail),role,M2M -> Role,"List of {id, name} e.g. 'Writer', 'Penciller', 'Cover'"
+Credit,/api/credit/,Response Field (detail),modified,DateTimeField,
+Credit,/api/credit/,Query Filter,(none - no filterset_class defined),-,No standalone filters; typically accessed via Issue.credits or Series role_id/creator_id filters
+Role,/api/role/,Endpoint Info,methods,GET (list only),"ListModelMixin only - read-only lookup table of creator roles (e.g. Writer, Penciller, Cover, Inker, Colorist, Letterer, Editor)"
+Role,/api/role/,Response Field,id,AutoField,
+Role,/api/role/,Response Field,name,CharField(25),
+Role,/api/role/,Query Filter,name,unaccent__icontains,
+Role,/api/role/,Query Filter,modified_gt,gt,
+Series,/api/series/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",
+Series,/api/series/,Response Field (detail),id,AutoField,
+Series,/api/series/,Response Field (detail),name,CharField(255),
+Series,/api/series/,Response Field (detail),sort_name,CharField(255),
+Series,/api/series/,Response Field (detail),volume,PositiveSmallIntegerField,
+Series,/api/series/,Response Field (detail),series_type,FK -> SeriesType,"Nested {id, name} on read, e.g. 'Single Issue', 'Trade Paperback', 'Digital'"
+Series,/api/series/,Response Field (detail),status,IntegerChoices,Cancelled / Completed / Hiatus / Ongoing; read returns display string
+Series,/api/series/,Response Field (detail),publisher,FK -> Publisher,"Nested BasicPublisherSerializer {id, name} on read"
+Series,/api/series/,Response Field (detail),imprint,"FK -> Imprint, nullable","Nested BasicImprintSerializer {id, name} on read"
+Series,/api/series/,Response Field (detail),year_began,PositiveSmallIntegerField,
+Series,/api/series/,Response Field (detail),year_end,"PositiveSmallIntegerField, nullable",
+Series,/api/series/,Response Field (detail),desc,TextField,
+Series,/api/series/,Response Field (detail),issue_count,computed (Count annotation),
+Series,/api/series/,Response Field (detail),genres,M2M -> Genre,"Nested {id, name} on read"
+Series,/api/series/,Response Field (detail),associated,M2M -> Series (self),"Related/associated series, e.g. same series under a different volume"
+Series,/api/series/,Response Field (detail),collection,BooleanField,Whether this series uses collection/TPB titles
+Series,/api/series/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Series,/api/series/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Series,/api/series/,Response Field (detail),resource_url,SerializerMethodField,
+Series,/api/series/,Response Field (detail),modified,DateTimeField,
+Series,/api/series/,Response Field (list),id,AutoField,
+Series,/api/series/,Response Field (list),series,computed str,'Name (YearBegan)' label
+Series,/api/series/,Response Field (list),year_began,,
+Series,/api/series/,Response Field (list),year_end,,
+Series,/api/series/,Response Field (list),volume,,
+Series,/api/series/,Response Field (list),issue_count,,
+Series,/api/series/,Response Field (list),modified,,
+Series,/api/series/,Query Filter,name,"multi-word AND, unaccent icontains",
+Series,/api/series/,Query Filter,publisher_id,exact,
+Series,/api/series/,Query Filter,publisher_name,icontains,
+Series,/api/series/,Query Filter,imprint_id,exact,
+Series,/api/series/,Query Filter,imprint_name,icontains,
+Series,/api/series/,Query Filter,series_type_id,exact,
+Series,/api/series/,Query Filter,series_type,icontains on type name,
+Series,/api/series/,Query Filter,status,choice,cancelled/completed/hiatus/ongoing
+Series,/api/series/,Query Filter,volume,exact,
+Series,/api/series/,Query Filter,year_began,exact,
+Series,/api/series/,Query Filter,year_end,exact,
+Series,/api/series/,Query Filter,cv_id,exact,
+Series,/api/series/,Query Filter,missing_cv_id,isnull,
+Series,/api/series/,Query Filter,gcd_id,exact,
+Series,/api/series/,Query Filter,missing_gcd_id,isnull,
+Series,/api/series/,Query Filter,creator_id,"exact, distinct (via issues)",
+Series,/api/series/,Query Filter,character_id,"exact, distinct (via issues)",
+Series,/api/series/,Query Filter,team_id,"exact, distinct (via issues)",
+Series,/api/series/,Query Filter,universe_id,"exact, distinct (via issues)",
+Series,/api/series/,Query Filter,role_id,"in, distinct (via issues)",
+Series,/api/series/,Query Filter,modified_gt,gt,
+SeriesType,/api/series_type/,Endpoint Info,methods,GET (list only),"Read-only lookup table: Single Issue, Trade Paperback, Hardcover, Graphic Novel, Digital, Omnibus, Annual, etc."
+SeriesType,/api/series_type/,Response Field,id,AutoField,
+SeriesType,/api/series_type/,Response Field,name,CharField(255),
+SeriesType,/api/series_type/,Query Filter,name,unaccent__icontains,
+Publisher,/api/publisher/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",
+Publisher,/api/publisher/,Response Field (detail),id,AutoField,
+Publisher,/api/publisher/,Response Field (detail),name,CharField(255),
+Publisher,/api/publisher/,Response Field (detail),founded,"PositiveSmallIntegerField, nullable",
+Publisher,/api/publisher/,Response Field (detail),country,CountryField,"ISO country code, default 'US'"
+Publisher,/api/publisher/,Response Field (detail),desc,TextField,
+Publisher,/api/publisher/,Response Field (detail),image,ImageField,Logo
+Publisher,/api/publisher/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Publisher,/api/publisher/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Publisher,/api/publisher/,Response Field (detail),resource_url,SerializerMethodField,
+Publisher,/api/publisher/,Response Field (detail),modified,DateTimeField,
+Publisher,/api/publisher/,Response Field (list),id,,
+Publisher,/api/publisher/,Response Field (list),name,,
+Publisher,/api/publisher/,Response Field (list),modified,,
+Publisher,/api/publisher/,Query Filter,name,unaccent__icontains,
+Publisher,/api/publisher/,Query Filter,cv_id,exact,
+Publisher,/api/publisher/,Query Filter,gcd_id,exact,
+Publisher,/api/publisher/,Query Filter,modified_gt,gt,
+Imprint,/api/imprint/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE","e.g. DC's Vertigo/Black Label, Marvel's Max"
+Imprint,/api/imprint/,Response Field (detail),id,AutoField,
+Imprint,/api/imprint/,Response Field (detail),name,CharField(255),
+Imprint,/api/imprint/,Response Field (detail),publisher,FK -> Publisher,"Nested BasicPublisherSerializer {id, name} on read"
+Imprint,/api/imprint/,Response Field (detail),founded,"PositiveSmallIntegerField, nullable",
+Imprint,/api/imprint/,Response Field (detail),desc,TextField,
+Imprint,/api/imprint/,Response Field (detail),image,ImageField,Logo
+Imprint,/api/imprint/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Imprint,/api/imprint/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Imprint,/api/imprint/,Response Field (detail),resource_url,SerializerMethodField,
+Imprint,/api/imprint/,Response Field (detail),modified,DateTimeField,
+Imprint,/api/imprint/,Response Field (list),id,,
+Imprint,/api/imprint/,Response Field (list),name,,
+Imprint,/api/imprint/,Response Field (list),modified,,
+Imprint,/api/imprint/,Query Filter,name,unaccent__icontains,
+Imprint,/api/imprint/,Query Filter,cv_id,exact,
+Imprint,/api/imprint/,Query Filter,gcd_id,exact,
+Imprint,/api/imprint/,Query Filter,modified_gt,gt,
+Creator,/api/creator/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",
+Creator,/api/creator/,Response Field (detail),id,AutoField,
+Creator,/api/creator/,Response Field (detail),name,CharField(255),
+Creator,/api/creator/,Response Field (detail),birth,"DateField, nullable",
+Creator,/api/creator/,Response Field (detail),death,"DateField, nullable",
+Creator,/api/creator/,Response Field (detail),desc,TextField,Bio
+Creator,/api/creator/,Response Field (detail),image,ImageField,Headshot
+Creator,/api/creator/,Response Field (detail),alias,ArrayField(CharField(100)),Pen names / aliases
+Creator,/api/creator/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Creator,/api/creator/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Creator,/api/creator/,Response Field (detail),resource_url,SerializerMethodField,
+Creator,/api/creator/,Response Field (detail),modified,DateTimeField,
+Creator,/api/creator/,Response Field (list),id,,
+Creator,/api/creator/,Response Field (list),name,,
+Creator,/api/creator/,Response Field (list),modified,,
+Creator,/api/creator/,Query Filter,name,unaccent__icontains,
+Creator,/api/creator/,Query Filter,cv_id,exact,
+Creator,/api/creator/,Query Filter,gcd_id,exact,
+Creator,/api/creator/,Query Filter,modified_gt,gt,
+Character,/api/character/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",
+Character,/api/character/,Response Field (detail),id,AutoField,
+Character,/api/character/,Response Field (detail),name,CharField(255),
+Character,/api/character/,Response Field (detail),alias,ArrayField(CharField(100)),
+Character,/api/character/,Response Field (detail),desc,TextField,
+Character,/api/character/,Response Field (detail),image,ImageField,
+Character,/api/character/,Response Field (detail),creators,M2M -> Creator,"Nested list {id, name} on read"
+Character,/api/character/,Response Field (detail),teams,M2M -> Team,"Nested list {id, name} on read"
+Character,/api/character/,Response Field (detail),universes,M2M -> Universe,"Nested list {id, name} on read"
+Character,/api/character/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Character,/api/character/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Character,/api/character/,Response Field (detail),resource_url,SerializerMethodField,
+Character,/api/character/,Response Field (detail),modified,DateTimeField,
+Character,/api/character/,Response Field (list),id,,
+Character,/api/character/,Response Field (list),name,,
+Character,/api/character/,Response Field (list),modified,,
+Character,/api/character/,Query Filter,name,unaccent__icontains,
+Character,/api/character/,Query Filter,cv_id,exact,
+Character,/api/character/,Query Filter,gcd_id,exact,
+Character,/api/character/,Query Filter,modified_gt,gt,
+Team,/api/team/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE",
+Team,/api/team/,Response Field (detail),id,AutoField,
+Team,/api/team/,Response Field (detail),name,CharField(255),
+Team,/api/team/,Response Field (detail),desc,TextField,
+Team,/api/team/,Response Field (detail),image,ImageField,
+Team,/api/team/,Response Field (detail),creators,M2M -> Creator,"Nested list {id, name} on read"
+Team,/api/team/,Response Field (detail),universes,M2M -> Universe,"Nested list {id, name} on read"
+Team,/api/team/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Team,/api/team/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Team,/api/team/,Response Field (detail),resource_url,SerializerMethodField,
+Team,/api/team/,Response Field (detail),modified,DateTimeField,
+Team,/api/team/,Response Field (list),id,,
+Team,/api/team/,Response Field (list),name,,
+Team,/api/team/,Response Field (list),modified,,
+Team,/api/team/,Query Filter,name,unaccent__icontains,
+Team,/api/team/,Query Filter,cv_id,exact,
+Team,/api/team/,Query Filter,gcd_id,exact,
+Team,/api/team/,Query Filter,modified_gt,gt,
+Universe,/api/universe/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE","e.g. Marvel's Earth-616, DC's Prime Earth"
+Universe,/api/universe/,Response Field (detail),id,AutoField,
+Universe,/api/universe/,Response Field (detail),name,CharField(255),
+Universe,/api/universe/,Response Field (detail),publisher,FK -> Publisher,"Nested BasicPublisherSerializer {id, name} on read"
+Universe,/api/universe/,Response Field (detail),designation,CharField(255),e.g. 'Earth-616'
+Universe,/api/universe/,Response Field (detail),desc,TextField,
+Universe,/api/universe/,Response Field (detail),image,ImageField,
+Universe,/api/universe/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Universe,/api/universe/,Response Field (detail),resource_url,SerializerMethodField,
+Universe,/api/universe/,Response Field (detail),modified,DateTimeField,
+Universe,/api/universe/,Response Field (list),id,,
+Universe,/api/universe/,Response Field (list),name,,
+Universe,/api/universe/,Response Field (list),modified,,
+Universe,/api/universe/,Query Filter,name,unaccent__icontains,
+Universe,/api/universe/,Query Filter,designation,icontains,
+Universe,/api/universe/,Query Filter,modified_gt,gt,
+Arc,/api/arc/,Endpoint Info,methods,"GET (list), GET (detail), POST, PUT, PATCH, DELETE","Story arcs / crossover events, e.g. 'Infinity Gauntlet'"
+Arc,/api/arc/,Response Field (detail),id,AutoField,
+Arc,/api/arc/,Response Field (detail),name,CharField(255),
+Arc,/api/arc/,Response Field (detail),desc,TextField,
+Arc,/api/arc/,Response Field (detail),image,ImageField,
+Arc,/api/arc/,Response Field (detail),cv_id,"PositiveIntegerField, nullable, unique",
+Arc,/api/arc/,Response Field (detail),gcd_id,"PositiveIntegerField, nullable, unique",
+Arc,/api/arc/,Response Field (detail),resource_url,SerializerMethodField,
+Arc,/api/arc/,Response Field (detail),modified,DateTimeField,
+Arc,/api/arc/,Response Field (list),id,,
+Arc,/api/arc/,Response Field (list),name,,
+Arc,/api/arc/,Response Field (list),modified,,
+Arc,/api/arc/,Query Filter,name,unaccent__icontains,
+Arc,/api/arc/,Query Filter,cv_id,exact,
+Arc,/api/arc/,Query Filter,gcd_id,exact,
+Arc,/api/arc/,Query Filter,modified_gt,gt,
+Genre,/api/genre/ (embedded only),Endpoint Info,methods,Not independently routed,"Genre has no top-level ViewSet in api/urls.py; exposed only nested inside Series.genres as {id, name}"
+Genre,/api/genre/ (embedded only),Model Field (via Series.genres),id,AutoField,
+Genre,/api/genre/ (embedded only),Model Field (via Series.genres),name,CharField(25),
+Genre,/api/genre/ (embedded only),Model Field (via Series.genres),desc,TextField,
+Rating,/api/issue/ (embedded only),Endpoint Info,methods,Not independently routed,Rating has no top-level ViewSet in api/urls.py; exposed only nested inside Issue.rating
+Rating,/api/issue/ (embedded only),Model Field (via Issue.rating),id,AutoField,
+Rating,/api/issue/ (embedded only),Model Field (via Issue.rating),name,CharField(255),"e.g. 'CCA', 'Teen', 'Mature'"
+Rating,/api/issue/ (embedded only),Model Field (via Issue.rating),short_description,CharField(255),
+Rating,/api/issue/ (embedded only),Model Field (via Issue.rating),description,TextField,
+Attribution,(not routed; internal model),Endpoint Info,methods,No ViewSet,"Generic source-link model (Marvel / Wikipedia / GCD / DC) attached to Publisher, Series, Arc, Character, Creator, Team, Universe, Imprint via .wikipedia/.marvel properties on the HTML site; not exposed as a JSON field in the API serializers reviewed."
+Collection,/api/collection/,Endpoint Info,summary,-,"Personal owned-issue tracking (per-user). Requires IsAuthenticated. Not useful for anonymous UPC lookups, but if you scan your OWN collection, this is how you'd mark an issue owned/read/rated."
+PullList,/api/pull_list/,Endpoint Info,summary,-,Personal pull-list / subscription tracking (per-user). Requires IsAuthenticated.
+ReadingList,/api/reading_list/,Endpoint Info,summary,-,User-curated ordered list of issues. Public read varies; write requires auth.
+WishList,/api/wish_list/,Endpoint Info,summary,-,Personal wishlist (per-user). Requires IsAuthenticated.

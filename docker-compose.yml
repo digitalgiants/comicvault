@@ -5,7 +5,7 @@ networks:
 services:
   frontend:
     build:
-      context: ./frontend
+      context: ./vault/frontend
       dockerfile: Dockerfile
     ports:
       - "3002:3000"
@@ -13,7 +13,7 @@ services:
     networks:
       - comicvault
     volumes:
-      - ./frontend/src:/app/src:z
+      - ./vault/frontend/src:/app/src:z
     environment:
       - VITE_API_URL=/api
       - VITE_PROXY_TARGET=http://backend:8000
@@ -23,7 +23,7 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./vault/backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
@@ -31,7 +31,7 @@ services:
     networks:
       - comicvault
     volumes:
-      - ./backend:/app:z
+      - ./vault/backend:/app:z
     environment:
       - DATABASE_URL=postgresql://comicvault:comicvault@postgres:5432/comicvault
       - JWT_SECRET=${JWT_SECRET:-supersecretchangeme}
@@ -51,7 +51,7 @@ services:
 
   comic-scraper:
     build:
-      context: ../comic-scraper
+      context: ./comic-scraper
       dockerfile: Dockerfile
     restart: unless-stopped
     networks:
