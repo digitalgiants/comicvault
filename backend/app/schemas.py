@@ -1,24 +1,24 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 
 # --- Auth ---
 
 class UserCreate(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    username: str
     password: str
 
 
 class UserOut(BaseModel):
     id: int
-    email: str
+    username: str
     is_admin: bool
     is_kiosk: bool
     created_at: datetime
@@ -36,22 +36,22 @@ class Token(BaseModel):
 
 class ComicBase(BaseModel):
     publisher: Optional[str] = None
-    name: str
+    series: str
     volume: Optional[str] = None
-    number: Optional[str] = None
-    print: Optional[str] = None
-    cover: Optional[str] = None
+    issue_number: Optional[str] = None
+    cover_date: Optional[date] = None
+    store_date: Optional[date] = None
+    print_run: Optional[str] = None
     variant: Optional[str] = None
     direct: Optional[bool] = None
     writer: Optional[str] = None
     artist: Optional[str] = None
-    pencils: Optional[str] = None
+    penciller: Optional[str] = None
     inker: Optional[str] = None
     cover_artist: Optional[str] = None
     average_price: Optional[float] = None
-    print_ratio: Optional[str] = None
     upc: Optional[str] = None
-    cover_image_url: Optional[str] = None
+    img: Optional[str] = None
 
 
 class ComicCreate(ComicBase):
@@ -61,20 +61,21 @@ class ComicCreate(ComicBase):
 class ComicUpdate(BaseModel):
     average_price: Optional[float] = None
     publisher: Optional[str] = None
-    name: Optional[str] = None
+    series: Optional[str] = None
     volume: Optional[str] = None
-    number: Optional[str] = None
-    print: Optional[str] = None
-    cover: Optional[str] = None
+    issue_number: Optional[str] = None
+    cover_date: Optional[date] = None
+    store_date: Optional[date] = None
+    print_run: Optional[str] = None
     variant: Optional[str] = None
     direct: Optional[bool] = None
     writer: Optional[str] = None
     artist: Optional[str] = None
-    pencils: Optional[str] = None
+    penciller: Optional[str] = None
     inker: Optional[str] = None
     cover_artist: Optional[str] = None
-    print_ratio: Optional[str] = None
     upc: Optional[str] = None
+    img: Optional[str] = None
 
 
 class ComicOut(ComicBase):
@@ -105,6 +106,10 @@ class SaleCreate(BaseModel):
     notes: Optional[str] = None
 
 
+class SaleUpdate(BaseModel):
+    sell_price: Optional[float] = None
+
+
 class SaleWithComicOut(BaseModel):
     id: int
     user_comic_id: int
@@ -121,12 +126,13 @@ class SaleWithComicOut(BaseModel):
 # --- UserComics ---
 
 class UserComicBase(BaseModel):
-    number_of_books: Optional[int] = 1
-    price_paid: Optional[float] = None
+    count: Optional[int] = 1
+    paid_price: Optional[float] = None
     point_of_purchase: Optional[str] = None
     buy_date: Optional[datetime] = None
     signed: Optional[bool] = False
     remarked: Optional[bool] = False
+    condition: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -135,12 +141,13 @@ class UserComicCreate(UserComicBase):
 
 
 class UserComicUpdate(BaseModel):
-    number_of_books: Optional[int] = None
-    price_paid: Optional[float] = None
+    count: Optional[int] = None
+    paid_price: Optional[float] = None
     point_of_purchase: Optional[str] = None
     buy_date: Optional[datetime] = None
     signed: Optional[bool] = None
     remarked: Optional[bool] = None
+    condition: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -165,6 +172,13 @@ class UserComicOut(UserComicBase):
         from_attributes = True
 
 
+# --- Scan (barcode lookup) ---
+
+class ScanAddRequest(BaseModel):
+    comic: ComicCreate
+    user_comic: UserComicBase
+
+
 # --- CSV Import ---
 
 class CSVImportResult(BaseModel):
@@ -175,6 +189,7 @@ class CSVImportResult(BaseModel):
     failed: int
     new_comics_added_to_db: int
     existing_comics_linked: int
+    sales_recorded: int
     errors: list[dict[str, Any]]
 
 
@@ -195,12 +210,12 @@ class UserUpdate(BaseModel):
 # --- Search ---
 
 class ComicSearchParams(BaseModel):
-    name: Optional[str] = None
+    series: Optional[str] = None
     publisher: Optional[str] = None
     writer: Optional[str] = None
     artist: Optional[str] = None
     volume: Optional[str] = None
-    number: Optional[str] = None
+    issue_number: Optional[str] = None
     variant: Optional[str] = None
 
 
@@ -245,8 +260,58 @@ class BugReportOut(BaseModel):
     page_url: Optional[str] = None
     resolved: bool
     created_at: datetime
-    user_email: str
+    user_username: str
     comic_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+# --- Kiosk ---
+
+class KioskSignupCreate(BaseModel):
+    first_name: str
+    last_name: str
+    email: str
+    phone: Optional[str] = None
+
+
+class KioskSignupOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: str
+    phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class KioskCardOut(BaseModel):
+    """Customer-facing view of a pooled available comic - excludes cost/margin
+    fields (paid_price, point_of_purchase, notes) that aren't the public's business."""
+    id: int
+    series: str
+    volume: Optional[str] = None
+    issue_number: Optional[str] = None
+    cover_date: Optional[date] = None
+    publisher: Optional[str] = None
+    variant: Optional[str] = None
+    img: Optional[str] = None
+    cover_artist: Optional[str] = None
+    artist: Optional[str] = None
+    penciller: Optional[str] = None
+    inker: Optional[str] = None
+    writer: Optional[str] = None
+    direct: Optional[bool] = None
+    print_run: Optional[str] = None
+    average_price: Optional[float] = None
+    signed: bool = False
+    remarked: bool = False
+    condition: Optional[str] = None
+    available: int = 0
+
+
+class SeriesSearchResult(BaseModel):
+    name: str
+    count: int

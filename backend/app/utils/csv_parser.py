@@ -4,33 +4,37 @@ from typing import Any
 
 import pandas as pd
 
-REQUIRED_COLUMNS = {"name"}
+REQUIRED_COLUMNS = {"series"}
 
-BOOLEAN_FIELDS = {"direct", "signed", "remarked"}
-FLOAT_FIELDS = {"pricePaid", "averagePrice"}
-INT_FIELDS = {"numberOfBooks"}
-DATE_FIELDS = {"buyDate"}
+BOOLEAN_FIELDS = {"newstand/direct", "signed", "remarked"}
+FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice"}
+INT_FIELDS = {"count"}
+DATE_FIELDS = {"buydate", "coverdate", "storedate", "selldate"}
 
 COLUMN_MAP = {
-    "publisher": "publisher",
-    "name": "name",
+    "upc": "upc",
+    "img": "img",
+    "series": "series",
     "volume": "volume",
-    "number": "number",
-    "print": "print",
-    "cover": "cover",
+    "issuenumber": "issue_number",
+    "coverdate": "cover_date",
+    "storedate": "store_date",
+    "newstand/direct": "direct",
+    "publisher": "publisher",
+    "count": "count",
+    "printrun": "print_run",
     "variant": "variant",
-    "direct": "direct",
-    "writer": "writer",
-    "artist": "artist",
-    "pencils": "pencils",
-    "inker": "inker",
     "coverartist": "cover_artist",
-    "numberofbooks": "number_of_books",
-    "pricepaid": "price_paid",
+    "artist": "artist",
+    "penciller": "penciller",
+    "inker": "inker",
+    "writer": "writer",
+    "averageprice": "average_price",
+    "paidprice": "paid_price",
     "pointofpurchase": "point_of_purchase",
     "buydate": "buy_date",
-    "averageprice": "average_price",
-    "printratio": "print_ratio",
+    "sellprice": "sell_price",
+    "selldate": "sell_date",
     "signed": "signed",
     "remarked": "remarked",
     "notes": "notes",
@@ -100,25 +104,25 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
     for idx, raw_row in df.iterrows():
         row_num = idx + 2  # 1-based + header
         row = {}
-        comic_label = f"{raw_row.get('name', '')} #{raw_row.get('number', '')}"
+        comic_label = f"{raw_row.get('series', '')} #{raw_row.get('issuenumber', '')}"
 
         try:
             for csv_col, db_col in COLUMN_MAP.items():
                 val = raw_row.get(csv_col)
 
-                if csv_col in ("direct", "signed", "remarked"):
+                if csv_col in BOOLEAN_FIELDS:
                     row[db_col] = _parse_bool(val)
-                elif csv_col in ("pricepaid", "averageprice"):
+                elif csv_col in FLOAT_FIELDS:
                     row[db_col] = _parse_float(val)
-                elif csv_col == "numberofbooks":
+                elif csv_col in INT_FIELDS:
                     row[db_col] = _parse_int(val) or 1
-                elif csv_col == "buydate":
+                elif csv_col in DATE_FIELDS:
                     row[db_col] = _parse_date(val)
                 else:
                     row[db_col] = val if val and str(val).strip() else None
 
-            if not row.get("name"):
-                errors.append({"row": row_num, "comic": comic_label, "error": "Missing required field: name"})
+            if not row.get("series"):
+                errors.append({"row": row_num, "comic": comic_label, "error": "Missing required field: series"})
                 continue
 
             rows.append(row)

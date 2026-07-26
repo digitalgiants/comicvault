@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Search, Pencil, DollarSign, Trash2 } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
-import { availableCopies, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
+import { availableCopies, latestSalePrice, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
@@ -29,7 +29,7 @@ export default function CollectionPage() {
     setLoading(true)
     try {
       const params: Record<string, string> = {}
-      if (search) params.name = search
+      if (search) params.series = search
       if (publisherFilter) params.publisher = publisherFilter
       if (writerFilter) params.writer = writerFilter
       setItems(await getCollection(params))
@@ -55,7 +55,7 @@ export default function CollectionPage() {
   }
 
   const handleDelete = async (uc: UserComic) => {
-    if (!confirm(`Permanently delete "${uc.comic.name}" from your collection?`)) return
+    if (!confirm(`Permanently delete "${uc.comic.series}" from your collection?`)) return
     await deleteUserComic(uc.id)
     setItems(prev => prev.filter(i => i.id !== uc.id))
     setSelected(prev => { const n = new Set(prev); n.delete(uc.id); return n })
@@ -77,18 +77,23 @@ export default function CollectionPage() {
   const fmt = (uc: UserComic, key: string): string => {
     if (key === 'available') {
       const avail = availableCopies(uc)
-      return `${avail}/${uc.number_of_books ?? 1}`
+      return `${avail}/${uc.count ?? 1}`
+    }
+    if (key === 'sell_price') {
+      const price = latestSalePrice(uc)
+      return price != null ? `$${price.toFixed(2)}` : '—'
     }
     if (key in uc.comic) {
       const v = (uc.comic as Record<string, unknown>)[key]
       if (v === null || v === undefined) return '—'
       if (key === 'average_price') return `$${Number(v).toFixed(2)}`
       if (key === 'direct') return v ? 'Yes' : 'No'
+      if (key === 'cover_date' || key === 'store_date') return new Date(v as string).toLocaleDateString()
       return String(v)
     }
     const v = (uc as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
-    if (key === 'price_paid') return `$${Number(v).toFixed(2)}`
+    if (key === 'paid_price') return `$${Number(v).toFixed(2)}`
     if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
     if (key === 'buy_date') return new Date(v as string).toLocaleDateString()
     return String(v)
@@ -157,7 +162,7 @@ export default function CollectionPage() {
                       <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
                         {c.key === 'available' ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                            {avail}/{uc.number_of_books ?? 1}
+                            {avail}/{uc.count ?? 1}
                           </span>
                         ) : fmt(uc, c.key)}
                       </td>

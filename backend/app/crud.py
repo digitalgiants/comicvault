@@ -1,40 +1,45 @@
-from datetime import date, datetime
+import difflib
+import random
+import re
+from datetime import date, datetime, timedelta
 from typing import Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
 from app.models import (
-    BugReport, CollectionSnapshot, Comic, CSVImport,
-    Sale, User, UserComic, UserColumnPreference,
+    BugReport, CollectionSnapshot, Comic, CSVImport, KioskFeaturedSet,
+    KioskSignup, Sale, User, UserComic, UserColumnPreference,
 )
 from app.schemas import (
-    BugReportCreate, ComicCreate, ComicUpdate, SaleCreate,
+    BugReportCreate, ComicCreate, ComicUpdate, SaleCreate, SaleUpdate,
     UserComicCreate, UserComicUpdate, UserCreate,
 )
+
+FEATURED_TTL = timedelta(hours=24)
 
 # --- Default columns shown for each page ---
 
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
-    "publisher": True, "name": True, "volume": True, "number": True,
-    "print": True, "cover": True, "variant": True, "direct": True,
-    "writer": True, "artist": True, "pencils": True, "inker": True,
-    "cover_artist": True, "average_price": True, "print_ratio": True,
-    "upc": True, "number_of_books": True, "price_paid": True,
-    "point_of_purchase": True, "buy_date": True, "signed": True,
-    "remarked": True, "notes": True,
+    "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
+    "cover_date": True, "store_date": True, "direct": True, "publisher": True,
+    "count": True, "print_run": True, "variant": True, "cover_artist": True,
+    "artist": True, "penciller": True, "inker": True, "writer": True,
+    "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
+    "point_of_purchase": True, "signed": True, "remarked": True, "notes": True,
 }
 
 DEFAULT_SOLD_COLUMNS: dict[str, bool] = {
-    "publisher": True, "name": True, "volume": True, "number": True,
+    "publisher": True, "series": True, "volume": True, "issue_number": True,
     "writer": True, "sell_date": True, "sell_price": True, "notes": True,
 }
 
 
 # --- Users ---
 
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    return db.query(User).filter(User.email == email).first()
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    return db.query(User).filter(User.username == username).first()
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
@@ -46,7 +51,7 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
 
 
 def create_user(db: Session, user_in: UserCreate) -> User:
-    user = User(email=user_in.email, password_hash=hash_password(user_in.password))
+    user = User(username=user_in.username, password_hash=hash_password(user_in.password))
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -84,9 +89,13 @@ def set_user_kiosk(db: Session, user_id: int, is_kiosk: bool) -> Optional[User]:
 
 # --- Comics ---
 
+def get_comic_by_upc(db: Session, upc: str) -> Optional[Comic]:
+    return db.query(Comic).filter(Comic.upc == upc).first()
+
+
 def find_matching_comic(db: Session, data: dict) -> Optional[Comic]:
-    q = db.query(Comic).filter(Comic.name == data.get("name"))
-    for field in ["publisher", "volume", "number", "variant", "print"]:
+    q = db.query(Comic).filter(Comic.series == data.get("series"))
+    for field in ["publisher", "volume", "issue_number", "variant", "print_run"]:
         val = data.get(field)
         if val is not None:
             q = q.filter(getattr(Comic, field) == val)
@@ -120,19 +129,19 @@ def update_comic(db: Session, comic_id: int, update: ComicUpdate) -> Optional[Co
 
 def search_comics(
     db: Session,
-    name: Optional[str] = None,
+    series: Optional[str] = None,
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
     artist: Optional[str] = None,
     volume: Optional[str] = None,
-    number: Optional[str] = None,
+    issue_number: Optional[str] = None,
     variant: Optional[str] = None,
     skip: int = 0,
     limit: int = 50,
 ) -> list[Comic]:
     q = db.query(Comic)
-    if name:
-        q = q.filter(Comic.name.ilike(f"%{name}%"))
+    if series:
+        q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     if writer:
@@ -141,8 +150,8 @@ def search_comics(
         q = q.filter(Comic.artist.ilike(f"%{artist}%"))
     if volume:
         q = q.filter(Comic.volume == volume)
-    if number:
-        q = q.filter(Comic.number == number)
+    if issue_number:
+        q = q.filter(Comic.issue_number == issue_number)
     if variant:
         q = q.filter(Comic.variant.ilike(f"%{variant}%"))
     return q.offset(skip).limit(limit).all()
@@ -193,7 +202,7 @@ def bulk_update_user_comics(db: Session, user_id: int, updates: list[dict]) -> i
 def get_user_collection(
     db: Session,
     user_id: int,
-    name: Optional[str] = None,
+    series: Optional[str] = None,
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
     skip: int = 0,
@@ -205,8 +214,8 @@ def get_user_collection(
         .options(joinedload(UserComic.sales))
         .filter(UserComic.user_id == user_id)
     )
-    if name:
-        q = q.filter(Comic.name.ilike(f"%{name}%"))
+    if series:
+        q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     if writer:
@@ -216,7 +225,7 @@ def get_user_collection(
 
 def get_kiosk_collection(
     db: Session,
-    name: Optional[str] = None,
+    series: Optional[str] = None,
     publisher: Optional[str] = None,
     skip: int = 0,
     limit: int = 500,
@@ -227,18 +236,18 @@ def get_kiosk_collection(
         .join(Comic)
         .options(joinedload(UserComic.sales))
     )
-    if name:
-        q = q.filter(Comic.name.ilike(f"%{name}%"))
+    if series:
+        q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     items = q.offset(skip).limit(limit).all()
-    return [uc for uc in items if (uc.number_of_books or 1) > len(uc.sales)]
+    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
 
 
 def get_sold_collection(
     db: Session,
     user_id: int,
-    name: Optional[str] = None,
+    series: Optional[str] = None,
     publisher: Optional[str] = None,
     skip: int = 0,
     limit: int = 500,
@@ -250,8 +259,8 @@ def get_sold_collection(
         .options(joinedload(Sale.user_comic).joinedload(UserComic.comic))
         .filter(UserComic.user_id == user_id)
     )
-    if name:
-        q = q.filter(Comic.name.ilike(f"%{name}%"))
+    if series:
+        q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     return q.order_by(Sale.sell_date.desc()).offset(skip).limit(limit).all()
@@ -280,7 +289,7 @@ def create_sale(db: Session, user_id: int, uc_id: int, sale_in: SaleCreate) -> O
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:
         return None
-    total_copies = uc.number_of_books or 1
+    total_copies = uc.count or 1
     if len(uc.sales) >= total_copies:
         return None  # over-sell guard; caller checks for None
     sale = Sale(
@@ -290,6 +299,22 @@ def create_sale(db: Session, user_id: int, uc_id: int, sale_in: SaleCreate) -> O
         notes=sale_in.notes,
     )
     db.add(sale)
+    db.commit()
+    db.refresh(sale)
+    return sale
+
+
+def update_sale(db: Session, user_id: int, uc_id: int, sale_id: int, update: SaleUpdate) -> Optional[Sale]:
+    sale = (
+        db.query(Sale)
+        .join(UserComic)
+        .filter(Sale.id == sale_id, Sale.user_comic_id == uc_id, UserComic.user_id == user_id)
+        .first()
+    )
+    if not sale:
+        return None
+    for field, value in update.model_dump(exclude_unset=True).items():
+        setattr(sale, field, value)
     db.commit()
     db.refresh(sale)
     return sale
@@ -320,10 +345,10 @@ def record_snapshot(db: Session, user_id: int) -> None:
         .all()
     )
     # Only count UserComics that still have available copies
-    available = [uc for uc in active if (uc.number_of_books or 1) > len(uc.sales)]
-    comic_count = sum(uc.number_of_books or 0 for uc in available)
-    total_paid = sum((uc.price_paid or 0) * (uc.number_of_books or 1) for uc in available)
-    total_value = sum((uc.comic.average_price or 0) * (uc.number_of_books or 1) for uc in available)
+    available = [uc for uc in active if (uc.count or 1) > len(uc.sales)]
+    comic_count = sum(uc.count or 0 for uc in available)
+    total_paid = sum((uc.paid_price or 0) * (uc.count or 1) for uc in available)
+    total_value = sum((uc.comic.average_price or 0) * (uc.count or 1) for uc in available)
 
     today = date.today()
     existing = (
@@ -424,3 +449,107 @@ def create_csv_import(db: Session, user_id: int, filename: str, total: int, succ
 
 def get_user_csv_imports(db: Session, user_id: int) -> list[CSVImport]:
     return db.query(CSVImport).filter(CSVImport.user_id == user_id).order_by(CSVImport.created_at.desc()).all()
+
+
+# --- Kiosk ---
+
+def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str]) -> KioskSignup:
+    conditions = [KioskSignup.email == email]
+    if phone:
+        conditions.append(KioskSignup.phone == phone)
+    existing = db.query(KioskSignup).filter(or_(*conditions)).first()
+
+    if existing is None:
+        existing = KioskSignup(first_name=first_name, last_name=last_name, email=email, phone=phone)
+        db.add(existing)
+    else:
+        existing.first_name = first_name
+        existing.last_name = last_name
+        existing.email = email
+        existing.phone = phone
+
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+def get_fresh_featured_ids(db: Session, section: str) -> Optional[list[int]]:
+    row = db.query(KioskFeaturedSet).filter(KioskFeaturedSet.section == section).first()
+    if row is None or datetime.utcnow() - row.generated_at > FEATURED_TTL:
+        return None
+    return list(row.item_ids)
+
+
+def set_featured_ids(db: Session, section: str, item_ids: list[int]) -> None:
+    row = db.query(KioskFeaturedSet).filter(KioskFeaturedSet.section == section).first()
+    if row is None:
+        row = KioskFeaturedSet(section=section)
+        db.add(row)
+    row.item_ids = item_ids
+    row.generated_at = datetime.utcnow()
+    db.commit()
+
+
+def _available_kiosk_items(q) -> list[UserComic]:
+    items = q.options(joinedload(UserComic.sales), joinedload(UserComic.comic)).all()
+    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
+
+
+def get_kiosk_available_by_price(db: Session, threshold: float, limit: int) -> list[UserComic]:
+    q = db.query(UserComic).join(Comic).filter(Comic.average_price > threshold)
+    available = _available_kiosk_items(q)
+    return random.sample(available, min(limit, len(available)))
+
+
+def get_kiosk_available_signed(db: Session, limit: int) -> list[UserComic]:
+    q = db.query(UserComic).join(Comic).filter(UserComic.signed.is_(True))
+    available = _available_kiosk_items(q)
+    return random.sample(available, min(limit, len(available)))
+
+
+def get_user_comics_by_ids(db: Session, ids: list[int]) -> list[UserComic]:
+    if not ids:
+        return []
+    rows = (
+        db.query(UserComic)
+        .join(Comic)
+        .options(joinedload(UserComic.sales), joinedload(UserComic.comic))
+        .filter(UserComic.id.in_(ids))
+        .all()
+    )
+    by_id = {uc.id: uc for uc in rows if (uc.count or 1) > len(uc.sales)}
+    return [by_id[i] for i in ids if i in by_id]
+
+
+def search_kiosk_series(db: Session, query: str, limit: int = 10) -> list[dict]:
+    available = _available_kiosk_items(db.query(UserComic).join(Comic))
+    counts: dict[str, int] = {}
+    for uc in available:
+        counts[uc.comic.series] = counts.get(uc.comic.series, 0) + 1
+
+    normalized_query = re.sub(r"[^a-z0-9]", "", query.strip().lower())
+    if not normalized_query:
+        return []
+
+    scored: list[tuple[float, str, int]] = []
+    for name, count in counts.items():
+        normalized_name = re.sub(r"[^a-z0-9]", "", name.lower())
+        score = 1.0 if normalized_query in normalized_name else difflib.SequenceMatcher(
+            None, normalized_query, normalized_name
+        ).ratio()
+        if score >= 0.5:
+            scored.append((score, name, count))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [{"name": name, "count": count} for _score, name, count in scored[:limit]]
+
+
+def get_kiosk_items_by_series(db: Session, series_name: str) -> list[UserComic]:
+    q = db.query(UserComic).join(Comic).filter(Comic.series == series_name)
+    available = _available_kiosk_items(q)
+
+    def issue_sort_key(uc: UserComic) -> tuple[int, str]:
+        match = re.search(r"\d+", uc.comic.issue_number or "")
+        return (int(match.group()) if match else 0, uc.comic.issue_number or "")
+
+    return sorted(available, key=issue_sort_key)

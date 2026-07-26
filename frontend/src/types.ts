@@ -1,22 +1,22 @@
 export interface Comic {
   id: number
-  publisher: string | null
-  name: string
-  volume: string | null
-  number: string | null
-  print: string | null
-  cover: string | null
-  variant: string | null
-  direct: boolean | null
-  writer: string | null
-  artist: string | null
-  pencils: string | null
-  inker: string | null
-  cover_artist: string | null
-  average_price: number | null
-  print_ratio: string | null
   upc: string | null
-  cover_image_url: string | null
+  img: string | null
+  publisher: string | null
+  series: string
+  volume: string | null
+  issue_number: string | null
+  cover_date: string | null
+  store_date: string | null
+  direct: boolean | null
+  print_run: string | null
+  variant: string | null
+  cover_artist: string | null
+  artist: string | null
+  penciller: string | null
+  inker: string | null
+  writer: string | null
+  average_price: number | null
   created_at: string
 }
 
@@ -38,19 +38,25 @@ export interface UserComic {
   user_id: number
   comic_id: number
   comic: Comic
-  number_of_books: number
-  price_paid: number | null
+  count: number
+  paid_price: number | null
   point_of_purchase: string | null
   buy_date: string | null
   signed: boolean
   remarked: boolean
+  condition: string | null
   notes: string | null
   created_at: string
   sales: Sale[]
 }
 
 export function availableCopies(uc: UserComic): number {
-  return Math.max((uc.number_of_books ?? 1) - (uc.sales?.length ?? 0), 0)
+  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0), 0)
+}
+
+export function latestSalePrice(uc: UserComic): number | null {
+  if (!uc.sales?.length) return null
+  return uc.sales[uc.sales.length - 1].sell_price ?? null
 }
 
 export interface Snapshot {
@@ -67,36 +73,39 @@ export interface BugReport {
   page_url: string | null
   resolved: boolean
   created_at: string
-  user_email: string
+  user_username: string
   comic_name: string | null
 }
 
 export type ColumnVisibility = Record<string, boolean>
 
 export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
-  { key: 'publisher', label: 'Publisher' },
-  { key: 'name', label: 'Title' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'number', label: 'Issue #' },
-  { key: 'print', label: 'Print' },
-  { key: 'cover', label: 'Cover' },
-  { key: 'variant', label: 'Variant' },
-  { key: 'direct', label: 'Direct' },
-  { key: 'writer', label: 'Writer' },
-  { key: 'artist', label: 'Artist' },
-  { key: 'pencils', label: 'Pencils' },
-  { key: 'inker', label: 'Inker' },
-  { key: 'cover_artist', label: 'Cover Artist' },
-  { key: 'average_price', label: 'Avg Price' },
-  { key: 'print_ratio', label: 'Print Ratio' },
   { key: 'upc', label: 'UPC' },
-  { key: 'number_of_books', label: 'Qty' },
+  { key: 'img', label: 'Img' },
+  { key: 'series', label: 'Series' },
+  { key: 'volume', label: 'Volume' },
+  { key: 'issue_number', label: 'Issue Number' },
+  { key: 'cover_date', label: 'Cover Date' },
+  { key: 'store_date', label: 'Store Date' },
+  { key: 'direct', label: 'Newstand / Direct' },
+  { key: 'publisher', label: 'Publisher' },
+  { key: 'count', label: 'Count' },
   { key: 'available', label: 'Available' },
-  { key: 'price_paid', label: 'Price Paid' },
-  { key: 'point_of_purchase', label: 'Purchased At' },
+  { key: 'print_run', label: 'Print Run' },
+  { key: 'variant', label: 'Variant' },
+  { key: 'cover_artist', label: 'Cover Artist' },
+  { key: 'artist', label: 'Artist' },
+  { key: 'penciller', label: 'Penciller' },
+  { key: 'inker', label: 'Inker' },
+  { key: 'writer', label: 'Writer' },
+  { key: 'average_price', label: 'Average Price' },
+  { key: 'paid_price', label: 'Paid Price' },
   { key: 'buy_date', label: 'Buy Date' },
+  { key: 'sell_price', label: 'Sell Price' },
+  { key: 'point_of_purchase', label: 'Point of Purchase' },
   { key: 'signed', label: 'Signed' },
   { key: 'remarked', label: 'Remarked' },
+  { key: 'condition', label: 'Condition' },
   { key: 'notes', label: 'Notes' },
 ]
 
@@ -104,29 +113,185 @@ export const SOLD_COLUMNS: { key: string; label: string }[] = [
   { key: 'sell_date', label: 'Sell Date' },
   { key: 'sell_price', label: 'Sell Price' },
   { key: 'publisher', label: 'Publisher' },
-  { key: 'name', label: 'Title' },
+  { key: 'series', label: 'Series' },
   { key: 'volume', label: 'Volume' },
-  { key: 'number', label: 'Issue #' },
+  { key: 'issue_number', label: 'Issue Number' },
   { key: 'writer', label: 'Writer' },
   { key: 'notes', label: 'Notes' },
 ]
 
 export type UserComicUpdate = {
-  number_of_books?: number | null
-  price_paid?: number | null
+  count?: number | null
+  paid_price?: number | null
   point_of_purchase?: string | null
   buy_date?: string | null
   signed?: boolean
   remarked?: boolean
+  condition?: string | null
   notes?: string | null
 }
 
 export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string }[] = [
-  { key: 'number_of_books', label: 'Qty', type: 'number' },
-  { key: 'price_paid', label: 'Price Paid ($)', type: 'number' },
-  { key: 'point_of_purchase', label: 'Purchased At', type: 'text' },
+  { key: 'count', label: 'Count', type: 'number' },
+  { key: 'paid_price', label: 'Paid Price ($)', type: 'number' },
+  { key: 'point_of_purchase', label: 'Point of Purchase', type: 'text' },
   { key: 'buy_date', label: 'Buy Date', type: 'date' },
   { key: 'signed', label: 'Signed', type: 'checkbox' },
   { key: 'remarked', label: 'Remarked', type: 'checkbox' },
+  { key: 'condition', label: 'Condition', type: 'text' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
 ]
+
+// --- Barcode scanning (comic-scraper lookups) ---
+
+export interface CreditInfo {
+  creator: string
+  roles: string[]
+}
+
+export interface LookupResult {
+  series_name: string
+  series_volume: number | null
+  publisher_name: string | null
+  issue_number: string
+  cover_date: string
+  store_date: string | null
+  variant_name: string | null
+  cover_artists: string[]
+  writers: string[]
+  pencillers: string[]
+  inkers: string[]
+  credits: CreditInfo[]
+  matched_on: 'base_upc' | 'variant_upc'
+  source: 'cache' | 'metron'
+  metron_id: number | null
+  cv_id: number | null
+  gcd_id: number | null
+  image: string | null
+  cover_hash: string | null
+}
+
+interface LookupAttemptBase {
+  id: string
+  upc12: string
+  ean5: string | null
+  timestamp: string
+}
+
+export type LookupAttempt =
+  | (LookupAttemptBase & { status: 'pending' })
+  | (LookupAttemptBase & { status: 'success'; result: LookupResult })
+  | (LookupAttemptBase & { status: 'not_found' })
+  | (LookupAttemptBase & { status: 'error'; message: string })
+
+export interface StagedItem {
+  id: string
+  upc12: string
+  ean5: string | null
+}
+
+export interface BatchResultEvent {
+  index: number
+  upc12: string
+  ean5: string | null
+  status: 'success' | 'not_found' | 'error'
+  result?: LookupResult
+  message?: string
+}
+
+// Mirrors the backend's ComicCreate — fields a scanned lookup can pre-fill,
+// editable before adding to the collection.
+export interface ScanComicFields {
+  publisher: string | null
+  series: string
+  volume: string | null
+  issue_number: string | null
+  cover_date: string | null
+  store_date: string | null
+  direct: boolean | null
+  print_run: string | null
+  variant: string | null
+  writer: string | null
+  artist: string | null
+  penciller: string | null
+  inker: string | null
+  cover_artist: string | null
+  average_price: number | null
+  upc: string | null
+  img: string | null
+}
+
+export interface ScanUserComicFields {
+  count: number | null
+  paid_price: number | null
+  point_of_purchase: string | null
+  buy_date: string | null
+  signed: boolean
+  remarked: boolean
+  condition: string | null
+  notes: string | null
+}
+
+export interface ScanAddRequest {
+  comic: ScanComicFields
+  user_comic: ScanUserComicFields
+}
+
+// --- Kiosk (customer-facing) ---
+
+export interface KioskCard {
+  id: number
+  series: string
+  volume: string | null
+  issue_number: string | null
+  cover_date: string | null
+  publisher: string | null
+  variant: string | null
+  img: string | null
+  cover_artist: string | null
+  artist: string | null
+  penciller: string | null
+  inker: string | null
+  writer: string | null
+  direct: boolean | null
+  print_run: string | null
+  average_price: number | null
+  signed: boolean
+  remarked: boolean
+  condition: string | null
+  available: number
+}
+
+export interface SeriesSearchResult {
+  name: string
+  count: number
+}
+
+export interface KioskSignupInput {
+  first_name: string
+  last_name: string
+  email: string
+  phone: string | null
+}
+
+export function lookupResultToComicFields(result: LookupResult, upc12: string, ean5: string | null): ScanComicFields {
+  return {
+    publisher: result.publisher_name,
+    series: result.series_name,
+    volume: result.series_volume != null ? String(result.series_volume) : null,
+    issue_number: result.issue_number,
+    cover_date: result.cover_date || null,
+    store_date: result.store_date,
+    direct: null,
+    print_run: null,
+    variant: result.variant_name,
+    writer: result.writers.length ? result.writers.join(', ') : null,
+    artist: null,
+    penciller: result.pencillers.length ? result.pencillers.join(', ') : null,
+    inker: result.inkers.length ? result.inkers.join(', ') : null,
+    cover_artist: result.cover_artists.length ? result.cover_artists.join(', ') : null,
+    average_price: null,
+    upc: ean5 ? `${upc12}${ean5}` : upc12,
+    img: result.image,
+  }
+}

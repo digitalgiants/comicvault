@@ -44,7 +44,7 @@ export default function BugReportButton({ activeComic }: Props) {
                 <h3 className="font-semibold">Report a Bug</h3>
                 {activeComic && (
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Re: <span className="text-gray-300">{activeComic.comic.name}</span>
+                    Re: <span className="text-gray-300">{activeComic.comic.series}</span>
                   </p>
                 )}
               </div>

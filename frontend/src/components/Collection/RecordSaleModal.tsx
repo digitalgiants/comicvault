@@ -44,7 +44,7 @@ export default function RecordSaleModal({ item, onClose, onSaved }: Props) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div>
             <h2 className="font-semibold text-lg">Record Sale</h2>
-            <p className="text-gray-400 text-sm">{item.comic.name} · {avail} of {item.number_of_books ?? 1} available</p>
+            <p className="text-gray-400 text-sm">{item.comic.series} · {avail} of {item.count ?? 1} available</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition">
             <X size={20} />

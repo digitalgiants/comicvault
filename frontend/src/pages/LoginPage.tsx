@@ -5,7 +5,7 @@ import { BookOpen } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 
 interface FormData {
-  email: string
+  username: string
   password: string
 }
 
@@ -18,7 +18,7 @@ export default function LoginPage() {
   const onSubmit = async (data: FormData) => {
     setError('')
     try {
-      await login(data.email, data.password)
+      await login(data.username, data.password)
       navigate('/')
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -45,12 +45,12 @@ export default function LoginPage() {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Username</label>
             <input
-              type="email"
-              {...register('email', { required: true })}
+              type="text"
+              {...register('username', { required: true })}
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-              placeholder="you@example.com"
+              placeholder="yourusername"
             />
           </div>
 

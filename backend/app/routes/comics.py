@@ -6,7 +6,7 @@ from app.auth import get_current_non_kiosk, get_current_user
 from app.database import get_db
 from app.models import User
 from app.schemas import (
-    BulkUpdateRequest, ComicOut, SaleCreate, SaleOut,
+    BulkUpdateRequest, ComicOut, SaleCreate, SaleOut, SaleUpdate,
     SaleWithComicOut, UserComicCreate, UserComicOut, UserComicUpdate,
 )
 
@@ -15,26 +15,26 @@ router = APIRouter(prefix="/comics", tags=["comics"])
 
 @router.get("/", response_model=list[ComicOut])
 def search_comics(
-    name: str | None = Query(None),
+    series: str | None = Query(None),
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
     artist: str | None = Query(None),
     volume: str | None = Query(None),
-    number: str | None = Query(None),
+    issue_number: str | None = Query(None),
     variant: str | None = Query(None),
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_non_kiosk),
 ):
-    return crud.search_comics(db, name=name, publisher=publisher, writer=writer,
-                               artist=artist, volume=volume, number=number,
+    return crud.search_comics(db, series=series, publisher=publisher, writer=writer,
+                               artist=artist, volume=volume, issue_number=issue_number,
                                variant=variant, skip=skip, limit=limit)
 
 
 @router.get("/collection", response_model=list[UserComicOut])
 def get_my_collection(
-    name: str | None = Query(None),
+    series: str | None = Query(None),
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
     skip: int = 0,
@@ -43,22 +43,22 @@ def get_my_collection(
     current_user: User = Depends(get_current_user),
 ):
     if current_user.is_kiosk:
-        return crud.get_kiosk_collection(db, name=name, publisher=publisher, skip=skip, limit=limit)
-    return crud.get_user_collection(db, current_user.id, name=name,
+        return crud.get_kiosk_collection(db, series=series, publisher=publisher, skip=skip, limit=limit)
+    return crud.get_user_collection(db, current_user.id, series=series,
                                     publisher=publisher, writer=writer,
                                     skip=skip, limit=limit)
 
 
 @router.get("/sold", response_model=list[SaleWithComicOut])
 def get_sold_collection(
-    name: str | None = Query(None),
+    series: str | None = Query(None),
     publisher: str | None = Query(None),
     skip: int = 0,
     limit: int = 500,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
-    sales = crud.get_sold_collection(db, current_user.id, name=name,
+    sales = crud.get_sold_collection(db, current_user.id, series=series,
                                      publisher=publisher, skip=skip, limit=limit)
     return [
         SaleWithComicOut(
@@ -124,6 +124,21 @@ def record_sale(
         if not uc:
             raise HTTPException(status_code=404, detail="Not found")
         raise HTTPException(status_code=400, detail="All copies of this comic have already been sold.")
+    crud.record_snapshot(db, current_user.id)
+    return sale
+
+
+@router.put("/collection/{uc_id}/sales/{sale_id}", response_model=SaleOut)
+def update_sale(
+    uc_id: int,
+    sale_id: int,
+    update: SaleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    sale = crud.update_sale(db, current_user.id, uc_id, sale_id, update)
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale record not found")
     crud.record_snapshot(db, current_user.id)
     return sale
 

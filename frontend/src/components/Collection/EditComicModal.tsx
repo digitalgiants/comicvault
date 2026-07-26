@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, Trash2 } from 'lucide-react'
-import { updateUserComic, deleteSale } from '../../api/collection'
+import { updateUserComic, deleteSale, updateSale } from '../../api/collection'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
 
 interface Props {
@@ -55,6 +55,19 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     }
   }
 
+  const handleSalePriceCommit = async (sale: Sale, raw: string) => {
+    const price = raw === '' ? null : Number(raw)
+    if (price === sale.sell_price) return
+    try {
+      const updated = await updateSale(item.id, sale.id, price)
+      const nextSales = localSales.map(s => s.id === sale.id ? updated : s)
+      setLocalSales(nextSales)
+      onItemChange?.({ ...item, sales: nextSales })
+    } catch {
+      setError('Failed to update sale price.')
+    }
+  }
+
   const handleDeleteSale = async (sale: Sale) => {
     if (!confirm('Remove this sale record?')) return
     await deleteSale(item.id, sale.id)
@@ -70,9 +83,9 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div>
-            <h2 className="font-semibold text-lg">{item.comic.name}</h2>
+            <h2 className="font-semibold text-lg">{item.comic.series}</h2>
             <p className="text-gray-400 text-sm">
-              {[item.comic.publisher, item.comic.volume && `Vol. ${item.comic.volume}`, item.comic.number && `#${item.comic.number}`]
+              {[item.comic.publisher, item.comic.volume && `Vol. ${item.comic.volume}`, item.comic.issue_number && `#${item.comic.issue_number}`]
                 .filter(Boolean).join(' · ')}
             </p>
           </div>
@@ -87,12 +100,14 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
             {[
               ['Writer', item.comic.writer],
               ['Artist', item.comic.artist],
-              ['Pencils', item.comic.pencils],
+              ['Penciller', item.comic.penciller],
               ['Inker', item.comic.inker],
               ['Cover Artist', item.comic.cover_artist],
               ['Variant', item.comic.variant],
-              ['Print', item.comic.print],
+              ['Print Run', item.comic.print_run],
               ['UPC', item.comic.upc],
+              ['Cover Date', item.comic.cover_date],
+              ['Store Date', item.comic.store_date],
               ['Avg Price', item.comic.average_price != null ? `$${item.comic.average_price.toFixed(2)}` : null],
             ].filter(([, v]) => v).map(([label, val]) => (
               <div key={label as string}>
@@ -143,7 +158,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs text-gray-500 uppercase tracking-wider">Sales History</p>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                {avail}/{item.number_of_books ?? 1} available
+                {avail}/{item.count ?? 1} available
               </span>
             </div>
             {localSales.length === 0 ? (
@@ -154,9 +169,17 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                   <div key={sale.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
                     <div className="flex items-center gap-4">
                       <span className="text-gray-300">{new Date(sale.sell_date).toLocaleDateString()}</span>
-                      {sale.sell_price != null && (
-                        <span className="text-green-400">${sale.sell_price.toFixed(2)}</span>
-                      )}
+                      <span className="flex items-center gap-1 text-green-400">
+                        $
+                        <input
+                          type="number"
+                          step="0.01"
+                          defaultValue={sale.sell_price ?? ''}
+                          onBlur={e => handleSalePriceCommit(sale, e.target.value)}
+                          placeholder="0.00"
+                          className="w-20 bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-green-400 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+                        />
+                      </span>
                       {sale.notes && (
                         <span className="text-gray-500 italic truncate max-w-32">{sale.notes}</span>
                       )}

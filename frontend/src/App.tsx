@@ -6,6 +6,7 @@ import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import CollectionPage from './pages/CollectionPage'
 import UploadPage from './pages/UploadPage'
+import ScanPage from './pages/ScanPage'
 import AdminPage from './pages/AdminPage'
 import SoldPage from './pages/SoldPage'
 import KioskPage from './pages/KioskPage'
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="/" element={<RequireNonKiosk><DashboardPage /></RequireNonKiosk>} />
         <Route path="/collection" element={<RequireNonKiosk><CollectionPage /></RequireNonKiosk>} />
         <Route path="/upload" element={<RequireNonKiosk><UploadPage /></RequireNonKiosk>} />
+        <Route path="/scan" element={<RequireNonKiosk><ScanPage /></RequireNonKiosk>} />
         <Route path="/sold" element={<RequireNonKiosk><SoldPage /></RequireNonKiosk>} />
         <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={user?.is_kiosk ? <Navigate to="/kiosk" replace /> : <Navigate to="/" replace />} />

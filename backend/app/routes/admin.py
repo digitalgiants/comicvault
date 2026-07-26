@@ -117,8 +117,8 @@ def list_bug_reports(
             page_url=r.page_url,
             resolved=r.resolved,
             created_at=r.created_at,
-            user_email=r.user.email,
-            comic_name=r.comic.name if r.comic else None,
+            user_username=r.user.username,
+            comic_name=r.comic.series if r.comic else None,
         )
         for r in reports
     ]

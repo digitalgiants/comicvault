@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
@@ -5,7 +7,7 @@ from app import crud
 from app.auth import get_current_non_kiosk
 from app.database import get_db
 from app.models import User
-from app.schemas import CSVImportResult, ComicCreate, UserComicCreate
+from app.schemas import CSVImportResult, ComicCreate, SaleCreate, UserComicCreate
 from app.utils.csv_parser import parse_csv
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -34,35 +36,38 @@ async def upload_csv(
     imported = 0
     new_added = 0
     linked = 0
+    sales_recorded = 0
     row_errors = list(parse_errors)
 
     for row in rows:
         try:
             comic_data = {
+                "upc": row.get("upc"),
+                "img": row.get("img"),
                 "publisher": row.get("publisher"),
-                "name": row["name"],
+                "series": row["series"],
                 "volume": row.get("volume"),
-                "number": row.get("number"),
-                "print": row.get("print"),
-                "cover": row.get("cover"),
-                "variant": row.get("variant"),
+                "issue_number": row.get("issue_number"),
+                "cover_date": row.get("cover_date"),
+                "store_date": row.get("store_date"),
                 "direct": row.get("direct"),
+                "print_run": row.get("print_run"),
+                "variant": row.get("variant"),
                 "writer": row.get("writer"),
                 "artist": row.get("artist"),
-                "pencils": row.get("pencils"),
+                "penciller": row.get("penciller"),
                 "inker": row.get("inker"),
                 "cover_artist": row.get("cover_artist"),
                 "average_price": row.get("average_price"),
-                "print_ratio": row.get("print_ratio"),
             }
 
             existing = crud.find_matching_comic(db, {
-                "name": comic_data["name"],
+                "series": comic_data["series"],
                 "publisher": comic_data["publisher"],
                 "volume": comic_data["volume"],
-                "number": comic_data["number"],
+                "issue_number": comic_data["issue_number"],
                 "variant": comic_data["variant"],
-                "print": comic_data["print"],
+                "print_run": comic_data["print_run"],
             })
 
             if existing:
@@ -75,28 +80,42 @@ async def upload_csv(
             if crud.user_already_owns(db, current_user.id, comic.id):
                 row_errors.append({
                     "row": row.get("_row_num", "?"),
-                    "comic": row.get("name", "unknown"),
+                    "comic": row.get("series", "unknown"),
                     "error": "Duplicate: already in your collection",
                 })
                 continue
 
             uc_data = UserComicCreate(
                 comic_id=comic.id,
-                number_of_books=row.get("number_of_books") or 1,
-                price_paid=row.get("price_paid"),
+                count=row.get("count") or 1,
+                paid_price=row.get("paid_price"),
                 point_of_purchase=row.get("point_of_purchase"),
                 buy_date=row.get("buy_date"),
                 signed=row.get("signed") or False,
                 remarked=row.get("remarked") or False,
                 notes=row.get("notes"),
             )
-            crud.create_user_comic(db, current_user.id, uc_data)
+            uc = crud.create_user_comic(db, current_user.id, uc_data)
             imported += 1
+
+            if row.get("sell_price") is not None:
+                sale = crud.create_sale(db, current_user.id, uc.id, SaleCreate(
+                    sell_date=row.get("sell_date") or datetime.utcnow(),
+                    sell_price=row.get("sell_price"),
+                ))
+                if sale is None:
+                    row_errors.append({
+                        "row": row.get("_row_num", "?"),
+                        "comic": row.get("series", "unknown"),
+                        "error": "Could not record sale: all copies already sold",
+                    })
+                else:
+                    sales_recorded += 1
 
         except Exception as e:
             row_errors.append({
                 "row": "?",
-                "comic": row.get("name", "unknown"),
+                "comic": row.get("series", "unknown"),
                 "error": str(e),
             })
 
@@ -119,6 +138,7 @@ async def upload_csv(
         failed=len(row_errors),
         new_comics_added_to_db=new_added,
         existing_comics_linked=linked,
+        sales_recorded=sales_recorded,
         errors=row_errors,
     )
 

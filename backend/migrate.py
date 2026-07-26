@@ -4,6 +4,12 @@ Run before starting the server when the database already exists.
 """
 import os
 from sqlalchemy import create_engine, text
+from sqlalchemy.orm import Session
+
+from app.auth import hash_password
+from app.database import Base
+from app.models import User
+import app.models  # noqa: F401 - ensures all models are registered on Base.metadata
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://comicvault:comicvault@localhost:5432/comicvault")
 engine = create_engine(DATABASE_URL)
@@ -52,12 +58,35 @@ MIGRATIONS = [
 ]
 
 
+def seed_kiosk_user():
+    with Session(engine) as session:
+        existing = session.query(User).filter(User.username == "kiosk").first()
+        if existing:
+            return
+        kiosk_password = os.getenv("KIOSK_PASSWORD", "kiosk")
+        session.add(User(
+            username="kiosk",
+            password_hash=hash_password(kiosk_password),
+            is_admin=False,
+            is_kiosk=True,
+        ))
+        session.commit()
+    print("Kiosk user ensured.")
+
+
 def run():
+    # Runs before the raw-SQL migrations below so tables/columns from the current
+    # models.py exist on a fresh database (migrate.py runs before uvicorn/main.py's
+    # own create_all, so a brand-new DB has no tables yet at this point).
+    Base.metadata.create_all(engine)
+
     with engine.connect() as conn:
         for sql in MIGRATIONS:
             conn.execute(text(sql.strip()))
         conn.commit()
     print("Migrations applied.")
+
+    seed_kiosk_user()
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import BugReportButton from '../components/BugReportButton'
 
 interface AdminUser {
   id: number
-  email: string
+  username: string
   is_admin: boolean
   is_kiosk: boolean
   created_at: string
@@ -39,7 +39,7 @@ export default function AdminPage() {
   }
 
   const deleteUser = async (user: AdminUser) => {
-    if (!confirm(`Delete user ${user.email}? This cannot be undone.`)) return
+    if (!confirm(`Delete user ${user.username}? This cannot be undone.`)) return
     await api.delete(`/admin/users/${user.id}`)
     setUsers(prev => prev.filter(u => u.id !== user.id))
   }
@@ -88,7 +88,7 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                 <tr>
-                  <th className="px-6 py-3 text-left">Email</th>
+                  <th className="px-6 py-3 text-left">Username</th>
                   <th className="px-6 py-3 text-left">Role</th>
                   <th className="px-6 py-3 text-left">Joined</th>
                   <th className="px-6 py-3 text-right">Actions</th>
@@ -99,7 +99,7 @@ export default function AdminPage() {
                   const role = roleLabel(user)
                   return (
                     <tr key={user.id} className="hover:bg-gray-800/50 transition">
-                      <td className="px-6 py-4">{user.email}</td>
+                      <td className="px-6 py-4">{user.username}</td>
                       <td className="px-6 py-4">
                         <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
                           {role.label}
@@ -155,7 +155,7 @@ export default function AdminPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                        <span className="text-xs font-medium text-gray-400">{r.user_email}</span>
+                        <span className="text-xs font-medium text-gray-400">{r.user_username}</span>
                         {r.comic_name && <span className="text-xs bg-gray-800 text-gray-300 px-2 py-0.5 rounded">re: {r.comic_name}</span>}
                         {r.page_url && <span className="text-xs text-gray-600">{r.page_url}</span>}
                         <span className="text-xs text-gray-600">{new Date(r.created_at).toLocaleDateString()}</span>

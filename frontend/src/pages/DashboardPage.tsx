@@ -24,7 +24,7 @@ export default function DashboardPage() {
 
       <div className="text-center mb-12">
         <h1 className="text-4xl font-bold mb-2">Welcome back</h1>
-        <p className="text-gray-400">{user?.email}</p>
+        <p className="text-gray-400">{user?.username}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

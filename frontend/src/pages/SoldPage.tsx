@@ -20,7 +20,7 @@ export default function SoldPage() {
     setLoading(true)
     try {
       const params: Record<string, string> = {}
-      if (search) params.name = search
+      if (search) params.series = search
       if (publisherFilter) params.publisher = publisherFilter
       setItems(await getSold(params))
     } finally {

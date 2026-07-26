@@ -13,7 +13,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     is_admin = Column(Boolean, default=False)
     is_kiosk = Column(Boolean, default=False)
@@ -33,22 +33,22 @@ class Comic(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     upc = Column(String, unique=True, nullable=True, index=True)
+    img = Column(String, nullable=True)
     publisher = Column(String, index=True)
-    name = Column(String, index=True, nullable=False)
+    series = Column(String, index=True, nullable=False)
     volume = Column(String, nullable=True)
-    number = Column(String, nullable=True, index=True)
-    print = Column(String, nullable=True)
-    cover = Column(String, nullable=True)
-    variant = Column(String, nullable=True)
+    issue_number = Column(String, nullable=True, index=True)
+    cover_date = Column(Date, nullable=True)
+    store_date = Column(Date, nullable=True)
     direct = Column(Boolean, nullable=True)
-    writer = Column(String, nullable=True, index=True)
-    artist = Column(String, nullable=True)
-    pencils = Column(String, nullable=True)
-    inker = Column(String, nullable=True)
+    print_run = Column(String, nullable=True)
+    variant = Column(String, nullable=True)
     cover_artist = Column(String, nullable=True)
+    artist = Column(String, nullable=True)
+    penciller = Column(String, nullable=True)
+    inker = Column(String, nullable=True)
+    writer = Column(String, nullable=True, index=True)
     average_price = Column(Float, nullable=True)
-    print_ratio = Column(String, nullable=True)
-    cover_image_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -63,12 +63,13 @@ class UserComic(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     comic_id = Column(Integer, ForeignKey("comics.id"), nullable=False, index=True)
-    number_of_books = Column(Integer, default=1)
-    price_paid = Column(Float, nullable=True)
+    count = Column(Integer, default=1)
+    paid_price = Column(Float, nullable=True)
     point_of_purchase = Column(String, nullable=True)
     buy_date = Column(DateTime, nullable=True)
     signed = Column(Boolean, default=False)
     remarked = Column(Boolean, default=False)
+    condition = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -146,3 +147,24 @@ class BugReport(Base):
 
     user = relationship("User", back_populates="bug_reports")
     comic = relationship("Comic")
+
+
+class KioskSignup(Base):
+    __tablename__ = "kiosk_signups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    email = Column(String, nullable=False, index=True)
+    phone = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class KioskFeaturedSet(Base):
+    """Cached random selection for a kiosk section, regenerated once every 24h."""
+    __tablename__ = "kiosk_featured_sets"
+
+    section = Column(String, primary_key=True)
+    item_ids = Column(JSON, default=list)
+    generated_at = Column(DateTime, default=datetime.utcnow)

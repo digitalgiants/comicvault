@@ -12,6 +12,7 @@ interface ImportResult {
   failed: number
   new_comics_added_to_db: number
   existing_comics_linked: number
+  sales_recorded: number
   errors: Array<{ row: number | string; comic: string; error: string }>
 }
 
@@ -103,6 +104,7 @@ export default function UploadPage() {
               <Stat label="Failed" value={result.failed} color={result.failed > 0 ? 'red' : undefined} />
               <Stat label="New comics" value={result.new_comics_added_to_db} />
               <Stat label="Matched existing" value={result.existing_comics_linked} />
+              <Stat label="Sales recorded" value={result.sales_recorded} />
             </div>
           </div>
 
@@ -132,20 +134,20 @@ export default function UploadPage() {
         <h3 className="font-medium text-gray-300 mb-3">Expected CSV Columns</h3>
         <div className="flex flex-wrap gap-2">
           {[
-            'publisher','name','volume','number','print','cover','variant','direct',
-            'writer','artist','pencils','inker','coverArtist','numberOfBooks',
-            'pricePaid','pointOfPurchase','buyDate','averagePrice','printRatio',
-            'signed','remarked','notes','sellDate'
+            'upc','img','series','volume','issueNumber','coverDate','storeDate','direct',
+            'publisher','count','printRun','variant','coverArtist','artist','penciller',
+            'inker','writer','averagePrice','paidPrice','pointOfPurchase','buyDate',
+            'sellPrice','sellDate','signed','remarked','notes'
           ].map((col) => (
             <span
               key={col}
-              className={`text-xs px-2 py-1 rounded font-mono ${col === 'name' ? 'bg-brand-500/30 text-brand-400 border border-brand-500/50' : 'bg-gray-800 text-gray-400'}`}
+              className={`text-xs px-2 py-1 rounded font-mono ${col === 'series' ? 'bg-brand-500/30 text-brand-400 border border-brand-500/50' : 'bg-gray-800 text-gray-400'}`}
             >
               {col}
             </span>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-3">Only <span className="text-brand-400 font-mono">name</span> is required. All other columns are optional.</p>
+        <p className="text-xs text-gray-500 mt-3">Only <span className="text-brand-400 font-mono">series</span> is required. All other columns are optional.</p>
       </div>
     </div>
   )

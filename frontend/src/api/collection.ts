@@ -19,6 +19,9 @@ export const bulkUpdateUserComics = (updates: { id: number; update: Partial<User
 export const recordSale = (ucId: number, sell_date: string, sell_price?: number | null, notes?: string | null) =>
   api.post<Sale>(`/comics/collection/${ucId}/sales`, { sell_date, sell_price, notes }).then(r => r.data)
 
+export const updateSale = (ucId: number, saleId: number, sell_price: number | null) =>
+  api.put<Sale>(`/comics/collection/${ucId}/sales/${saleId}`, { sell_price }).then(r => r.data)
+
 export const deleteSale = (ucId: number, saleId: number) =>
   api.delete(`/comics/collection/${ucId}/sales/${saleId}`)
 

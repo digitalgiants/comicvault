@@ -12,16 +12,16 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/signup", response_model=UserOut, status_code=201)
 def signup(user_in: UserCreate, db: Session = Depends(get_db)):
-    if crud.get_user_by_email(db, user_in.email):
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if crud.get_user_by_username(db, user_in.username):
+        raise HTTPException(status_code=400, detail="Username already taken")
     return crud.create_user(db, user_in)
 
 
 @router.post("/login", response_model=Token)
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    user = crud.get_user_by_email(db, credentials.email)
+    user = crud.get_user_by_username(db, credentials.username)
     if not user or not verify_password(credentials.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"access_token": create_access_token(user.id)}
 
 

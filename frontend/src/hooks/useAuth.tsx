@@ -3,7 +3,7 @@ import api from '../api/client'
 
 interface User {
   id: number
-  email: string
+  username: string
   is_admin: boolean
   is_kiosk: boolean
   created_at: string
@@ -12,8 +12,8 @@ interface User {
 interface AuthCtx {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
-  signup: (email: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  signup: (username: string, password: string) => Promise<void>
   logout: () => void
 }
 
@@ -32,16 +32,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false))
   }, [])
 
-  const login = async (email: string, password: string) => {
-    const { data } = await api.post('/auth/login', { email, password })
+  const login = async (username: string, password: string) => {
+    const { data } = await api.post('/auth/login', { username, password })
     localStorage.setItem('token', data.access_token)
     const me = await api.get('/auth/me')
     setUser(me.data)
   }
 
-  const signup = async (email: string, password: string) => {
-    await api.post('/auth/signup', { email, password })
-    await login(email, password)
+  const signup = async (username: string, password: string) => {
+    await api.post('/auth/signup', { username, password })
+    await login(username, password)
   }
 
   const logout = () => {
