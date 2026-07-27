@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { X, Trash2 } from 'lucide-react'
 import { updateUserComic, deleteSale, updateSale } from '../../api/collection'
+import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
+import PhotoCapture from './PhotoCapture'
 
 interface Props {
   item: UserComic
@@ -15,6 +17,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
+  const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -28,6 +31,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     })
     setForm(initial)
     setLocalSales(item.sales ?? [])
+    setPersonalImg(item.personal_img)
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -66,6 +70,18 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     } catch {
       setError('Failed to update sale price.')
     }
+  }
+
+  const handlePhotoUploaded = (updated: UserComic) => {
+    setPersonalImg(updated.personal_img)
+    onItemChange?.({ ...item, sales: localSales, personal_img: updated.personal_img })
+  }
+
+  const handleRemovePhoto = async () => {
+    if (!confirm('Remove this photo?')) return
+    await updateUserComic(item.id, { personal_img: null })
+    setPersonalImg(null)
+    onItemChange?.({ ...item, sales: localSales, personal_img: null })
   }
 
   const handleDeleteSale = async (sale: Sale) => {
@@ -151,6 +167,36 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Personal Photo */}
+          <div className="mt-6 pt-4 border-t border-gray-800">
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Your Photo</p>
+            <div className="flex items-center gap-4">
+              {personalImg ? (
+                <img
+                  src={resolveImageUrl(personalImg) ?? undefined}
+                  alt="Your copy"
+                  className="w-20 h-28 object-cover rounded-lg border border-gray-700"
+                />
+              ) : (
+                <div className="w-20 h-28 bg-gray-800 rounded-lg flex items-center justify-center text-gray-600 text-xs text-center px-1">
+                  No Photo
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <PhotoCapture ucId={item.id} onUploaded={handlePhotoUploaded} />
+                {personalImg && (
+                  <button
+                    type="button"
+                    onClick={handleRemovePhoto}
+                    className="text-sm text-gray-500 hover:text-red-400 transition text-left"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Sales History */}

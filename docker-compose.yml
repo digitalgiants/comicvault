@@ -32,6 +32,7 @@ services:
       - comicvault
     volumes:
       - ./vault/backend:/app:z
+      - uploads_data:/app/uploads
     environment:
       - DATABASE_URL=postgresql://comicvault:comicvault@postgres:5432/comicvault
       - JWT_SECRET=${JWT_SECRET:-supersecretchangeme}
@@ -88,3 +89,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

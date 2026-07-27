@@ -21,4 +21,11 @@ api.interceptors.response.use(
   }
 )
 
+export function resolveImageUrl(path: string | null): string | null {
+  if (!path) return null
+  if (/^https?:\/\//.test(path)) return path
+  const baseURL = api.defaults.baseURL || ''
+  return `${baseURL}${path}`
+}
+
 export default api

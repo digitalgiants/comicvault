@@ -70,6 +70,7 @@ class UserComic(Base):
     signed = Column(Boolean, default=False)
     remarked = Column(Boolean, default=False)
     condition = Column(String, nullable=True)
+    personal_img = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

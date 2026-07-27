@@ -45,6 +45,7 @@ export interface UserComic {
   signed: boolean
   remarked: boolean
   condition: string | null
+  personal_img: string | null
   notes: string | null
   created_at: string
   sales: Sale[]
@@ -106,6 +107,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'signed', label: 'Signed' },
   { key: 'remarked', label: 'Remarked' },
   { key: 'condition', label: 'Condition' },
+  { key: 'personal_img', label: 'Photo' },
   { key: 'notes', label: 'Notes' },
 ]
 
@@ -128,6 +130,7 @@ export type UserComicUpdate = {
   signed?: boolean
   remarked?: boolean
   condition?: string | null
+  personal_img?: string | null
   notes?: string | null
 }
 

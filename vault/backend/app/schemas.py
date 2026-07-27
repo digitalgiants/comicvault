@@ -133,6 +133,7 @@ class UserComicBase(BaseModel):
     signed: Optional[bool] = False
     remarked: Optional[bool] = False
     condition: Optional[str] = None
+    personal_img: Optional[str] = None
     notes: Optional[str] = None
 
 
@@ -148,6 +149,7 @@ class UserComicUpdate(BaseModel):
     signed: Optional[bool] = None
     remarked: Optional[bool] = None
     condition: Optional[str] = None
+    personal_img: Optional[str] = None
     notes: Optional[str] = None
 
 

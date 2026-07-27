@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -11,6 +14,11 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/comics", tags=["comics"])
+
+PHOTO_DIR = Path("/app/uploads/personal_img")
+PHOTO_DIR.mkdir(parents=True, exist_ok=True)
+MAX_PHOTO_SIZE = 3 * 1024 * 1024  # 3MB
+ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
 @router.get("/", response_model=list[ComicOut])
@@ -109,6 +117,29 @@ def remove_from_collection(
     if not crud.delete_user_comic(db, current_user.id, uc_id):
         raise HTTPException(status_code=404, detail="Not found")
     crud.record_snapshot(db, current_user.id)
+
+
+@router.post("/collection/{uc_id}/photo", response_model=UserComicOut)
+async def upload_photo(
+    uc_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    if not crud.get_user_comic_by_id(db, current_user.id, uc_id):
+        raise HTTPException(status_code=404, detail="Not found")
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG, or WEBP images are accepted")
+
+    contents = await file.read()
+    if len(contents) > MAX_PHOTO_SIZE:
+        raise HTTPException(status_code=400, detail="Image too large (max 3MB)")
+
+    filename = f"{uuid.uuid4()}.jpg"
+    (PHOTO_DIR / filename).write_bytes(contents)
+
+    uc = crud.set_user_comic_photo(db, current_user.id, uc_id, f"/uploads/personal_img/{filename}")
+    return uc
 
 
 @router.post("/collection/{uc_id}/sales", response_model=SaleOut, status_code=201)

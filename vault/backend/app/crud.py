@@ -274,6 +274,16 @@ def get_user_comic_by_id(db: Session, user_id: int, uc_id: int) -> Optional[User
     )
 
 
+def set_user_comic_photo(db: Session, user_id: int, uc_id: int, path: str) -> Optional[UserComic]:
+    uc = get_user_comic_by_id(db, user_id, uc_id)
+    if not uc:
+        return None
+    uc.personal_img = path
+    db.commit()
+    db.refresh(uc)
+    return uc
+
+
 def delete_user_comic(db: Session, user_id: int, uc_id: int) -> bool:
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:

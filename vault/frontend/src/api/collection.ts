@@ -25,6 +25,14 @@ export const updateSale = (ucId: number, saleId: number, sell_price: number | nu
 export const deleteSale = (ucId: number, saleId: number) =>
   api.delete(`/comics/collection/${ucId}/sales/${saleId}`)
 
+export const uploadPersonalPhoto = (ucId: number, blob: Blob) => {
+  const form = new FormData()
+  form.append('file', blob, 'photo.jpg')
+  return api.post<UserComic>(`/comics/collection/${ucId}/photo`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then(r => r.data)
+}
+
 export const getColumnPrefs = (page: string) =>
   api.get<{ page: string; columns: ColumnVisibility }>(`/users/preferences/columns/${page}`).then(r => r.data)
 
