@@ -173,6 +173,14 @@ export default function CollectionPage() {
                               className="w-8 h-11 object-cover rounded border border-gray-700"
                             />
                           ) : '—'
+                        ) : c.key === 'img' ? (
+                          uc.comic.img ? (
+                            <img
+                              src={resolveImageUrl(uc.comic.img) ?? undefined}
+                              alt=""
+                              className="w-8 h-11 object-cover rounded border border-gray-700"
+                            />
+                          ) : '—'
                         ) : fmt(uc, c.key)}
                       </td>
                     ))}

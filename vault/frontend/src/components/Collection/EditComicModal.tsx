@@ -112,25 +112,35 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Comic Info (read-only)</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
-            {[
-              ['Writer', item.comic.writer],
-              ['Artist', item.comic.artist],
-              ['Penciller', item.comic.penciller],
-              ['Inker', item.comic.inker],
-              ['Cover Artist', item.comic.cover_artist],
-              ['Variant', item.comic.variant],
-              ['Print Run', item.comic.print_run],
-              ['UPC', item.comic.upc],
-              ['Cover Date', item.comic.cover_date],
-              ['Store Date', item.comic.store_date],
-              ['Avg Price', item.comic.average_price != null ? `$${item.comic.average_price.toFixed(2)}` : null],
-            ].filter(([, v]) => v).map(([label, val]) => (
-              <div key={label as string}>
-                <span className="text-gray-500">{label}: </span>
-                <span className="text-gray-300">{val as string}</span>
-              </div>
-            ))}
+          <div className="flex gap-4">
+            {item.comic.img && (
+              <img
+                src={resolveImageUrl(item.comic.img) ?? undefined}
+                alt=""
+                className="w-16 h-24 object-cover rounded-lg border border-gray-700 flex-shrink-0"
+              />
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm flex-1">
+              {[
+                ['Writer', item.comic.writer],
+                ['Artist', item.comic.artist],
+                ['Penciller', item.comic.penciller],
+                ['Inker', item.comic.inker],
+                ['Cover Artist', item.comic.cover_artist],
+                ['Variant', item.comic.variant],
+                ['Print Run', item.comic.print_run],
+                ['UPC', item.comic.upc],
+                ['Cover Date', item.comic.cover_date],
+                ['Store Date', item.comic.store_date],
+                ['Newsstand / Direct', item.comic.direct == null ? null : (item.comic.direct ? 'Direct' : 'Newsstand')],
+                ['Avg Price', item.comic.average_price != null ? `$${item.comic.average_price.toFixed(2)}` : null],
+              ].filter(([, v]) => v).map(([label, val]) => (
+                <div key={label as string}>
+                  <span className="text-gray-500">{label}: </span>
+                  <span className="text-gray-300">{val as string}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import Cropper, { type Area } from 'react-easy-crop'
-import { Camera, X } from 'lucide-react'
+import { Camera, Image as ImageIcon, X } from 'lucide-react'
 import { uploadPersonalPhoto } from '../../api/collection'
 import type { UserComic } from '../../types'
 
@@ -37,7 +37,8 @@ async function cropAndResize(imageSrc: string, area: Area): Promise<Blob> {
 }
 
 export default function PhotoCapture({ ucId, onUploaded }: Props) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const libraryInputRef = useRef<HTMLInputElement>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -80,21 +81,38 @@ export default function PhotoCapture({ ucId, onUploaded }: Props) {
   return (
     <>
       <input
-        ref={inputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         onChange={handleFileChange}
         className="hidden"
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
-      >
-        <Camera size={15} />
-        Take / Choose Photo
-      </button>
+      <input
+        ref={libraryInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => cameraInputRef.current?.click()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+        >
+          <Camera size={15} />
+          Take Photo
+        </button>
+        <button
+          type="button"
+          onClick={() => libraryInputRef.current?.click()}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+        >
+          <ImageIcon size={15} />
+          Choose Photo
+        </button>
+      </div>
 
       {imageSrc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
