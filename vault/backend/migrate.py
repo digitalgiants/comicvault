@@ -55,6 +55,13 @@ MIGRATIONS = [
         END IF;
     END $$
     """,
+
+    # Add personal_img column to user_comics (added after some deployments' last
+    # full rebuild, so create_all alone won't add it to an existing table)
+    """
+    ALTER TABLE user_comics
+        ADD COLUMN IF NOT EXISTS personal_img VARCHAR
+    """,
 ]
 
 
