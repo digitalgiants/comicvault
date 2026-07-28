@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, BookOpen, Search as SearchIcon, X } from 'lucide-react'
 import BugReportButton from '../components/BugReportButton'
-import { useDebounce } from '../hooks/useDebounce'
 import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
 import type { ExternalIssueSummary, ExternalSeriesResult, ScanComicFields } from '../types'
 import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
@@ -14,7 +13,7 @@ const PROVIDER_BADGE: Record<string, string> = {
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
-  const debouncedQuery = useDebounce(query, 400)
+  const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<ExternalSeriesResult[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [searching, setSearching] = useState(false)
@@ -28,16 +27,14 @@ export default function SearchPage() {
 
   const requestId = useRef(0)
 
-  useEffect(() => {
-    if (debouncedQuery.trim().length < 2) {
-      setResults([])
-      setWarnings([])
-      return
-    }
+  const runSearch = () => {
+    const trimmed = query.trim()
+    if (trimmed.length < 2) return
 
     const id = ++requestId.current
     setSearching(true)
-    searchSeries(debouncedQuery.trim())
+    setHasSearched(true)
+    searchSeries(trimmed)
       .then((data) => {
         if (id !== requestId.current) return
         setResults(data.results)
@@ -45,12 +42,13 @@ export default function SearchPage() {
       })
       .catch(() => {
         if (id !== requestId.current) return
+        setResults([])
         setWarnings(['Search failed. Please try again.'])
       })
       .finally(() => {
         if (id === requestId.current) setSearching(false)
       })
-  }, [debouncedQuery])
+  }
 
   const selectSeries = async (series: ExternalSeriesResult) => {
     setSelectedSeries(series)
@@ -75,7 +73,7 @@ export default function SearchPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-2">Search & Add</h1>
       <p className="text-gray-400 mb-8">
         Search Metron and ComicVine by series title, then drill down to find and add an issue —
@@ -113,20 +111,22 @@ export default function SearchPage() {
           ) : issues.length === 0 ? (
             <p className="text-gray-500 italic">No issues found for this series.</p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {issues.map((issue) => (
                 <button
                   key={issue.provider_issue_id}
                   onClick={() => selectIssue(issue)}
                   disabled={detailLoading === issue.provider_issue_id}
-                  className="flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-4 py-3 text-left transition disabled:opacity-50"
+                  className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition disabled:opacity-50"
                 >
-                  {issue.image ? (
-                    <img src={issue.image} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
-                  ) : (
-                    <BookOpen size={20} className="text-gray-600 flex-shrink-0" />
-                  )}
-                  <div className="min-w-0">
+                  <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
+                    {issue.image ? (
+                      <img src={issue.image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <BookOpen size={28} className="text-gray-600" />
+                    )}
+                  </div>
+                  <div className="p-3">
                     <p className="font-medium truncate">
                       {issue.number ? `#${issue.number}` : 'Untitled'}
                     </p>
@@ -139,14 +139,24 @@ export default function SearchPage() {
         </div>
       ) : (
         <>
-          <div className="relative mb-6">
-            <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by series title…"
-              className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
+          <div className="flex gap-2 mb-6">
+            <div className="relative flex-1">
+              <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                placeholder="Search by series title…"
+                className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <button
+              onClick={runSearch}
+              disabled={searching || query.trim().length < 2}
+              className="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl transition disabled:opacity-50"
+            >
+              {searching ? 'Searching…' : 'Search'}
+            </button>
           </div>
 
           {warnings.length > 0 && (
@@ -163,29 +173,31 @@ export default function SearchPage() {
 
           {searching ? (
             <p className="text-gray-400">Searching…</p>
-          ) : debouncedQuery.trim().length >= 2 && results.length === 0 ? (
+          ) : hasSearched && results.length === 0 ? (
             <p className="text-gray-500 italic">No results found in either database — try a different title.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {results.map((series) => (
                 <button
                   key={`${series.provider}-${series.provider_series_id}`}
                   onClick={() => selectSeries(series)}
-                  className="w-full flex items-center gap-3 bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl px-4 py-3 text-left transition"
+                  className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition"
                 >
-                  {series.image ? (
-                    <img src={series.image} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
-                  ) : (
-                    <BookOpen size={20} className="text-gray-600 flex-shrink-0" />
-                  )}
-                  <div className="min-w-0 flex-1">
+                  <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
+                    {series.image ? (
+                      <img src={series.image} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <BookOpen size={28} className="text-gray-600" />
+                    )}
+                  </div>
+                  <div className="p-3">
                     <div className="flex items-center gap-2">
                       <p className="font-medium truncate">{series.name}</p>
-                      <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${PROVIDER_BADGE[series.provider]}`}>
-                        {PROVIDER_LABEL[series.provider]}
-                      </span>
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${PROVIDER_BADGE[series.provider]}`}>
+                      {PROVIDER_LABEL[series.provider]}
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
                       {[series.publisher, series.start_year, series.issue_count ? `${series.issue_count} issues` : null]
                         .filter(Boolean).join(' · ')}
                     </p>
