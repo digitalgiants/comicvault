@@ -65,6 +65,7 @@ class UserComic(Base):
     comic_id = Column(Integer, ForeignKey("comics.id"), nullable=False, index=True)
     count = Column(Integer, default=1)
     paid_price = Column(Float, nullable=True)
+    asking_price = Column(Float, nullable=True)
     point_of_purchase = Column(String, nullable=True)
     buy_date = Column(DateTime, nullable=True)
     signed = Column(Boolean, default=False)

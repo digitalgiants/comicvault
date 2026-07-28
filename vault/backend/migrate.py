@@ -62,6 +62,12 @@ MIGRATIONS = [
     ALTER TABLE user_comics
         ADD COLUMN IF NOT EXISTS personal_img VARCHAR
     """,
+
+    # Add asking_price column to user_comics
+    """
+    ALTER TABLE user_comics
+        ADD COLUMN IF NOT EXISTS asking_price FLOAT
+    """,
 ]
 
 

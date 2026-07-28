@@ -89,6 +89,7 @@ async def upload_csv(
                 comic_id=comic.id,
                 count=row.get("count") or 1,
                 paid_price=row.get("paid_price"),
+                asking_price=row.get("asking_price"),
                 point_of_purchase=row.get("point_of_purchase"),
                 buy_date=row.get("buy_date"),
                 signed=row.get("signed") or False,

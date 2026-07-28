@@ -40,6 +40,7 @@ export interface UserComic {
   comic: Comic
   count: number
   paid_price: number | null
+  asking_price: number | null
   point_of_purchase: string | null
   buy_date: string | null
   signed: boolean
@@ -101,6 +102,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'writer', label: 'Writer' },
   { key: 'average_price', label: 'Average Price' },
   { key: 'paid_price', label: 'Paid Price' },
+  { key: 'asking_price', label: 'Asking Price' },
   { key: 'buy_date', label: 'Buy Date' },
   { key: 'sell_price', label: 'Sell Price' },
   { key: 'point_of_purchase', label: 'Point of Purchase' },
@@ -125,6 +127,7 @@ export const SOLD_COLUMNS: { key: string; label: string }[] = [
 export type UserComicUpdate = {
   count?: number | null
   paid_price?: number | null
+  asking_price?: number | null
   point_of_purchase?: string | null
   buy_date?: string | null
   signed?: boolean
@@ -137,6 +140,7 @@ export type UserComicUpdate = {
 export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string }[] = [
   { key: 'count', label: 'Count', type: 'number' },
   { key: 'paid_price', label: 'Paid Price ($)', type: 'number' },
+  { key: 'asking_price', label: 'Asking Price ($)', type: 'number' },
   { key: 'point_of_purchase', label: 'Point of Purchase', type: 'text' },
   { key: 'buy_date', label: 'Buy Date', type: 'date' },
   { key: 'signed', label: 'Signed', type: 'checkbox' },

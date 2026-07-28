@@ -94,7 +94,7 @@ export default function CollectionPage() {
     }
     const v = (uc as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
-    if (key === 'paid_price') return `$${Number(v).toFixed(2)}`
+    if (key === 'paid_price' || key === 'asking_price') return `$${Number(v).toFixed(2)}`
     if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
     if (key === 'buy_date') return new Date(v as string).toLocaleDateString()
     return String(v)

@@ -128,6 +128,7 @@ class SaleWithComicOut(BaseModel):
 class UserComicBase(BaseModel):
     count: Optional[int] = 1
     paid_price: Optional[float] = None
+    asking_price: Optional[float] = None
     point_of_purchase: Optional[str] = None
     buy_date: Optional[datetime] = None
     signed: Optional[bool] = False
@@ -144,6 +145,7 @@ class UserComicCreate(UserComicBase):
 class UserComicUpdate(BaseModel):
     count: Optional[int] = None
     paid_price: Optional[float] = None
+    asking_price: Optional[float] = None
     point_of_purchase: Optional[str] = None
     buy_date: Optional[datetime] = None
     signed: Optional[bool] = None

@@ -136,7 +136,7 @@ export default function UploadPage() {
           {[
             'upc','img','series','volume','issueNumber','coverDate','storeDate','direct',
             'publisher','count','printRun','variant','coverArtist','artist','penciller',
-            'inker','writer','averagePrice','paidPrice','pointOfPurchase','buyDate',
+            'inker','writer','averagePrice','paidPrice','askingPrice','pointOfPurchase','buyDate',
             'sellPrice','sellDate','signed','remarked','notes'
           ].map((col) => (
             <span

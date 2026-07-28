@@ -4,7 +4,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
@@ -506,7 +506,12 @@ def _available_kiosk_items(q) -> list[UserComic]:
 
 
 def get_kiosk_available_by_price(db: Session, threshold: float, limit: int) -> list[UserComic]:
-    q = db.query(UserComic).join(Comic).filter(Comic.average_price > threshold)
+    q = db.query(UserComic).join(Comic).filter(
+        or_(
+            UserComic.asking_price > threshold,
+            and_(UserComic.asking_price.is_(None), Comic.average_price > threshold),
+        )
+    )
     available = _available_kiosk_items(q)
     return random.sample(available, min(limit, len(available)))
 
