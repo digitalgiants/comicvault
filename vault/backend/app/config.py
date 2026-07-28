@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 10080
     cors_origins: str = "http://localhost:3002"
     comic_scraper_url: str = "http://comic-scraper:9095"
+    comicvine_api_key: str = ""
 
     class Config:
         env_file = ".env"

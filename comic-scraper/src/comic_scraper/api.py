@@ -15,6 +15,7 @@ from comic_scraper.cache import LookupCache
 from comic_scraper.config import get_settings
 from comic_scraper.lookup import LookupResult, UpcLookupService
 from comic_scraper.metron.client import MetronClient
+from comic_scraper.metron.exceptions import MetronNotFoundError
 
 STATIC_DIR = Path(__file__).resolve().parent.parent.parent / "static"
 MAX_BATCH_SIZE = 20
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     )
     cache = LookupCache(settings.database_url)
     state["service"] = UpcLookupService(client, cache)
+    state["client"] = client
     yield
     client.close()
 
@@ -55,6 +57,99 @@ def lookup(upc12: str, ean5: str | None = None) -> LookupResult:
     if result is None:
         raise HTTPException(status_code=404, detail="No issue found for that UPC")
     return result
+
+
+class SeriesSearchResult(BaseModel):
+    id: int
+    name: str
+    publisher_name: str | None = None
+    year_began: int | None = None
+    volume: int | None = None
+    issue_count: int | None = None
+    image: str | None = None
+
+
+class IssueSummary(BaseModel):
+    id: int
+    number: str | None = None
+    cover_date: str | None = None
+    image: str | None = None
+
+
+class IssueFields(BaseModel):
+    publisher: str | None = None
+    series: str
+    volume: str | None = None
+    issue_number: str | None = None
+    cover_date: str | None = None
+    store_date: str | None = None
+    variant: str | None = None
+    writer: str | None = None
+    artist: str | None = None
+    penciller: str | None = None
+    inker: str | None = None
+    cover_artist: str | None = None
+    upc: str | None = None
+    img: str | None = None
+
+
+@app.get("/series/search")
+def search_series(name: str) -> list[SeriesSearchResult]:
+    results = state["client"].search_series(name)
+    return [
+        SeriesSearchResult(
+            id=item["id"],
+            name=item.get("name") or item.get("series", ""),
+            publisher_name=(item.get("publisher") or {}).get("name") if isinstance(item.get("publisher"), dict) else item.get("publisher_name"),
+            year_began=item.get("year_began"),
+            volume=item.get("volume"),
+            issue_count=item.get("issue_count"),
+            image=item.get("image"),
+        )
+        for item in results
+    ]
+
+
+@app.get("/series/{series_id}/issues")
+def series_issues(series_id: int) -> list[IssueSummary]:
+    results = state["client"].list_issues_by_series(series_id)
+    return [
+        IssueSummary(
+            id=item["id"],
+            number=item.get("number"),
+            cover_date=item.get("cover_date"),
+            image=item.get("image"),
+        )
+        for item in results
+    ]
+
+
+@app.get("/issue/{issue_id}/fields")
+def issue_fields(issue_id: int) -> IssueFields:
+    try:
+        issue = state["client"].get_issue(issue_id)
+    except MetronNotFoundError:
+        raise HTTPException(status_code=404, detail="No Metron issue found for that id")
+
+    def joined(names: list[str]) -> str | None:
+        return ", ".join(names) if names else None
+
+    return IssueFields(
+        publisher=issue.publisher.name if issue.publisher else None,
+        series=issue.series.name,
+        volume=str(issue.series.volume) if issue.series.volume is not None else None,
+        issue_number=issue.number,
+        cover_date=str(issue.cover_date) if issue.cover_date else None,
+        store_date=str(issue.store_date) if issue.store_date else None,
+        variant=issue.variants[0].name if issue.variants else None,
+        writer=joined(issue.writers),
+        artist=None,
+        penciller=joined(issue.pencillers),
+        inker=joined(issue.inkers),
+        cover_artist=joined(issue.cover_artists),
+        upc=issue.upc or None,
+        img=issue.image,
+    )
 
 
 class BatchLookupItem(BaseModel):

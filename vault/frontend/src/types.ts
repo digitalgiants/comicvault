@@ -240,6 +240,33 @@ export interface ScanAddRequest {
   user_comic: ScanUserComicFields
 }
 
+// --- Series title search (Metron + ComicVine) ---
+
+export type Provider = 'metron' | 'comicvine'
+
+export interface ExternalSeriesResult {
+  provider: Provider
+  provider_series_id: string
+  name: string
+  publisher: string | null
+  start_year: number | null
+  issue_count: number | null
+  image: string | null
+}
+
+export interface ExternalSeriesSearchResult {
+  results: ExternalSeriesResult[]
+  warnings: string[]
+}
+
+export interface ExternalIssueSummary {
+  provider: Provider
+  provider_issue_id: string
+  number: string | null
+  cover_date: string | null
+  image: string | null
+}
+
 // --- Kiosk (customer-facing) ---
 
 export interface KioskCard {

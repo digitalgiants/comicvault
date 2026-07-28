@@ -1,4 +1,4 @@
-import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Tag } from 'lucide-react'
+import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -43,6 +43,13 @@ export default function Navbar() {
                 >
                   <ScanBarcode size={16} />
                   <span className="hidden sm:inline">Scan</span>
+                </Link>
+                <Link
+                  to="/search"
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
+                >
+                  <Library size={16} />
+                  <span className="hidden sm:inline">Search</span>
                 </Link>
                 <Link
                   to="/sold"

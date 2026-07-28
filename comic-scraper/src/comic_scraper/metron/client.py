@@ -50,6 +50,12 @@ class MetronClient:
             return None
         return self.get_issue(results[0]["id"])
 
+    def search_series(self, name: str) -> list[dict]:
+        return self._request("GET", "series/", params={"name": name})["results"]
+
+    def list_issues_by_series(self, series_id: int) -> list[dict]:
+        return self._request("GET", "issue/", params={"series_id": series_id})["results"]
+
     def get_issue(self, issue_id: int) -> Issue:
         data = self._request("GET", f"issue/{issue_id}/")
         issue = Issue.model_validate(data)

@@ -181,6 +181,31 @@ class ScanAddRequest(BaseModel):
     user_comic: UserComicBase
 
 
+# --- Series search (Metron + ComicVine, by title) ---
+
+class ExternalSeriesResult(BaseModel):
+    provider: str
+    provider_series_id: str
+    name: str
+    publisher: Optional[str] = None
+    start_year: Optional[int] = None
+    issue_count: Optional[int] = None
+    image: Optional[str] = None
+
+
+class ExternalSeriesSearchResult(BaseModel):
+    results: list[ExternalSeriesResult]
+    warnings: list[str] = []
+
+
+class ExternalIssueSummary(BaseModel):
+    provider: str
+    provider_issue_id: str
+    number: Optional[str] = None
+    cover_date: Optional[str] = None
+    image: Optional[str] = None
+
+
 # --- CSV Import ---
 
 class CSVImportResult(BaseModel):
