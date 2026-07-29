@@ -35,7 +35,7 @@ function AppRoutes() {
   const { user } = useAuth()
   return (
     <div className="min-h-screen">
-      <Navbar />
+      {!user?.is_kiosk && <Navbar />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
