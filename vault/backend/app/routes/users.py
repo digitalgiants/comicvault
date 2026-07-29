@@ -22,12 +22,17 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = crud.get_user_by_username(db, credentials.username)
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
-    return {"access_token": create_access_token(user.id)}
+    return {"access_token": create_access_token(user.id, user.is_kiosk)}
 
 
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/refresh", response_model=Token)
+def refresh(current_user: User = Depends(get_current_user)):
+    return {"access_token": create_access_token(current_user.id, current_user.is_kiosk)}
 
 
 @router.get("/snapshots", response_model=list[SnapshotOut])

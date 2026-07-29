@@ -49,6 +49,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
   }
 
+  useEffect(() => {
+    if (!user) return
+
+    const idleTimeoutMs = user.is_kiosk ? 8 * 60 * 60 * 1000 : 5 * 60 * 1000
+    const refreshIntervalMs = 60 * 1000
+    let lastActivity = Date.now()
+    let lastRefresh = 0
+
+    const onActivity = () => {
+      lastActivity = Date.now()
+    }
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll']
+    activityEvents.forEach((evt) => window.addEventListener(evt, onActivity, { passive: true }))
+
+    const checkIdle = setInterval(() => {
+      const now = Date.now()
+      const idleFor = now - lastActivity
+      if (idleFor > idleTimeoutMs) {
+        logout()
+        window.location.href = '/login'
+        return
+      }
+      if (now - lastRefresh > refreshIntervalMs) {
+        lastRefresh = now
+        api.post('/auth/refresh')
+          .then(({ data }) => localStorage.setItem('token', data.access_token))
+          .catch(() => {})
+      }
+    }, 10 * 1000)
+
+    return () => {
+      activityEvents.forEach((evt) => window.removeEventListener(evt, onActivity))
+      clearInterval(checkIdle)
+    }
+  }, [user])
+
   return (
     <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
