@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -42,19 +42,23 @@ def search_comics(
 
 @router.get("/collection", response_model=list[UserComicOut])
 def get_my_collection(
+    response: Response,
     series: str | None = Query(None),
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
     skip: int = 0,
-    limit: int = 500,
+    limit: int = 200,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     if current_user.is_kiosk:
-        return crud.get_kiosk_collection(db, series=series, publisher=publisher, skip=skip, limit=limit)
-    return crud.get_user_collection(db, current_user.id, series=series,
-                                    publisher=publisher, writer=writer,
-                                    skip=skip, limit=limit)
+        items, total = crud.get_kiosk_collection(db, series=series, publisher=publisher, skip=skip, limit=limit)
+    else:
+        items, total = crud.get_user_collection(db, current_user.id, series=series,
+                                        publisher=publisher, writer=writer,
+                                        skip=skip, limit=limit)
+    response.headers["X-Total-Count"] = str(total)
+    return items
 
 
 @router.get("/sold", response_model=list[SaleWithComicOut])

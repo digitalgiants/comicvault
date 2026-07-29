@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2 } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
 import { availableCopies, latestSalePrice, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
@@ -9,8 +9,12 @@ import ColumnPicker from '../components/Collection/ColumnPicker'
 import BugReportButton from '../components/BugReportButton'
 import RecordSaleModal from '../components/Collection/RecordSaleModal'
 
+const PAGE_SIZE = 200
+
 export default function CollectionPage() {
   const [items, setItems] = useState<UserComic[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [publisherFilter, setPublisherFilter] = useState('')
@@ -29,17 +33,29 @@ export default function CollectionPage() {
   const fetchCollection = useCallback(async () => {
     setLoading(true)
     try {
-      const params: Record<string, string> = {}
+      const params: Record<string, string | number> = {
+        skip: (page - 1) * PAGE_SIZE,
+        limit: PAGE_SIZE,
+      }
       if (search) params.series = search
       if (publisherFilter) params.publisher = publisherFilter
       if (writerFilter) params.writer = writerFilter
-      setItems(await getCollection(params))
+      const { items, total } = await getCollection(params)
+      setItems(items)
+      setTotal(total)
     } finally {
       setLoading(false)
     }
-  }, [search, publisherFilter, writerFilter])
+  }, [search, publisherFilter, writerFilter, page])
 
-  useEffect(() => { fetchCollection() }, [])
+  useEffect(() => { fetchCollection() }, [page])
+
+  const runSearch = () => {
+    if (page === 1) fetchCollection()
+    else setPage(1)
+  }
+
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const visibleCols = COLLECTION_COLUMNS.filter(c => visibility[c.key] !== false)
 
@@ -60,6 +76,7 @@ export default function CollectionPage() {
     await deleteUserComic(uc.id)
     setItems(prev => prev.filter(i => i.id !== uc.id))
     setSelected(prev => { const n = new Set(prev); n.delete(uc.id); return n })
+    setTotal(t => t - 1)
   }
 
   const handleSaved = (updated: UserComic) => {
@@ -122,14 +139,14 @@ export default function CollectionPage() {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={search} onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && fetchCollection()}
+            onKeyDown={e => e.key === 'Enter' && runSearch()}
             placeholder="Search by title…"
             className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
-        <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchCollection()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-        <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchCollection()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-        <button onClick={fetchCollection} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
+        <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+        <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+        <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
       </div>
 
       {loading ? (
@@ -207,6 +224,31 @@ export default function CollectionPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {!loading && total > 0 && (
+        <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
+          <span>
+            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span>Page {page} of {pageCount}</span>
+            <button
+              onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+              disabled={page === pageCount}
+              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
       )}
 

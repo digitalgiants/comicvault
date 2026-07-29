@@ -1,8 +1,11 @@
 import api from './client'
 import type { Sale, SaleWithComic, UserComic, UserComicUpdate, ColumnVisibility, Snapshot, BugReport } from '../types'
 
-export const getCollection = (params?: Record<string, string>) =>
-  api.get<UserComic[]>('/comics/collection', { params }).then(r => r.data)
+export const getCollection = (params?: Record<string, string | number>) =>
+  api.get<UserComic[]>('/comics/collection', { params }).then(r => ({
+    items: r.data,
+    total: Number(r.headers['x-total-count'] ?? r.data.length),
+  }))
 
 export const getSold = (params?: Record<string, string>) =>
   api.get<SaleWithComic[]>('/comics/sold', { params }).then(r => r.data)

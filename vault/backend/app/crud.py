@@ -206,8 +206,8 @@ def get_user_collection(
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
     skip: int = 0,
-    limit: int = 500,
-) -> list[UserComic]:
+    limit: int = 200,
+) -> tuple[list[UserComic], int]:
     q = (
         db.query(UserComic)
         .join(Comic)
@@ -220,7 +220,9 @@ def get_user_collection(
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     if writer:
         q = q.filter(Comic.writer.ilike(f"%{writer}%"))
-    return q.offset(skip).limit(limit).all()
+    total = q.count()
+    items = q.order_by(Comic.series, Comic.number).offset(skip).limit(limit).all()
+    return items, total
 
 
 def get_kiosk_collection(
@@ -228,8 +230,8 @@ def get_kiosk_collection(
     series: Optional[str] = None,
     publisher: Optional[str] = None,
     skip: int = 0,
-    limit: int = 500,
-) -> list[UserComic]:
+    limit: int = 200,
+) -> tuple[list[UserComic], int]:
     """Return all UserComics across all users that have at least one available copy."""
     q = (
         db.query(UserComic)
@@ -240,8 +242,8 @@ def get_kiosk_collection(
         q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
-    items = q.offset(skip).limit(limit).all()
-    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
+    available = [uc for uc in q.all() if (uc.count or 1) > len(uc.sales)]
+    return available[skip:skip + limit], len(available)
 
 
 def get_sold_collection(
