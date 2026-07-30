@@ -93,13 +93,27 @@ export default function KioskPage() {
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {hasSearched ? (
           <div>
-            <button
-              onClick={() => (selectedSeries ? setSelectedSeries(null) : clearSearch())}
-              className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-4"
-            >
-              <ArrowLeft size={16} />
-              {selectedSeries ? 'Back to series results' : "Back to Today's Picks"}
-            </button>
+            <div className="flex items-center gap-3 mb-4">
+              {selectedSeries && (
+                <>
+                  <button
+                    onClick={() => setSelectedSeries(null)}
+                    className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition"
+                  >
+                    <ArrowLeft size={16} />
+                    Back to series results
+                  </button>
+                  <span className="text-gray-700">|</span>
+                </>
+              )}
+              <button
+                onClick={clearSearch}
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition"
+              >
+                <ArrowLeft size={16} />
+                Back to Today's Picks
+              </button>
+            </div>
 
             {selectedSeries ? (
               <>
