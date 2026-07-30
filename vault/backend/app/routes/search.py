@@ -135,16 +135,23 @@ def get_series_issues(
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
     # Targeted "series + issue number" lookup: serve from cache if we've seen
-    # it, otherwise ask the provider for just that one issue - no need to
-    # paginate a whole series to find a single book.
+    # it, otherwise ask the provider for just that one issue. We pass `number`
+    # to the provider so it can filter server-side when it can, but we never
+    # trust that it actually did - the provider's filter param names haven't
+    # been verified against a live call, so we always confirm the match
+    # ourselves rather than assuming a small/empty result means it worked.
     if number:
-        hit = crud.get_cached_issue_by_number(db, provider, provider_series_id, number)
+        hit = crud.find_cached_issue_by_number(db, provider, provider_series_id, number)
         if hit:
             return [hit]
+
         fetched = _fetch_provider_issues(provider, provider_series_id, number=number)
         crud.bulk_upsert_issue_summaries(db, provider, provider_series_id, fetched)
-        fetched.sort(key=lambda i: crud.issue_number_sort_key(i.number))
-        return fetched
+
+        target = crud.normalize_issue_number(number)
+        matches = [i for i in fetched if crud.normalize_issue_number(i.number) == target]
+        matches.sort(key=lambda i: crud.issue_number_sort_key(i.number))
+        return matches
 
     sync = crud.get_series_sync(db, provider, provider_series_id)
     if sync is not None:

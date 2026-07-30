@@ -580,6 +580,13 @@ def issue_number_sort_key(number: Optional[str]) -> tuple[int, str]:
     return (int(match.group()) if match else 0, number or "")
 
 
+def normalize_issue_number(number: Optional[str]) -> str:
+    """Loosely compare issue numbers across providers/user input - "1", "01",
+    and " 1 " should all be treated as the same issue."""
+    stripped = (number or "").strip().lstrip("0")
+    return stripped.lower() or "0"
+
+
 def _cache_row_to_summary(row: ExternalIssueCache) -> ExternalIssueSummary:
     return ExternalIssueSummary(
         provider=row.provider,
@@ -654,19 +661,17 @@ def get_cached_issues(db: Session, provider: str, provider_series_id: str) -> li
     return summaries
 
 
-def get_cached_issue_by_number(
+def find_cached_issue_by_number(
     db: Session, provider: str, provider_series_id: str, number: str
 ) -> Optional[ExternalIssueSummary]:
-    row = (
-        db.query(ExternalIssueCache)
-        .filter(
-            ExternalIssueCache.provider == provider,
-            ExternalIssueCache.provider_series_id == provider_series_id,
-            ExternalIssueCache.number == number,
-        )
-        .first()
-    )
-    return _cache_row_to_summary(row) if row else None
+    """Loose (normalized) match against whatever's already cached for this
+    series - doesn't depend on the provider's own number filter having
+    worked, since that's never been verified against a live provider."""
+    target = normalize_issue_number(number)
+    for summary in get_cached_issues(db, provider, provider_series_id):
+        if normalize_issue_number(summary.number) == target:
+            return summary
+    return None
 
 
 def bulk_upsert_issue_summaries(
