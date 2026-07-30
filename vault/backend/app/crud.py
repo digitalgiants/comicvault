@@ -10,15 +10,17 @@ from sqlalchemy.orm import Session, joinedload
 from app.auth import hash_password
 from app.models import (
     BugReport, CollectionSnapshot, Comic, CSVImport, ExternalIssueCache,
-    ExternalSeriesSync, KioskFeaturedSet, KioskSignup, Sale, User, UserComic,
-    UserColumnPreference,
+    ExternalSeriesSearchCache, ExternalSeriesSearchLog, ExternalSeriesSync,
+    KioskFeaturedSet, KioskSignup, Sale, User, UserComic, UserColumnPreference,
 )
 from app.schemas import (
     BugReportCreate, ComicCreate, ComicUpdate, ExternalIssueSummary,
-    SaleCreate, SaleUpdate, UserComicCreate, UserComicUpdate, UserCreate,
+    ExternalSeriesResult, SaleCreate, SaleUpdate, UserComicCreate,
+    UserComicUpdate, UserCreate,
 )
 
 FEATURED_TTL = timedelta(hours=24)
+SERIES_SEARCH_TTL = timedelta(hours=24)
 
 # --- Default columns shown for each page ---
 
@@ -737,3 +739,78 @@ def update_issue_cache_fields(
     db.commit()
     db.refresh(row)
     return row
+
+
+# --- External series-title search cache (Metron / ComicVine) ---
+
+def normalize_search_query(query: str) -> str:
+    return re.sub(r"\s+", " ", query.strip().lower())
+
+
+def get_cached_series_search(
+    db: Session, provider: str, normalized_query: str, ignore_ttl: bool = False
+) -> Optional[list[ExternalSeriesResult]]:
+    """None means "no usable cache" (never searched, or too stale unless
+    ignore_ttl). An empty list is a valid cache hit - we searched before and
+    found nothing."""
+    log = (
+        db.query(ExternalSeriesSearchLog)
+        .filter(ExternalSeriesSearchLog.provider == provider, ExternalSeriesSearchLog.query == normalized_query)
+        .first()
+    )
+    if log is None:
+        return None
+    if not ignore_ttl and datetime.utcnow() - log.searched_at > SERIES_SEARCH_TTL:
+        return None
+
+    rows = (
+        db.query(ExternalSeriesSearchCache)
+        .filter(
+            ExternalSeriesSearchCache.provider == provider,
+            ExternalSeriesSearchCache.query == normalized_query,
+        )
+        .all()
+    )
+    return [
+        ExternalSeriesResult(
+            provider=row.provider,
+            provider_series_id=row.provider_series_id,
+            name=row.name,
+            publisher=row.publisher,
+            start_year=row.start_year,
+            issue_count=row.issue_count,
+            image=row.image,
+        )
+        for row in rows
+    ]
+
+
+def save_series_search_cache(
+    db: Session, provider: str, normalized_query: str, results: list[ExternalSeriesResult]
+) -> None:
+    db.query(ExternalSeriesSearchCache).filter(
+        ExternalSeriesSearchCache.provider == provider,
+        ExternalSeriesSearchCache.query == normalized_query,
+    ).delete()
+    for r in results:
+        db.add(ExternalSeriesSearchCache(
+            provider=provider,
+            query=normalized_query,
+            provider_series_id=r.provider_series_id,
+            name=r.name,
+            publisher=r.publisher,
+            start_year=r.start_year,
+            issue_count=r.issue_count,
+            image=r.image,
+        ))
+
+    log = (
+        db.query(ExternalSeriesSearchLog)
+        .filter(ExternalSeriesSearchLog.provider == provider, ExternalSeriesSearchLog.query == normalized_query)
+        .first()
+    )
+    if log is None:
+        log = ExternalSeriesSearchLog(provider=provider, query=normalized_query)
+        db.add(log)
+    log.searched_at = datetime.utcnow()
+    db.commit()

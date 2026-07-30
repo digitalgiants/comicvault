@@ -230,3 +230,37 @@ class ExternalIssueCache(Base):
     __table_args__ = (
         UniqueConstraint("provider", "provider_issue_id", name="uq_issue_cache_provider_id"),
     )
+
+
+class ExternalSeriesSearchLog(Base):
+    """Tracks when a (provider, normalized query) title search was last run,
+    so repeat searches serve from ExternalSeriesSearchCache instead of
+    re-hitting the provider. Unlike issue data, series search results are
+    given a TTL (not permanent) - new series get published/indexed over time,
+    and there's no cheap way to detect that the way there is for issue
+    counts on an already-known series."""
+    __tablename__ = "external_series_search_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, nullable=False, index=True)
+    query = Column(String, nullable=False, index=True)
+    searched_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("provider", "query", name="uq_series_search_log_provider_query"),
+    )
+
+
+class ExternalSeriesSearchCache(Base):
+    """Cached results of a series-title search, keyed by normalized query text."""
+    __tablename__ = "external_series_search_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, nullable=False, index=True)
+    query = Column(String, nullable=False, index=True)
+    provider_series_id = Column(String, nullable=False)
+    name = Column(String, nullable=False)
+    publisher = Column(String, nullable=True)
+    start_year = Column(Integer, nullable=True)
+    issue_count = Column(Integer, nullable=True)
+    image = Column(String, nullable=True)

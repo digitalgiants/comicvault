@@ -24,43 +24,70 @@ TIMEOUT = 15.0
 @router.get("/series", response_model=ExternalSeriesSearchResult)
 def search_series(
     query: str,
+    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> ExternalSeriesSearchResult:
+    normalized = crud.normalize_search_query(query)
     results: list[ExternalSeriesResult] = []
     warnings: list[str] = []
 
-    try:
-        resp = httpx.get(
-            f"{settings.comic_scraper_url}/series/search",
-            params={"name": query},
-            timeout=TIMEOUT,
-        )
-        resp.raise_for_status()
-        results.extend(
-            ExternalSeriesResult(
-                provider="metron",
-                provider_series_id=str(item["id"]),
-                name=item["name"],
-                publisher=item.get("publisher_name"),
-                start_year=item.get("year_began"),
-                issue_count=item.get("issue_count"),
-                image=item.get("image"),
+    metron_cached = crud.get_cached_series_search(db, "metron", normalized)
+    if metron_cached is not None:
+        results.extend(metron_cached)
+    else:
+        try:
+            resp = httpx.get(
+                f"{settings.comic_scraper_url}/series/search",
+                params={"name": query},
+                timeout=TIMEOUT,
             )
-            for item in resp.json()
-        )
-    except httpx.RequestError:
-        warnings.append("Metron is unavailable")
-    except Exception:
-        warnings.append("Metron search failed")
+            resp.raise_for_status()
+            metron_results = [
+                ExternalSeriesResult(
+                    provider="metron",
+                    provider_series_id=str(item["id"]),
+                    name=item["name"],
+                    publisher=item.get("publisher_name"),
+                    start_year=item.get("year_began"),
+                    issue_count=item.get("issue_count"),
+                    image=item.get("image"),
+                )
+                for item in resp.json()
+            ]
+            results.extend(metron_results)
+            crud.save_series_search_cache(db, "metron", normalized, metron_results)
+        except Exception:
+            stale = crud.get_cached_series_search(db, "metron", normalized, ignore_ttl=True)
+            if stale:
+                results.extend(stale)
+                warnings.append("Metron is unavailable - showing cached results")
+            else:
+                warnings.append("Metron is unavailable")
 
-    try:
-        results.extend(comicvine.search_series(query))
-    except ComicVineNotConfigured:
-        warnings.append("ComicVine is not configured")
-    except ComicVineRateLimitError:
-        warnings.append("ComicVine rate limit reached, showing other results only")
-    except Exception:
-        warnings.append("ComicVine search failed")
+    comicvine_cached = crud.get_cached_series_search(db, "comicvine", normalized)
+    if comicvine_cached is not None:
+        results.extend(comicvine_cached)
+    else:
+        try:
+            comicvine_results = comicvine.search_series(query)
+            results.extend(comicvine_results)
+            crud.save_series_search_cache(db, "comicvine", normalized, comicvine_results)
+        except ComicVineNotConfigured:
+            warnings.append("ComicVine is not configured")
+        except ComicVineRateLimitError:
+            stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
+            if stale:
+                results.extend(stale)
+                warnings.append("ComicVine rate limit reached - showing cached results")
+            else:
+                warnings.append("ComicVine rate limit reached, showing other results only")
+        except Exception:
+            stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
+            if stale:
+                results.extend(stale)
+                warnings.append("ComicVine search failed - showing cached results")
+            else:
+                warnings.append("ComicVine search failed")
 
     results.sort(key=lambda r: r.name)
     return ExternalSeriesSearchResult(results=results, warnings=warnings)
