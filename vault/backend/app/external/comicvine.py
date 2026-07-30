@@ -79,16 +79,50 @@ def search_series(query: str) -> list[ExternalSeriesResult]:
     return cached(f"comicvine:series:{query.lower()}", fetch)
 
 
-def get_series_issues(series_id: str) -> list[ExternalIssueSummary]:
+def get_series_issue_count(series_id: str) -> int | None:
+    """Uncached on purpose - used to check whether a cached series is stale."""
+    data = _get(f"/volume/{series_id}/", {"field_list": "count_of_issues"})
+    item = data.get("results") or {}
+    return item.get("count_of_issues")
+
+
+_PAGE_SIZE = 100
+
+
+def get_series_issues(series_id: str, number: str | None = None) -> list[ExternalIssueSummary]:
+    """Fetch every issue for a series, paging through ComicVine's offset-based results.
+
+    ComicVine caps a single request at 100 results with no cursor - the
+    un-paginated version of this call silently returned only the first 100,
+    missing most of a long-running series. `number` narrows to a single issue
+    server-side, so callers that just want one specific issue don't have to
+    page through the whole run.
+    """
+    filter_parts = [f"volume:{series_id}"]
+    if number is not None:
+        filter_parts.append(f"issue_number:{number}")
+    filter_value = ",".join(filter_parts)
+
     def fetch() -> list[ExternalIssueSummary]:
-        data = _get(
-            "/issues/",
-            {
-                "filter": f"volume:{series_id}",
-                "field_list": "id,issue_number,name,cover_date,image",
-                "limit": 100,
-            },
-        )
+        items: list[dict] = []
+        offset = 0
+        while True:
+            data = _get(
+                "/issues/",
+                {
+                    "filter": filter_value,
+                    "field_list": "id,issue_number,name,cover_date,image",
+                    "limit": _PAGE_SIZE,
+                    "offset": offset,
+                },
+            )
+            page = data.get("results", [])
+            items.extend(page)
+            offset += len(page)
+            total = data.get("number_of_total_results", len(items))
+            if len(page) < _PAGE_SIZE or offset >= total:
+                break
+
         return [
             ExternalIssueSummary(
                 provider="comicvine",
@@ -97,10 +131,11 @@ def get_series_issues(series_id: str) -> list[ExternalIssueSummary]:
                 cover_date=item.get("cover_date"),
                 image=(item.get("image") or {}).get("original_url"),
             )
-            for item in data.get("results", [])
+            for item in items
         ]
 
-    return cached(f"comicvine:issues:{series_id}", fetch)
+    cache_key = f"comicvine:issues:{series_id}" if number is None else f"comicvine:issues:{series_id}:{number}"
+    return cached(cache_key, fetch)
 
 
 def get_issue_fields(issue_id: str) -> ComicCreate:

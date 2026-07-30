@@ -170,3 +170,63 @@ class KioskFeaturedSet(Base):
     section = Column(String, primary_key=True)
     item_ids = Column(JSON, default=list)
     generated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ExternalSeriesSync(Base):
+    """Tracks whether a provider's full issue list has been paginated into
+    ExternalIssueCache, so repeat visits to a series don't re-hit the
+    rate-limited external API."""
+    __tablename__ = "external_series_syncs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, nullable=False, index=True)
+    provider_series_id = Column(String, nullable=False, index=True)
+    series_name = Column(String, nullable=True)
+    known_issue_count = Column(Integer, nullable=True)
+    synced_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_series_id", name="uq_series_sync_provider_id"),
+    )
+
+
+class ExternalIssueCache(Base):
+    """Permanent local mirror of an external provider's issue data. Summary
+    fields (number/cover_date/image) are populated when a series is paginated;
+    detail fields are populated lazily the first time a specific issue's full
+    fields are fetched for adding to a collection."""
+    __tablename__ = "external_issue_cache"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, nullable=False, index=True)
+    provider_issue_id = Column(String, nullable=False, index=True)
+    # Nullable: a row created purely from an issue-fields lookup (rather than
+    # from paginating its series) may not have this on hand.
+    provider_series_id = Column(String, nullable=True, index=True)
+
+    number = Column(String, nullable=True)
+    cover_date = Column(String, nullable=True)
+    image = Column(String, nullable=True)
+
+    fields_synced = Column(Boolean, default=False)
+    publisher = Column(String, nullable=True)
+    series = Column(String, nullable=True)
+    volume = Column(String, nullable=True)
+    store_date = Column(String, nullable=True)
+    print_run = Column(String, nullable=True)
+    variant = Column(String, nullable=True)
+    direct = Column(Boolean, nullable=True)
+    writer = Column(String, nullable=True)
+    artist = Column(String, nullable=True)
+    penciller = Column(String, nullable=True)
+    inker = Column(String, nullable=True)
+    cover_artist = Column(String, nullable=True)
+    average_price = Column(Float, nullable=True)
+    upc = Column(String, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("provider", "provider_issue_id", name="uq_issue_cache_provider_id"),
+    )

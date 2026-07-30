@@ -13,6 +13,7 @@ const PROVIDER_BADGE: Record<string, string> = {
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
+  const [issueNumber, setIssueNumber] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<ExternalSeriesResult[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
@@ -21,6 +22,7 @@ export default function SearchPage() {
   const [selectedSeries, setSelectedSeries] = useState<ExternalSeriesResult | null>(null)
   const [issues, setIssues] = useState<ExternalIssueSummary[]>([])
   const [issuesLoading, setIssuesLoading] = useState(false)
+  const [noIssueMatch, setNoIssueMatch] = useState(false)
 
   const [fields, setFields] = useState<ScanComicFields | null>(null)
   const [detailLoading, setDetailLoading] = useState<string | null>(null)
@@ -53,9 +55,22 @@ export default function SearchPage() {
   const selectSeries = async (series: ExternalSeriesResult) => {
     setSelectedSeries(series)
     setIssues([])
+    setNoIssueMatch(false)
     setIssuesLoading(true)
     try {
-      const data = await getSeriesIssues(series.provider, series.provider_series_id)
+      const trimmedNumber = issueNumber.trim()
+      const data = await getSeriesIssues(series.provider, series.provider_series_id, {
+        number: trimmedNumber || undefined,
+        seriesName: series.name,
+      })
+      if (trimmedNumber && data.length === 1) {
+        setIssuesLoading(false)
+        await selectIssue(data[0])
+        return
+      }
+      if (trimmedNumber && data.length === 0) {
+        setNoIssueMatch(true)
+      }
       setIssues(data)
     } finally {
       setIssuesLoading(false)
@@ -83,7 +98,7 @@ export default function SearchPage() {
       {selectedSeries ? (
         <div>
           <button
-            onClick={() => { setSelectedSeries(null); setIssues([]) }}
+            onClick={() => { setSelectedSeries(null); setIssues([]); setNoIssueMatch(false) }}
             className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-4"
           >
             <ArrowLeft size={16} /> Back to series results
@@ -109,7 +124,11 @@ export default function SearchPage() {
           {issuesLoading ? (
             <p className="text-gray-400">Loading issues…</p>
           ) : issues.length === 0 ? (
-            <p className="text-gray-500 italic">No issues found for this series.</p>
+            <p className="text-gray-500 italic">
+              {noIssueMatch
+                ? `No issue #${issueNumber.trim()} found for this series.`
+                : 'No issues found for this series.'}
+            </p>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
               {issues.map((issue) => (
@@ -139,7 +158,7 @@ export default function SearchPage() {
         </div>
       ) : (
         <>
-          <div className="flex gap-2 mb-6">
+          <div className="flex gap-2 mb-2">
             <div className="relative flex-1">
               <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
@@ -150,6 +169,13 @@ export default function SearchPage() {
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
+            <input
+              value={issueNumber}
+              onChange={(e) => setIssueNumber(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+              placeholder="Issue # (optional)"
+              className="w-40 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
             <button
               onClick={runSearch}
               disabled={searching || query.trim().length < 2}
@@ -158,6 +184,9 @@ export default function SearchPage() {
               {searching ? 'Searching…' : 'Search'}
             </button>
           </div>
+          <p className="text-gray-500 text-xs mb-6">
+            Add an issue number to jump straight to that issue once you pick a series, skipping the full issue grid.
+          </p>
 
           {warnings.length > 0 && (
             <div className="mb-6 bg-amber-900/30 border border-amber-700/50 text-amber-300 rounded-xl px-4 py-3 flex items-start gap-2">

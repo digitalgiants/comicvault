@@ -9,12 +9,13 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
 from app.models import (
-    BugReport, CollectionSnapshot, Comic, CSVImport, KioskFeaturedSet,
-    KioskSignup, Sale, User, UserComic, UserColumnPreference,
+    BugReport, CollectionSnapshot, Comic, CSVImport, ExternalIssueCache,
+    ExternalSeriesSync, KioskFeaturedSet, KioskSignup, Sale, User, UserComic,
+    UserColumnPreference,
 )
 from app.schemas import (
-    BugReportCreate, ComicCreate, ComicUpdate, SaleCreate, SaleUpdate,
-    UserComicCreate, UserComicUpdate, UserCreate,
+    BugReportCreate, ComicCreate, ComicUpdate, ExternalIssueSummary,
+    SaleCreate, SaleUpdate, UserComicCreate, UserComicUpdate, UserCreate,
 )
 
 FEATURED_TTL = timedelta(hours=24)
@@ -570,3 +571,164 @@ def get_kiosk_items_by_series(db: Session, series_name: str) -> list[UserComic]:
         return (int(match.group()) if match else 0, uc.comic.issue_number or "")
 
     return sorted(available, key=issue_sort_key)
+
+
+# --- External series/issue cache (Metron / ComicVine) ---
+
+def issue_number_sort_key(number: Optional[str]) -> tuple[int, str]:
+    match = re.search(r"\d+", number or "")
+    return (int(match.group()) if match else 0, number or "")
+
+
+def _cache_row_to_summary(row: ExternalIssueCache) -> ExternalIssueSummary:
+    return ExternalIssueSummary(
+        provider=row.provider,
+        provider_issue_id=row.provider_issue_id,
+        number=row.number,
+        cover_date=row.cover_date,
+        image=row.image,
+    )
+
+
+def cache_row_to_comic_create(row: ExternalIssueCache) -> ComicCreate:
+    return ComicCreate(
+        publisher=row.publisher,
+        series=row.series or "",
+        volume=row.volume,
+        issue_number=row.number,
+        cover_date=row.cover_date,
+        store_date=row.store_date,
+        print_run=row.print_run,
+        variant=row.variant,
+        direct=row.direct,
+        writer=row.writer,
+        artist=row.artist,
+        penciller=row.penciller,
+        inker=row.inker,
+        cover_artist=row.cover_artist,
+        average_price=row.average_price,
+        upc=row.upc,
+        img=row.image,
+    )
+
+
+def get_series_sync(db: Session, provider: str, provider_series_id: str) -> Optional[ExternalSeriesSync]:
+    return (
+        db.query(ExternalSeriesSync)
+        .filter(ExternalSeriesSync.provider == provider, ExternalSeriesSync.provider_series_id == provider_series_id)
+        .first()
+    )
+
+
+def upsert_series_sync(
+    db: Session,
+    provider: str,
+    provider_series_id: str,
+    series_name: Optional[str],
+    known_issue_count: int,
+) -> ExternalSeriesSync:
+    sync = get_series_sync(db, provider, provider_series_id)
+    if sync is None:
+        sync = ExternalSeriesSync(provider=provider, provider_series_id=provider_series_id)
+        db.add(sync)
+    if series_name:
+        sync.series_name = series_name
+    sync.known_issue_count = known_issue_count
+    sync.synced_at = datetime.utcnow()
+    db.commit()
+    db.refresh(sync)
+    return sync
+
+
+def get_cached_issues(db: Session, provider: str, provider_series_id: str) -> list[ExternalIssueSummary]:
+    rows = (
+        db.query(ExternalIssueCache)
+        .filter(
+            ExternalIssueCache.provider == provider,
+            ExternalIssueCache.provider_series_id == provider_series_id,
+        )
+        .all()
+    )
+    summaries = [_cache_row_to_summary(r) for r in rows]
+    summaries.sort(key=lambda s: issue_number_sort_key(s.number))
+    return summaries
+
+
+def get_cached_issue_by_number(
+    db: Session, provider: str, provider_series_id: str, number: str
+) -> Optional[ExternalIssueSummary]:
+    row = (
+        db.query(ExternalIssueCache)
+        .filter(
+            ExternalIssueCache.provider == provider,
+            ExternalIssueCache.provider_series_id == provider_series_id,
+            ExternalIssueCache.number == number,
+        )
+        .first()
+    )
+    return _cache_row_to_summary(row) if row else None
+
+
+def bulk_upsert_issue_summaries(
+    db: Session, provider: str, provider_series_id: str, issues: list[ExternalIssueSummary]
+) -> None:
+    if not issues:
+        return
+    existing = {
+        row.provider_issue_id: row
+        for row in db.query(ExternalIssueCache).filter(
+            ExternalIssueCache.provider == provider,
+            ExternalIssueCache.provider_issue_id.in_([i.provider_issue_id for i in issues]),
+        )
+    }
+    for issue in issues:
+        row = existing.get(issue.provider_issue_id)
+        if row is None:
+            row = ExternalIssueCache(provider=provider, provider_issue_id=issue.provider_issue_id)
+            db.add(row)
+        row.provider_series_id = provider_series_id
+        row.number = issue.number
+        row.cover_date = issue.cover_date
+        row.image = issue.image
+    db.commit()
+
+
+def get_cached_issue_fields(db: Session, provider: str, provider_issue_id: str) -> Optional[ExternalIssueCache]:
+    return (
+        db.query(ExternalIssueCache)
+        .filter(
+            ExternalIssueCache.provider == provider,
+            ExternalIssueCache.provider_issue_id == provider_issue_id,
+        )
+        .first()
+    )
+
+
+def update_issue_cache_fields(
+    db: Session, provider: str, provider_issue_id: str, fields: ComicCreate
+) -> ExternalIssueCache:
+    row = get_cached_issue_fields(db, provider, provider_issue_id)
+    if row is None:
+        row = ExternalIssueCache(provider=provider, provider_issue_id=provider_issue_id)
+        db.add(row)
+    row.number = fields.issue_number
+    row.cover_date = fields.cover_date.isoformat() if hasattr(fields.cover_date, "isoformat") else fields.cover_date
+    row.image = fields.img
+    row.publisher = fields.publisher
+    row.series = fields.series
+    row.volume = fields.volume
+    row.store_date = fields.store_date.isoformat() if hasattr(fields.store_date, "isoformat") else fields.store_date
+    row.print_run = fields.print_run
+    row.variant = fields.variant
+    row.direct = fields.direct
+    row.writer = fields.writer
+    row.artist = fields.artist
+    row.penciller = fields.penciller
+    row.inker = fields.inker
+    row.cover_artist = fields.cover_artist
+    row.average_price = fields.average_price
+    row.upc = fields.upc
+    row.fields_synced = True
+    db.commit()
+    db.refresh(row)
+    return row

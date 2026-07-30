@@ -110,9 +110,26 @@ def search_series(name: str) -> list[SeriesSearchResult]:
     ]
 
 
+@app.get("/series/{series_id}")
+def series_detail(series_id: int) -> SeriesSearchResult:
+    try:
+        item = state["client"].get_series(series_id)
+    except MetronNotFoundError:
+        raise HTTPException(status_code=404, detail="No Metron series found for that id")
+    return SeriesSearchResult(
+        id=item["id"],
+        name=item.get("name") or item.get("series", ""),
+        publisher_name=(item.get("publisher") or {}).get("name") if isinstance(item.get("publisher"), dict) else item.get("publisher_name"),
+        year_began=item.get("year_began"),
+        volume=item.get("volume"),
+        issue_count=item.get("issue_count"),
+        image=item.get("image"),
+    )
+
+
 @app.get("/series/{series_id}/issues")
-def series_issues(series_id: int) -> list[IssueSummary]:
-    results = state["client"].list_issues_by_series(series_id)
+def series_issues(series_id: int, number: str | None = None) -> list[IssueSummary]:
+    results = state["client"].list_issues_by_series(series_id, number=number)
     return [
         IssueSummary(
             id=item["id"],

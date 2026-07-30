@@ -53,8 +53,31 @@ class MetronClient:
     def search_series(self, name: str) -> list[dict]:
         return self._request("GET", "series/", params={"name": name})["results"]
 
-    def list_issues_by_series(self, series_id: int) -> list[dict]:
-        return self._request("GET", "issue/", params={"series_id": series_id})["results"]
+    def get_series(self, series_id: int) -> dict:
+        return self._request("GET", f"series/{series_id}/")
+
+    def list_issues_by_series(self, series_id: int, number: str | None = None) -> list[dict]:
+        """Fetch every issue for a series, following Metron's pagination cursor.
+
+        A series can span many pages (Metron's default page size is well under
+        a few hundred issues per page), and the un-paginated version of this
+        call silently returned only page one - missing most of a long-running
+        series. `number` narrows to a single issue server-side, so callers that
+        just want one specific issue don't have to page through the whole run.
+        """
+        params: dict = {"series_id": series_id}
+        if number is not None:
+            params["number"] = number
+
+        results: list[dict] = []
+        page = self._request("GET", "issue/", params=params)
+        results.extend(page["results"])
+        next_url = page.get("next")
+        while next_url:
+            page = self._request("GET", next_url)
+            results.extend(page["results"])
+            next_url = page.get("next")
+        return results
 
     def get_issue(self, issue_id: int) -> Issue:
         data = self._request("GET", f"issue/{issue_id}/")
