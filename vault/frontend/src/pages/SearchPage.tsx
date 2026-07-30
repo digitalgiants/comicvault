@@ -24,6 +24,12 @@ export default function SearchPage() {
   const [issuesLoading, setIssuesLoading] = useState(false)
   const [noIssueMatch, setNoIssueMatch] = useState(false)
 
+  const [searchedWithNumber, setSearchedWithNumber] = useState(false)
+  const [huntingForIssue, setHuntingForIssue] = useState(false)
+  const [issueMatches, setIssueMatches] = useState<{ series: ExternalSeriesResult; issue: ExternalIssueSummary }[]>([])
+  const [noIssueAnywhere, setNoIssueAnywhere] = useState(false)
+  const [browseAllOverride, setBrowseAllOverride] = useState(false)
+
   const [fields, setFields] = useState<ScanComicFields | null>(null)
   const [detailLoading, setDetailLoading] = useState<string | null>(null)
 
@@ -33,23 +39,27 @@ export default function SearchPage() {
     const trimmed = query.trim()
     if (trimmed.length < 2) return
 
+    const trimmedNumber = issueNumber.trim()
     const id = ++requestId.current
     setSearching(true)
     setHasSearched(true)
+    setSearchedWithNumber(!!trimmedNumber)
+    setIssueMatches([])
+    setNoIssueAnywhere(false)
+    setBrowseAllOverride(false)
     searchSeries(trimmed)
       .then(async (data) => {
         if (id !== requestId.current) return
         setResults(data.results)
         setWarnings(data.warnings)
-
-        // With an issue number given and exactly one series match, skip the
-        // series-list step entirely and jump straight to that issue.
-        if (issueNumber.trim() && data.results.length === 1) {
-          setSearching(false)
-          await selectSeries(data.results[0])
-          return
-        }
         setSearching(false)
+
+        // With an issue number given, don't make the user pick a series at
+        // all - hunt for that exact issue across the matching series and
+        // land directly on it.
+        if (trimmedNumber && data.results.length > 0) {
+          await huntForIssue(data.results, trimmedNumber)
+        }
       })
       .catch(() => {
         if (id !== requestId.current) return
@@ -57,6 +67,53 @@ export default function SearchPage() {
         setWarnings(['Search failed. Please try again.'])
         setSearching(false)
       })
+  }
+
+  // Checks the top-ranked series match first (cheap, and right most of the
+  // time for a specific-enough title). Only if that comes up empty do we pay
+  // the cost of checking every other candidate, and only then show a picker
+  // - scoped to just the series that actually have that issue, never the
+  // full series-name list.
+  const huntForIssue = async (candidates: ExternalSeriesResult[], number: string) => {
+    setHuntingForIssue(true)
+    try {
+      const [top, ...rest] = candidates
+      const topHits = await getSeriesIssues(top.provider, top.provider_series_id, { number, seriesName: top.name })
+      if (topHits.length === 1) {
+        await openIssue(top, topHits[0])
+        return
+      }
+
+      const restHits = await Promise.all(
+        rest.map(async (series) => {
+          const hits = await getSeriesIssues(series.provider, series.provider_series_id, { number, seriesName: series.name })
+          return hits.map((issue) => ({ series, issue }))
+        })
+      )
+      const allMatches = [
+        ...topHits.map((issue) => ({ series: top, issue })),
+        ...restHits.flat(),
+      ]
+
+      if (allMatches.length === 1) {
+        await openIssue(allMatches[0].series, allMatches[0].issue)
+        return
+      }
+      if (allMatches.length === 0) {
+        setNoIssueAnywhere(true)
+      } else {
+        setIssueMatches(allMatches)
+      }
+    } finally {
+      setHuntingForIssue(false)
+    }
+  }
+
+  const openIssue = async (series: ExternalSeriesResult, issue: ExternalIssueSummary) => {
+    setSelectedSeries(series)
+    setIssues([issue])
+    setNoIssueMatch(false)
+    await selectIssue(issue)
   }
 
   const selectSeries = async (series: ExternalSeriesResult) => {
@@ -70,6 +127,7 @@ export default function SearchPage() {
         number: trimmedNumber || undefined,
         seriesName: series.name,
       })
+      setIssues(data)
       if (trimmedNumber && data.length === 1) {
         setIssuesLoading(false)
         await selectIssue(data[0])
@@ -78,7 +136,6 @@ export default function SearchPage() {
       if (trimmedNumber && data.length === 0) {
         setNoIssueMatch(true)
       }
-      setIssues(data)
     } finally {
       setIssuesLoading(false)
     }
@@ -192,7 +249,7 @@ export default function SearchPage() {
             </button>
           </div>
           <p className="text-gray-500 text-xs mb-6">
-            Add an issue number to jump straight to that issue once you pick a series, skipping the full issue grid.
+            Add an issue number to jump straight to that exact issue — no need to pick a series first.
           </p>
 
           {warnings.length > 0 && (
@@ -209,6 +266,53 @@ export default function SearchPage() {
 
           {searching ? (
             <p className="text-gray-400">Searching…</p>
+          ) : huntingForIssue ? (
+            <p className="text-gray-400">Looking for issue #{issueNumber.trim()}…</p>
+          ) : searchedWithNumber && !browseAllOverride && noIssueAnywhere ? (
+            <div>
+              <p className="text-gray-500 italic mb-3">
+                No issue #{issueNumber.trim()} found in any series matching "{query.trim()}".
+              </p>
+              {results.length > 0 && (
+                <button
+                  onClick={() => setBrowseAllOverride(true)}
+                  className="text-sm text-brand-400 hover:text-brand-300 transition"
+                >
+                  Browse matching series by name instead
+                </button>
+              )}
+            </div>
+          ) : searchedWithNumber && !browseAllOverride && issueMatches.length > 0 ? (
+            <div>
+              <p className="text-gray-400 text-sm mb-4">
+                Found issue #{issueNumber.trim()} in {issueMatches.length} matching series:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {issueMatches.map(({ series, issue }) => (
+                  <button
+                    key={`${series.provider}-${issue.provider_issue_id}`}
+                    onClick={() => openIssue(series, issue)}
+                    disabled={detailLoading === issue.provider_issue_id}
+                    className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition disabled:opacity-50"
+                  >
+                    <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
+                      {issue.image ? (
+                        <img src={issue.image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <BookOpen size={28} className="text-gray-600" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium truncate">{series.name}</p>
+                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${PROVIDER_BADGE[series.provider]}`}>
+                        {PROVIDER_LABEL[series.provider]}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">#{issue.number}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           ) : hasSearched && results.length === 0 ? (
             <p className="text-gray-500 italic">No results found in either database — try a different title.</p>
           ) : (
