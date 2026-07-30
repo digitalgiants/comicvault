@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, BookOpen, Search as SearchIcon, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BookOpen, RotateCcw, Search as SearchIcon, X } from 'lucide-react'
 import BugReportButton from '../components/BugReportButton'
 import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
 import type { ExternalIssueSummary, ExternalSeriesResult, ScanComicFields } from '../types'
@@ -151,9 +151,40 @@ export default function SearchPage() {
     }
   }
 
+  const resetSearch = () => {
+    requestId.current++ // invalidate any in-flight search response
+    setQuery('')
+    setIssueNumber('')
+    setHasSearched(false)
+    setResults([])
+    setWarnings([])
+    setSearching(false)
+    setSelectedSeries(null)
+    setIssues([])
+    setIssuesLoading(false)
+    setNoIssueMatch(false)
+    setSearchedWithNumber(false)
+    setHuntingForIssue(false)
+    setIssueMatches([])
+    setNoIssueAnywhere(false)
+    setBrowseAllOverride(false)
+    setFields(null)
+    setDetailLoading(null)
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-2">Search & Add</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold">Search & Add</h1>
+        {hasSearched && (
+          <button
+            onClick={resetSearch}
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition"
+          >
+            <RotateCcw size={14} /> Start over
+          </button>
+        )}
+      </div>
       <p className="text-gray-400 mb-8">
         Search Metron and ComicVine by series title, then drill down to find and add an issue —
         useful for older books where UPC lookup doesn't work.
