@@ -222,7 +222,7 @@ def get_user_collection(
     if writer:
         q = q.filter(Comic.writer.ilike(f"%{writer}%"))
     total = q.count()
-    items = q.order_by(Comic.series, Comic.number).offset(skip).limit(limit).all()
+    items = q.order_by(Comic.series, Comic.issue_number).offset(skip).limit(limit).all()
     return items, total
 
 

@@ -16,6 +16,7 @@ export default function CollectionPage() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [publisherFilter, setPublisherFilter] = useState('')
   const [writerFilter, setWriterFilter] = useState('')
@@ -32,6 +33,7 @@ export default function CollectionPage() {
 
   const fetchCollection = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const params: Record<string, string | number> = {
         skip: (page - 1) * PAGE_SIZE,
@@ -43,6 +45,8 @@ export default function CollectionPage() {
       const { items, total } = await getCollection(params)
       setItems(items)
       setTotal(total)
+    } catch {
+      setError('Failed to load your collection. Your comics are safe — this is a loading error, please try again.')
     } finally {
       setLoading(false)
     }
@@ -151,6 +155,16 @@ export default function CollectionPage() {
 
       {loading ? (
         <div className="text-center text-gray-400 py-16">Loading…</div>
+      ) : error ? (
+        <div className="text-center py-16">
+          <p className="text-lg text-red-400">{error}</p>
+          <button
+            onClick={fetchCollection}
+            className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+          >
+            Retry
+          </button>
+        </div>
       ) : items.length === 0 ? (
         <div className="text-center text-gray-400 py-16">
           <p className="text-lg">No comics found.</p>
