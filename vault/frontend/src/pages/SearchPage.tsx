@@ -37,18 +37,25 @@ export default function SearchPage() {
     setSearching(true)
     setHasSearched(true)
     searchSeries(trimmed)
-      .then((data) => {
+      .then(async (data) => {
         if (id !== requestId.current) return
         setResults(data.results)
         setWarnings(data.warnings)
+
+        // With an issue number given and exactly one series match, skip the
+        // series-list step entirely and jump straight to that issue.
+        if (issueNumber.trim() && data.results.length === 1) {
+          setSearching(false)
+          await selectSeries(data.results[0])
+          return
+        }
+        setSearching(false)
       })
       .catch(() => {
         if (id !== requestId.current) return
         setResults([])
         setWarnings(['Search failed. Please try again.'])
-      })
-      .finally(() => {
-        if (id === requestId.current) setSearching(false)
+        setSearching(false)
       })
   }
 
