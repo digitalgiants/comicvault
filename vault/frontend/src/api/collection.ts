@@ -1,5 +1,5 @@
 import api from './client'
-import type { Sale, SaleWithComic, UserComic, UserComicUpdate, ColumnVisibility, Snapshot, BugReport } from '../types'
+import type { Comic, Sale, SaleWithComic, UserComic, UserComicUpdate, ColumnVisibility, Snapshot, BugReport } from '../types'
 
 export const getCollection = (params?: Record<string, string | number>) =>
   api.get<UserComic[]>('/comics/collection', { params }).then(r => ({
@@ -12,6 +12,9 @@ export const getSold = (params?: Record<string, string>) =>
 
 export const updateUserComic = (id: number, update: Partial<UserComicUpdate>) =>
   api.put<UserComic>(`/comics/collection/${id}`, update).then(r => r.data)
+
+export const updateComicUpc = (comicId: number, upc: string | null) =>
+  api.patch<Comic>(`/comics/${comicId}/upc`, { upc }).then(r => r.data)
 
 export const deleteUserComic = (id: number) =>
   api.delete(`/comics/collection/${id}`)

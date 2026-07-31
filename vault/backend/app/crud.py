@@ -104,6 +104,16 @@ def find_matching_comic(db: Session, data: dict) -> Optional[Comic]:
             q = q.filter(getattr(Comic, field) == val)
         else:
             q = q.filter(getattr(Comic, field).is_(None))
+
+    upc = data.get("upc")
+    if upc:
+        # Different variant printings of the same issue often share every
+        # other field (series/volume/issue_number) but have distinct UPCs -
+        # a UPC that conflicts with an on-file one always means "different
+        # comic," even if variant/print_run weren't filled in to distinguish
+        # them. A missing UPC on the existing row is still an open match.
+        q = q.filter(or_(Comic.upc == upc, Comic.upc.is_(None)))
+
     return q.first()
 
 
@@ -125,6 +135,16 @@ def update_comic(db: Session, comic_id: int, update: ComicUpdate) -> Optional[Co
         return None
     for field, value in update.model_dump(exclude_unset=True).items():
         setattr(comic, field, value)
+    db.commit()
+    db.refresh(comic)
+    return comic
+
+
+def update_comic_upc(db: Session, comic_id: int, upc: Optional[str]) -> Optional[Comic]:
+    comic = db.query(Comic).filter(Comic.id == comic_id).first()
+    if not comic:
+        return None
+    comic.upc = upc
     db.commit()
     db.refresh(comic)
     return comic

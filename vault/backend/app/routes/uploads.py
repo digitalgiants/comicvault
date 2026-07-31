@@ -68,6 +68,7 @@ async def upload_csv(
                 "issue_number": comic_data["issue_number"],
                 "variant": comic_data["variant"],
                 "print_run": comic_data["print_run"],
+                "upc": comic_data["upc"],
             })
 
             if existing:

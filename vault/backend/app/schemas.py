@@ -78,6 +78,10 @@ class ComicUpdate(BaseModel):
     img: Optional[str] = None
 
 
+class ComicUpcUpdate(BaseModel):
+    upc: Optional[str] = None
+
+
 class ComicOut(ComicBase):
     id: int
     created_at: datetime

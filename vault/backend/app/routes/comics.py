@@ -9,8 +9,8 @@ from app.auth import get_current_non_kiosk, get_current_user
 from app.database import get_db
 from app.models import User
 from app.schemas import (
-    BulkUpdateRequest, ComicOut, SaleCreate, SaleOut, SaleUpdate,
-    SaleWithComicOut, UserComicCreate, UserComicOut, UserComicUpdate,
+    BulkUpdateRequest, ComicOut, ComicUpcUpdate, SaleCreate, SaleOut,
+    SaleUpdate, SaleWithComicOut, UserComicCreate, UserComicOut, UserComicUpdate,
 )
 
 router = APIRouter(prefix="/comics", tags=["comics"])
@@ -38,6 +38,24 @@ def search_comics(
     return crud.search_comics(db, series=series, publisher=publisher, writer=writer,
                                artist=artist, volume=volume, issue_number=issue_number,
                                variant=variant, skip=skip, limit=limit)
+
+
+@router.patch("/{comic_id}/upc", response_model=ComicOut)
+def update_comic_upc(
+    comic_id: int,
+    update: ComicUpcUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_non_kiosk),
+):
+    normalized = update.upc.strip() if update.upc else None
+    if normalized:
+        existing = crud.get_comic_by_upc(db, normalized)
+        if existing and existing.id != comic_id:
+            raise HTTPException(status_code=400, detail="That UPC is already assigned to another comic")
+    comic = crud.update_comic_upc(db, comic_id, normalized)
+    if comic is None:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    return comic
 
 
 @router.get("/collection", response_model=list[UserComicOut])

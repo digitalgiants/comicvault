@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
+import axios from 'axios'
 import { X, Trash2 } from 'lucide-react'
-import { updateUserComic, deleteSale, updateSale } from '../../api/collection'
+import { updateUserComic, updateComicUpc, deleteSale, updateSale } from '../../api/collection'
 import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
 import PhotoCapture from './PhotoCapture'
@@ -18,6 +19,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
   const [error, setError] = useState('')
   const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
+  const [upcValue, setUpcValue] = useState(item.comic.upc ?? '')
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -32,6 +34,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     setForm(initial)
     setLocalSales(item.sales ?? [])
     setPersonalImg(item.personal_img)
+    setUpcValue(item.comic.upc ?? '')
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -51,7 +54,22 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
         else payload[key] = val === '' ? null : val
       })
       const updated = await updateUserComic(item.id, payload)
-      onSaved({ ...updated, sales: localSales })
+
+      let comic = updated.comic
+      const trimmedUpc = upcValue.trim() || null
+      if (trimmedUpc !== (item.comic.upc ?? null)) {
+        try {
+          comic = await updateComicUpc(item.comic.id, trimmedUpc)
+        } catch (err) {
+          const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
+          setError(detail || 'Failed to save UPC. Please try again.')
+          setSaving(false)
+          onSaved({ ...updated, sales: localSales })
+          return
+        }
+      }
+
+      onSaved({ ...updated, comic, sales: localSales })
     } catch {
       setError('Failed to save. Please try again.')
     } finally {
@@ -129,7 +147,6 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 ['Cover Artist', item.comic.cover_artist],
                 ['Variant', item.comic.variant],
                 ['Print Run', item.comic.print_run],
-                ['UPC', item.comic.upc],
                 ['Cover Date', item.comic.cover_date],
                 ['Store Date', item.comic.store_date],
                 ['Newsstand / Direct', item.comic.direct == null ? null : (item.comic.direct ? 'Direct' : 'Newsstand')],
@@ -145,6 +162,19 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
         </div>
 
         <div className="overflow-y-auto px-6 py-4 flex-1">
+          <div className="mb-6 pb-4 border-b border-gray-800">
+            <label className="block text-sm text-gray-400 mb-1">UPC</label>
+            <input
+              value={upcValue}
+              onChange={e => setUpcValue(e.target.value)}
+              placeholder="e.g. 76194130546700111"
+              className="w-full max-w-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Shared across the catalog — set this if the comic didn't match any lookup, so future scans of this barcode find it.
+            </p>
+          </div>
+
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Your Details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {EDITABLE_FIELDS.map(({ key, label, type }) => (
