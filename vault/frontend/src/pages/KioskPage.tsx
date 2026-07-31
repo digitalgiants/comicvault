@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { fetchKioskSeriesItems, fetchSignedComics, fetchTodaysPicks, searchKioskSeries } from '../api/kiosk'
+import { resolveImageUrl } from '../api/client'
 import KioskHeader from '../components/Kiosk/KioskHeader'
 import SignupModal from '../components/Kiosk/SignupModal'
 import FeaturedLightbox from '../components/Kiosk/FeaturedLightbox'
@@ -128,7 +129,7 @@ export default function KioskPage() {
                       <div key={item.id} className="bg-gray-800 rounded-lg overflow-hidden">
                         {item.img ? (
                           <img
-                            src={item.img}
+                            src={resolveImageUrl(item.img) ?? undefined}
                             alt={`#${item.issue_number ?? '?'}`}
                             className="w-full aspect-[2/3] object-cover"
                           />

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
+import { resolveImageUrl } from '../../api/client'
 import type { KioskCard } from '../../types'
 
 interface Props {
@@ -32,7 +33,7 @@ export default function FeaturedLightbox({ title, items, loading, error }: Props
             >
               {item.img ? (
                 <img
-                  src={item.img}
+                  src={resolveImageUrl(item.img) ?? undefined}
                   alt={`${item.series ?? 'Unknown series'} #${item.issue_number ?? '?'}`}
                   className="w-32 h-48 object-cover rounded-lg group-hover:ring-2 group-hover:ring-brand-500 transition"
                 />
@@ -70,7 +71,7 @@ export default function FeaturedLightbox({ title, items, loading, error }: Props
 
             <div className="p-6 space-y-3">
               {selected.img && (
-                <img src={selected.img} alt="" className="w-full max-h-96 object-contain rounded-lg" />
+                <img src={resolveImageUrl(selected.img) ?? undefined} alt="" className="w-full max-h-96 object-contain rounded-lg" />
               )}
               <p className="text-gray-400 text-sm">
                 {[selected.publisher, selected.volume ? `Vol. ${selected.volume}` : null]
