@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import axios from 'axios'
 import Cropper, { type Area } from 'react-easy-crop'
 import { Camera, Image as ImageIcon, X } from 'lucide-react'
 import { uploadPersonalPhoto } from '../../api/collection'
@@ -71,8 +72,9 @@ export default function PhotoCapture({ ucId, onUploaded }: Props) {
       const uc = await uploadPersonalPhoto(ucId, blob)
       onUploaded(uc)
       closeModal()
-    } catch {
-      setError('Failed to upload photo. Please try again.')
+    } catch (err) {
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
+      setError(detail || 'Failed to upload photo. Please try again.')
     } finally {
       setUploading(false)
     }

@@ -99,14 +99,14 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
   const handlePhotoUploaded = (updated: UserComic) => {
     setPersonalImg(updated.personal_img)
-    onItemChange?.({ ...item, sales: localSales, personal_img: updated.personal_img })
+    onItemChange?.({ ...item, sales: localSales, personal_img: updated.personal_img, comic: updated.comic })
   }
 
   const handleRemovePhoto = async () => {
     if (!confirm('Remove this photo?')) return
-    await updateUserComic(item.id, { personal_img: null })
+    const updated = await updateUserComic(item.id, { personal_img: null })
     setPersonalImg(null)
-    onItemChange?.({ ...item, sales: localSales, personal_img: null })
+    onItemChange?.({ ...item, sales: localSales, personal_img: null, comic: updated.comic })
   }
 
   const handleDeleteSale = async (sale: Sale) => {

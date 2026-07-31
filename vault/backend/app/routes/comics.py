@@ -18,6 +18,7 @@ router = APIRouter(prefix="/comics", tags=["comics"])
 PHOTO_DIR = Path("/app/uploads/personal_img")
 PHOTO_DIR.mkdir(parents=True, exist_ok=True)
 MAX_PHOTO_SIZE = 3 * 1024 * 1024  # 3MB
+MIN_PHOTO_SIZE = 2 * 1024  # 2KB - a real cropped cover photo is well above this; smaller is a blank/corrupt capture
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
 
@@ -163,6 +164,8 @@ async def upload_photo(
     contents = await file.read()
     if len(contents) > MAX_PHOTO_SIZE:
         raise HTTPException(status_code=400, detail="Image too large (max 3MB)")
+    if len(contents) < MIN_PHOTO_SIZE:
+        raise HTTPException(status_code=400, detail="That photo looks blank or corrupted - please retake it")
 
     filename = f"{uuid.uuid4()}.jpg"
     (PHOTO_DIR / filename).write_bytes(contents)
