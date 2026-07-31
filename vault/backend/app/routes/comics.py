@@ -9,7 +9,7 @@ from app.auth import get_current_non_kiosk, get_current_user
 from app.database import get_db
 from app.models import User
 from app.schemas import (
-    BulkUpdateRequest, ComicOut, ComicUpcUpdate, SaleCreate, SaleOut,
+    BulkUpdateRequest, ComicMetadataUpdate, ComicOut, SaleCreate, SaleOut,
     SaleUpdate, SaleWithComicOut, UserComicCreate, UserComicOut, UserComicUpdate,
 )
 
@@ -40,21 +40,28 @@ def search_comics(
                                variant=variant, skip=skip, limit=limit)
 
 
-@router.patch("/{comic_id}/upc", response_model=ComicOut)
-def update_comic_upc(
+@router.patch("/{comic_id}/metadata", response_model=ComicOut)
+def update_comic_metadata(
     comic_id: int,
-    update: ComicUpcUpdate,
+    update: ComicMetadataUpdate,
     db: Session = Depends(get_db),
     _: User = Depends(get_current_non_kiosk),
 ):
-    normalized = update.upc.strip() if update.upc else None
-    if normalized:
-        existing = crud.get_comic_by_upc(db, normalized)
-        if existing and existing.id != comic_id:
-            raise HTTPException(status_code=400, detail="That UPC is already assigned to another comic")
-    comic = crud.update_comic_upc(db, comic_id, normalized)
-    if comic is None:
+    if crud.get_comic_by_id(db, comic_id) is None:
         raise HTTPException(status_code=404, detail="Comic not found")
+
+    data = update.model_dump(exclude_unset=True)
+    if "upc" in data:
+        normalized = data["upc"].strip() if data["upc"] else None
+        data["upc"] = normalized
+        if normalized:
+            existing = crud.get_comic_by_upc(db, normalized)
+            if existing and existing.id != comic_id:
+                raise HTTPException(status_code=400, detail="That UPC is already assigned to another comic")
+    if "cover_artist" in data:
+        data["cover_artist"] = data["cover_artist"].strip() if data["cover_artist"] else None
+
+    comic = crud.update_comic_metadata(db, comic_id, data)
     return comic
 
 

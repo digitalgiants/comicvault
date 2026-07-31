@@ -78,13 +78,17 @@ class ComicUpdate(BaseModel):
     img: Optional[str] = None
 
 
-class ComicUpcUpdate(BaseModel):
+class ComicMetadataUpdate(BaseModel):
+    """Shared Comic fields any logged-in user may correct, as opposed to the
+    admin-only ComicUpdate which allows editing the full record."""
     upc: Optional[str] = None
+    cover_artist: Optional[str] = None
 
 
 class ComicOut(ComicBase):
     id: int
     created_at: datetime
+    master_photo: Optional[str] = None
 
     class Config:
         from_attributes = True

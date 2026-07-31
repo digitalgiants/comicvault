@@ -6,6 +6,7 @@ import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
+from app import crud
 from app.auth import hash_password
 from app.database import Base
 from app.models import User
@@ -68,6 +69,12 @@ MIGRATIONS = [
     ALTER TABLE user_comics
         ADD COLUMN IF NOT EXISTS asking_price FLOAT
     """,
+
+    # Add master_photo column to comics
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS master_photo VARCHAR
+    """,
 ]
 
 
@@ -87,6 +94,12 @@ def seed_kiosk_user():
     print("Kiosk user ensured.")
 
 
+def backfill_master_photos():
+    with Session(engine) as session:
+        crud.backfill_master_photos(session)
+    print("Master photos backfilled.")
+
+
 def run():
     # Runs before the raw-SQL migrations below so tables/columns from the current
     # models.py exist on a fresh database (migrate.py runs before uvicorn/main.py's
@@ -100,6 +113,7 @@ def run():
     print("Migrations applied.")
 
     seed_kiosk_user()
+    backfill_master_photos()
 
 
 if __name__ == "__main__":

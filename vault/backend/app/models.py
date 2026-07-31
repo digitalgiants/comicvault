@@ -34,6 +34,10 @@ class Comic(Base):
     id = Column(Integer, primary_key=True, index=True)
     upc = Column(String, unique=True, nullable=True, index=True)
     img = Column(String, nullable=True)
+    # Resolved from owners' personal photos (see crud.recompute_comic_master_photo)
+    # - takes priority over img wherever the comic's cover is displayed, without
+    # discarding the original looked-up image if the photo is later removed.
+    master_photo = Column(String, nullable=True)
     publisher = Column(String, index=True)
     series = Column(String, index=True, nullable=False)
     volume = Column(String, nullable=True)

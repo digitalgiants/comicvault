@@ -13,8 +13,8 @@ export const getSold = (params?: Record<string, string>) =>
 export const updateUserComic = (id: number, update: Partial<UserComicUpdate>) =>
   api.put<UserComic>(`/comics/collection/${id}`, update).then(r => r.data)
 
-export const updateComicUpc = (comicId: number, upc: string | null) =>
-  api.patch<Comic>(`/comics/${comicId}/upc`, { upc }).then(r => r.data)
+export const updateComicMetadata = (comicId: number, updates: { upc?: string | null; cover_artist?: string | null }) =>
+  api.patch<Comic>(`/comics/${comicId}/metadata`, updates).then(r => r.data)
 
 export const deleteUserComic = (id: number) =>
   api.delete(`/comics/collection/${id}`)

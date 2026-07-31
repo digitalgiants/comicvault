@@ -2,6 +2,7 @@ export interface Comic {
   id: number
   upc: string | null
   img: string | null
+  master_photo: string | null
   publisher: string | null
   series: string
   volume: string | null
@@ -56,6 +57,13 @@ export function availableCopies(uc: UserComic): number {
   return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0), 0)
 }
 
+// Priority: your own photo of your copy, then the catalog's master photo
+// (if someone's photo has been promoted as the shared image), then the
+// originally looked-up cover.
+export function coverImage(uc: UserComic): string | null {
+  return uc.personal_img ?? uc.comic.master_photo ?? uc.comic.img
+}
+
 export function latestSalePrice(uc: UserComic): number | null {
   if (!uc.sales?.length) return null
   return uc.sales[uc.sales.length - 1].sell_price ?? null
@@ -83,7 +91,7 @@ export type ColumnVisibility = Record<string, boolean>
 
 export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'upc', label: 'UPC' },
-  { key: 'img', label: 'Img' },
+  { key: 'img', label: 'Cover' },
   { key: 'series', label: 'Series' },
   { key: 'volume', label: 'Volume' },
   { key: 'issue_number', label: 'Issue Number' },
@@ -109,7 +117,6 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'signed', label: 'Signed' },
   { key: 'remarked', label: 'Remarked' },
   { key: 'condition', label: 'Condition' },
-  { key: 'personal_img', label: 'Photo' },
   { key: 'notes', label: 'Notes' },
 ]
 

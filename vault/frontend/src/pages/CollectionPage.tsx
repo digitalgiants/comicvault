@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
-import { availableCopies, latestSalePrice, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
+import { availableCopies, coverImage, latestSalePrice, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
@@ -196,18 +196,10 @@ export default function CollectionPage() {
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
                             {avail}/{uc.count ?? 1}
                           </span>
-                        ) : c.key === 'personal_img' ? (
-                          uc.personal_img ? (
-                            <img
-                              src={resolveImageUrl(uc.personal_img) ?? undefined}
-                              alt=""
-                              className="w-8 h-11 object-cover rounded border border-gray-700"
-                            />
-                          ) : '—'
                         ) : c.key === 'img' ? (
-                          uc.comic.img ? (
+                          coverImage(uc) ? (
                             <img
-                              src={resolveImageUrl(uc.comic.img) ?? undefined}
+                              src={resolveImageUrl(coverImage(uc)) ?? undefined}
                               alt=""
                               className="w-8 h-11 object-cover rounded border border-gray-700"
                             />

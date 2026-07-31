@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { X, Trash2 } from 'lucide-react'
-import { updateUserComic, updateComicUpc, deleteSale, updateSale } from '../../api/collection'
+import { updateUserComic, updateComicMetadata, deleteSale, updateSale } from '../../api/collection'
 import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
 import PhotoCapture from './PhotoCapture'
@@ -20,6 +20,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
   const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
   const [upcValue, setUpcValue] = useState(item.comic.upc ?? '')
+  const [coverArtistValue, setCoverArtistValue] = useState(item.comic.cover_artist ?? '')
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -35,6 +36,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     setLocalSales(item.sales ?? [])
     setPersonalImg(item.personal_img)
     setUpcValue(item.comic.upc ?? '')
+    setCoverArtistValue(item.comic.cover_artist ?? '')
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -56,13 +58,18 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
       const updated = await updateUserComic(item.id, payload)
 
       let comic = updated.comic
+      const metadataUpdates: { upc?: string | null; cover_artist?: string | null } = {}
       const trimmedUpc = upcValue.trim() || null
-      if (trimmedUpc !== (item.comic.upc ?? null)) {
+      const trimmedCoverArtist = coverArtistValue.trim() || null
+      if (trimmedUpc !== (item.comic.upc ?? null)) metadataUpdates.upc = trimmedUpc
+      if (trimmedCoverArtist !== (item.comic.cover_artist ?? null)) metadataUpdates.cover_artist = trimmedCoverArtist
+
+      if (Object.keys(metadataUpdates).length > 0) {
         try {
-          comic = await updateComicUpc(item.comic.id, trimmedUpc)
+          comic = await updateComicMetadata(item.comic.id, metadataUpdates)
         } catch (err) {
           const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
-          setError(detail || 'Failed to save UPC. Please try again.')
+          setError(detail || 'Failed to save UPC / Cover Artist. Please try again.')
           setSaving(false)
           onSaved({ ...updated, sales: localSales })
           return
@@ -131,9 +138,9 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Comic Info (read-only)</p>
           <div className="flex gap-4">
-            {item.comic.img && (
+            {(item.comic.master_photo || item.comic.img) && (
               <img
-                src={resolveImageUrl(item.comic.img) ?? undefined}
+                src={resolveImageUrl(item.comic.master_photo || item.comic.img) ?? undefined}
                 alt=""
                 className="w-16 h-24 object-cover rounded-lg border border-gray-700 flex-shrink-0"
               />
@@ -144,7 +151,6 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 ['Artist', item.comic.artist],
                 ['Penciller', item.comic.penciller],
                 ['Inker', item.comic.inker],
-                ['Cover Artist', item.comic.cover_artist],
                 ['Variant', item.comic.variant],
                 ['Print Run', item.comic.print_run],
                 ['Cover Date', item.comic.cover_date],
@@ -163,15 +169,29 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
         <div className="overflow-y-auto px-6 py-4 flex-1">
           <div className="mb-6 pb-4 border-b border-gray-800">
-            <label className="block text-sm text-gray-400 mb-1">UPC</label>
-            <input
-              value={upcValue}
-              onChange={e => setUpcValue(e.target.value)}
-              placeholder="e.g. 76194130546700111"
-              className="w-full max-w-xs bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Shared across the catalog — set this if the comic didn't match any lookup, so future scans of this barcode find it.
+            <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Shared Catalog Fields</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">UPC</label>
+                <input
+                  value={upcValue}
+                  onChange={e => setUpcValue(e.target.value)}
+                  placeholder="e.g. 76194130546700111"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Cover Artist</label>
+                <input
+                  value={coverArtistValue}
+                  onChange={e => setCoverArtistValue(e.target.value)}
+                  placeholder="e.g. Jim Lee"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              Shared across the catalog — useful for variant covers that didn't match any lookup, or to distinguish covers that share the same issue number.
             </p>
           </div>
 

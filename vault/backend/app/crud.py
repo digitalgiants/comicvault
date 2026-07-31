@@ -22,6 +22,10 @@ from app.schemas import (
 FEATURED_TTL = timedelta(hours=24)
 SERIES_SEARCH_TTL = timedelta(hours=24)
 
+# The shop's own account - its photo of a comic is always the master image
+# for that catalog entry over anyone else's, per crud.recompute_comic_master_photo.
+MASTER_PHOTO_OWNER_USERNAME = "digitalgiant"
+
 # --- Default columns shown for each page ---
 
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
@@ -140,11 +144,12 @@ def update_comic(db: Session, comic_id: int, update: ComicUpdate) -> Optional[Co
     return comic
 
 
-def update_comic_upc(db: Session, comic_id: int, upc: Optional[str]) -> Optional[Comic]:
+def update_comic_metadata(db: Session, comic_id: int, updates: dict) -> Optional[Comic]:
     comic = db.query(Comic).filter(Comic.id == comic_id).first()
     if not comic:
         return None
-    comic.upc = upc
+    for field, value in updates.items():
+        setattr(comic, field, value)
     db.commit()
     db.refresh(comic)
     return comic
@@ -201,15 +206,19 @@ def update_user_comic(db: Session, user_id: int, uc_id: int, update: UserComicUp
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:
         return None
-    for field, value in update.model_dump(exclude_unset=True).items():
+    changes = update.model_dump(exclude_unset=True)
+    for field, value in changes.items():
         setattr(uc, field, value)
     db.commit()
     db.refresh(uc)
+    if "personal_img" in changes:
+        recompute_comic_master_photo(db, uc.comic_id)
     return uc
 
 
 def bulk_update_user_comics(db: Session, user_id: int, updates: list[dict]) -> int:
     count = 0
+    comics_to_recompute: set[int] = set()
     for item in updates:
         uc = get_user_comic_by_id(db, user_id, item["id"])
         if not uc:
@@ -217,8 +226,12 @@ def bulk_update_user_comics(db: Session, user_id: int, updates: list[dict]) -> i
         for field, value in item["update"].items():
             if value is not None:
                 setattr(uc, field, value)
+        if "personal_img" in item["update"]:
+            comics_to_recompute.add(uc.comic_id)
         count += 1
     db.commit()
+    for comic_id in comics_to_recompute:
+        recompute_comic_master_photo(db, comic_id)
     return count
 
 
@@ -299,6 +312,56 @@ def get_user_comic_by_id(db: Session, user_id: int, uc_id: int) -> Optional[User
     )
 
 
+def recompute_comic_master_photo(db: Session, comic_id: int) -> None:
+    """A physical photo of the comic is more trustworthy than a looked-up
+    stock cover, so it takes priority as the comic's shared image - but the
+    original img is left untouched so removing the photo cleanly reverts to
+    it. Priority: the shop's own photo (MASTER_PHOTO_OWNER_USERNAME) if it
+    owns a copy and has one, else any other owner's photo, else none."""
+    comic = db.query(Comic).filter(Comic.id == comic_id).first()
+    if comic is None:
+        return
+
+    owner_photo = (
+        db.query(UserComic.personal_img)
+        .join(User, UserComic.user_id == User.id)
+        .filter(
+            UserComic.comic_id == comic_id,
+            User.username == MASTER_PHOTO_OWNER_USERNAME,
+            UserComic.personal_img.isnot(None),
+        )
+        .scalar()
+    )
+    if owner_photo is None:
+        owner_photo = (
+            db.query(UserComic.personal_img)
+            .filter(UserComic.comic_id == comic_id, UserComic.personal_img.isnot(None))
+            .order_by(UserComic.id)
+            .limit(1)
+            .scalar()
+        )
+
+    if comic.master_photo != owner_photo:
+        comic.master_photo = owner_photo
+        db.commit()
+
+
+def backfill_master_photos(db: Session) -> None:
+    """Idempotent - safe to run on every deploy. Recomputes master_photo for
+    every comic that has at least one owner photo on file, in case it's
+    missing (new comics with photos) or out of date (photo since removed)."""
+    comic_ids = {
+        row[0]
+        for row in db.query(UserComic.comic_id).filter(UserComic.personal_img.isnot(None)).distinct()
+    }
+    comic_ids |= {
+        row[0]
+        for row in db.query(Comic.id).filter(Comic.master_photo.isnot(None))
+    }
+    for comic_id in comic_ids:
+        recompute_comic_master_photo(db, comic_id)
+
+
 def set_user_comic_photo(db: Session, user_id: int, uc_id: int, path: str) -> Optional[UserComic]:
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:
@@ -306,6 +369,7 @@ def set_user_comic_photo(db: Session, user_id: int, uc_id: int, path: str) -> Op
     uc.personal_img = path
     db.commit()
     db.refresh(uc)
+    recompute_comic_master_photo(db, uc.comic_id)
     return uc
 
 
@@ -313,8 +377,10 @@ def delete_user_comic(db: Session, user_id: int, uc_id: int) -> bool:
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:
         return False
+    comic_id = uc.comic_id
     db.delete(uc)
     db.commit()
+    recompute_comic_master_photo(db, comic_id)
     return True
 
 

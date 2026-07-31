@@ -23,7 +23,7 @@ def _to_card(uc: UserComic) -> KioskCardOut:
         cover_date=comic.cover_date,
         publisher=comic.publisher,
         variant=comic.variant,
-        img=comic.img,
+        img=comic.master_photo or comic.img,
         cover_artist=comic.cover_artist,
         artist=comic.artist,
         penciller=comic.penciller,
