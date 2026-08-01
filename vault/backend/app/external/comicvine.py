@@ -154,7 +154,6 @@ def get_issue_fields(issue_id: str) -> ComicCreate:
         store_date=item.get("store_date"),
         variant=None,
         writer=_credits_by_role(person_credits, "writer"),
-        artist=_credits_by_role(person_credits, "artist"),
         penciller=_credits_by_role(person_credits, "penciler"),
         inker=_credits_by_role(person_credits, "inker"),
         cover_artist=_credits_by_role(person_credits, "cover"),

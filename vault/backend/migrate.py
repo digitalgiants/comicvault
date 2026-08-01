@@ -75,6 +75,23 @@ MIGRATIONS = [
     ALTER TABLE comics
         ADD COLUMN IF NOT EXISTS master_photo VARCHAR
     """,
+
+    # Drop the plain artist column (superseded by cover_artist)
+    """
+    ALTER TABLE comics
+        DROP COLUMN IF EXISTS artist
+    """,
+
+    """
+    ALTER TABLE external_issue_cache
+        DROP COLUMN IF EXISTS artist
+    """,
+
+    # Add legacy_number column to comics
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS legacy_number VARCHAR
+    """,
 ]
 
 

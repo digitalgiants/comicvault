@@ -31,8 +31,8 @@ MASTER_PHOTO_OWNER_USERNAME = "digitalgiant"
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
     "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
     "cover_date": True, "store_date": True, "direct": True, "publisher": True,
-    "count": True, "print_run": True, "variant": True, "cover_artist": True,
-    "artist": True, "penciller": True, "inker": True, "writer": True,
+    "count": True, "print_run": True, "variant": True, "legacy_number": True, "cover_artist": True,
+    "penciller": True, "inker": True, "writer": True,
     "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
     "point_of_purchase": True, "signed": True, "remarked": True, "notes": True,
 }
@@ -160,7 +160,6 @@ def search_comics(
     series: Optional[str] = None,
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
-    artist: Optional[str] = None,
     volume: Optional[str] = None,
     issue_number: Optional[str] = None,
     variant: Optional[str] = None,
@@ -174,8 +173,6 @@ def search_comics(
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     if writer:
         q = q.filter(Comic.writer.ilike(f"%{writer}%"))
-    if artist:
-        q = q.filter(Comic.artist.ilike(f"%{artist}%"))
     if volume:
         q = q.filter(Comic.volume == volume)
     if issue_number:
@@ -697,7 +694,6 @@ def cache_row_to_comic_create(row: ExternalIssueCache) -> ComicCreate:
         variant=row.variant,
         direct=row.direct,
         writer=row.writer,
-        artist=row.artist,
         penciller=row.penciller,
         inker=row.inker,
         cover_artist=row.cover_artist,
@@ -815,7 +811,6 @@ def update_issue_cache_fields(
     row.variant = fields.variant
     row.direct = fields.direct
     row.writer = fields.writer
-    row.artist = fields.artist
     row.penciller = fields.penciller
     row.inker = fields.inker
     row.cover_artist = fields.cover_artist

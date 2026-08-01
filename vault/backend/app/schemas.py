@@ -39,13 +39,13 @@ class ComicBase(BaseModel):
     series: str
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     direct: Optional[bool] = None
     writer: Optional[str] = None
-    artist: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
     cover_artist: Optional[str] = None
@@ -64,13 +64,13 @@ class ComicUpdate(BaseModel):
     series: Optional[str] = None
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     direct: Optional[bool] = None
     writer: Optional[str] = None
-    artist: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
     cover_artist: Optional[str] = None
@@ -250,7 +250,6 @@ class ComicSearchParams(BaseModel):
     series: Optional[str] = None
     publisher: Optional[str] = None
     writer: Optional[str] = None
-    artist: Optional[str] = None
     volume: Optional[str] = None
     issue_number: Optional[str] = None
     variant: Optional[str] = None
@@ -331,12 +330,12 @@ class KioskCardOut(BaseModel):
     series: str
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     publisher: Optional[str] = None
     variant: Optional[str] = None
     img: Optional[str] = None
     cover_artist: Optional[str] = None
-    artist: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
     writer: Optional[str] = None

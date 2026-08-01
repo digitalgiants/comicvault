@@ -134,8 +134,8 @@ export default function UploadPage() {
         <h3 className="font-medium text-gray-300 mb-3">Expected CSV Columns</h3>
         <div className="flex flex-wrap gap-2">
           {[
-            'upc','img','series','volume','issueNumber','coverDate','storeDate','direct',
-            'publisher','count','printRun','variant','coverArtist','artist','penciller',
+            'upc','img','series','volume','issueNumber','legacyNumber','coverDate','storeDate','direct',
+            'publisher','count','printRun','variant','coverArtist','penciller',
             'inker','writer','averagePrice','paidPrice','askingPrice','pointOfPurchase','buyDate',
             'sellPrice','sellDate','signed','remarked','notes'
           ].map((col) => (

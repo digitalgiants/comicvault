@@ -7,13 +7,13 @@ export interface Comic {
   series: string
   volume: string | null
   issue_number: string | null
+  legacy_number: string | null
   cover_date: string | null
   store_date: string | null
   direct: boolean | null
   print_run: string | null
   variant: string | null
   cover_artist: string | null
-  artist: string | null
   penciller: string | null
   inker: string | null
   writer: string | null
@@ -95,6 +95,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'series', label: 'Series' },
   { key: 'volume', label: 'Volume' },
   { key: 'issue_number', label: 'Issue Number' },
+  { key: 'legacy_number', label: 'Lgcy Number' },
   { key: 'cover_date', label: 'Cover Date' },
   { key: 'store_date', label: 'Store Date' },
   { key: 'direct', label: 'Newstand / Direct' },
@@ -104,7 +105,6 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'print_run', label: 'Print Run' },
   { key: 'variant', label: 'Variant' },
   { key: 'cover_artist', label: 'Cover Artist' },
-  { key: 'artist', label: 'Artist' },
   { key: 'penciller', label: 'Penciller' },
   { key: 'inker', label: 'Inker' },
   { key: 'writer', label: 'Writer' },
@@ -220,13 +220,13 @@ export interface ScanComicFields {
   series: string
   volume: string | null
   issue_number: string | null
+  legacy_number: string | null
   cover_date: string | null
   store_date: string | null
   direct: boolean | null
   print_run: string | null
   variant: string | null
   writer: string | null
-  artist: string | null
   penciller: string | null
   inker: string | null
   cover_artist: string | null
@@ -285,12 +285,12 @@ export interface KioskCard {
   series: string
   volume: string | null
   issue_number: string | null
+  legacy_number: string | null
   cover_date: string | null
   publisher: string | null
   variant: string | null
   img: string | null
   cover_artist: string | null
-  artist: string | null
   penciller: string | null
   inker: string | null
   writer: string | null
@@ -321,13 +321,13 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     series: result.series_name,
     volume: result.series_volume != null ? String(result.series_volume) : null,
     issue_number: result.issue_number,
+    legacy_number: null,
     cover_date: result.cover_date || null,
     store_date: result.store_date,
     direct: null,
     print_run: null,
     variant: result.variant_name,
     writer: result.writers.length ? result.writers.join(', ') : null,
-    artist: null,
     penciller: result.pencillers.length ? result.pencillers.join(', ') : null,
     inker: result.inkers.length ? result.inkers.join(', ') : null,
     cover_artist: result.cover_artists.length ? result.cover_artists.join(', ') : null,

@@ -27,7 +27,6 @@ def search_comics(
     series: str | None = Query(None),
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
-    artist: str | None = Query(None),
     volume: str | None = Query(None),
     issue_number: str | None = Query(None),
     variant: str | None = Query(None),
@@ -37,7 +36,7 @@ def search_comics(
     _: User = Depends(get_current_non_kiosk),
 ):
     return crud.search_comics(db, series=series, publisher=publisher, writer=writer,
-                               artist=artist, volume=volume, issue_number=issue_number,
+                               volume=volume, issue_number=issue_number,
                                variant=variant, skip=skip, limit=limit)
 
 
