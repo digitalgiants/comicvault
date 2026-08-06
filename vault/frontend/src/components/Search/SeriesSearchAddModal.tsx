@@ -65,6 +65,7 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
         user_comic: {
           count: userForm.count === '' ? null : Number(userForm.count),
           paid_price: userForm.paid_price === '' ? null : Number(userForm.paid_price),
+          asking_price: userForm.asking_price === '' ? null : Number(userForm.asking_price),
           point_of_purchase: (userForm.point_of_purchase as string) || null,
           buy_date: (userForm.buy_date as string) || null,
           signed: Boolean(userForm.signed),

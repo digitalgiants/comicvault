@@ -238,6 +238,7 @@ export interface ScanComicFields {
 export interface ScanUserComicFields {
   count: number | null
   paid_price: number | null
+  asking_price: number | null
   point_of_purchase: string | null
   buy_date: string | null
   signed: boolean
