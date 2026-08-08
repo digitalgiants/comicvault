@@ -16,5 +16,9 @@ COPY --from=builder /app/src /app/src
 ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 9096
 USER appuser
+# No CMD arg here on purpose - cli.py's Typer app has exactly one command
+# (serve), and Typer auto-collapses a single-command app so it runs
+# directly with no subcommand name. Passing "serve" explicitly makes Typer
+# treat it as an unexpected extra argument and exit with an error - see
+# cli.py for the full explanation.
 ENTRYPOINT ["tcg-scraper"]
-CMD ["serve"]

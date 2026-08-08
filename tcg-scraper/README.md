@@ -33,8 +33,10 @@ docker compose exec ollama ollama pull moondream
 
 ```bash
 uv sync
-uv run tcg-scraper serve
+uv run tcg-scraper
 ```
+
+(not `uv run tcg-scraper serve` — see the docstring on `serve` in `cli.py` for why.)
 
 ## Importing a full catalog
 
