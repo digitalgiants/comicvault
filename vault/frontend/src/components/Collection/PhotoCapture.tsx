@@ -2,17 +2,15 @@ import { useRef, useState } from 'react'
 import axios from 'axios'
 import Cropper, { type Area } from 'react-easy-crop'
 import { Camera, Image as ImageIcon, X } from 'lucide-react'
-import { uploadPersonalPhoto } from '../../api/collection'
-import type { UserComic } from '../../types'
 
 const ASPECT = 2 / 3
 const OUTPUT_WIDTH = 400
 const OUTPUT_HEIGHT = 600
 const JPEG_QUALITY = 0.85
 
-interface Props {
-  ucId: number
-  onUploaded: (uc: UserComic) => void
+interface Props<T> {
+  onUpload: (blob: Blob) => Promise<T>
+  onUploaded: (result: T) => void
 }
 
 async function loadImage(src: string): Promise<HTMLImageElement> {
@@ -37,7 +35,7 @@ async function cropAndResize(imageSrc: string, area: Area): Promise<Blob> {
   })
 }
 
-export default function PhotoCapture({ ucId, onUploaded }: Props) {
+export default function PhotoCapture<T>({ onUpload, onUploaded }: Props<T>) {
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const libraryInputRef = useRef<HTMLInputElement>(null)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
@@ -69,8 +67,8 @@ export default function PhotoCapture({ ucId, onUploaded }: Props) {
     setError('')
     try {
       const blob = await cropAndResize(imageSrc, croppedArea)
-      const uc = await uploadPersonalPhoto(ucId, blob)
-      onUploaded(uc)
+      const result = await onUpload(blob)
+      onUploaded(result)
       closeModal()
     } catch (err) {
       const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null

@@ -1,4 +1,4 @@
-import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag } from 'lucide-react'
+import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag, CreditCard } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -24,11 +24,18 @@ export default function Navbar() {
             {!user.is_kiosk && (
               <>
                 <Link
-                  to="/collection"
+                  to="/comics"
                   className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
                 >
                   <Search size={16} />
-                  <span className="hidden sm:inline">Collection</span>
+                  <span className="hidden sm:inline">Comics</span>
+                </Link>
+                <Link
+                  to="/cards"
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
+                >
+                  <CreditCard size={16} />
+                  <span className="hidden sm:inline">Cards</span>
                 </Link>
                 <Link
                   to="/upload"

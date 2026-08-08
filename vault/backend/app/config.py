@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:3002"
     comic_scraper_url: str = "http://comic-scraper:9095"
     comicvine_api_key: str = ""
+    tcg_scraper_url: str = "http://tcg-scraper:9096"
 
     class Config:
         env_file = ".env"

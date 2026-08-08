@@ -316,6 +316,152 @@ export interface KioskSignupInput {
   phone: string | null
 }
 
+// --- Trading cards (parallel to Comics above - see
+// feature-requests/tcg_card_scanner_build_prompt.md for why this isn't a
+// shared schema with comics) ---
+
+export interface CardGame {
+  id: number
+  slug: string
+  name: string
+  logo_image_url: string | null
+}
+
+export interface TradingCard {
+  id: number
+  game_id: number
+  set_id: number
+  name: string
+  card_number: string | null
+  code: string | null
+  rarity: string | null
+  language: string | null
+  description: string | null
+  attributes: Record<string, unknown> | null
+  image_small: string | null
+  image_medium: string | null
+  image_large: string | null
+  master_photo: string | null
+  average_price: number | null
+  release_date: string | null
+  created_at: string
+  game_slug: string | null
+  game_name: string | null
+  set_name: string | null
+}
+
+export interface CardTransaction {
+  id: number
+  user_trading_card_id: number | null
+  transaction_type: string
+  transaction_date: string
+  source: string | null
+  counterparty: string | null
+  price: number | null
+  shipping: number | null
+  tax: number | null
+  fees: number | null
+  total_cost: number | null
+  notes: string | null
+  created_at: string
+}
+
+export interface UserTradingCard {
+  id: number
+  user_id: number
+  card_id: number
+  card: TradingCard
+  count: number
+  condition: string | null
+  language: string | null
+  point_of_purchase: string | null
+  buy_date: string | null
+  paid_price: number | null
+  asking_price: number | null
+  for_sale: boolean
+  personal_img: string | null
+  notes: string | null
+  created_at: string
+  sales: CardTransaction[]
+}
+
+export function availableCardCopies(uc: UserTradingCard): number {
+  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0), 0)
+}
+
+// Priority: your own photo, then the catalog's master photo, then whatever
+// apitcg.com image is on file - mirrors coverImage()'s comic priority order.
+export function cardCoverImage(uc: UserTradingCard): string | null {
+  return uc.personal_img ?? uc.card.master_photo ?? uc.card.image_large ?? uc.card.image_medium ?? uc.card.image_small
+}
+
+export function latestCardSalePrice(uc: UserTradingCard): number | null {
+  if (!uc.sales?.length) return null
+  return uc.sales[uc.sales.length - 1].price ?? null
+}
+
+export const CARDS_COLUMNS: { key: string; label: string }[] = [
+  { key: 'image_small', label: 'Image' },
+  { key: 'name', label: 'Name' },
+  { key: 'game_name', label: 'Game' },
+  { key: 'set_name', label: 'Set' },
+  { key: 'card_number', label: 'Card #' },
+  { key: 'rarity', label: 'Rarity' },
+  { key: 'count', label: 'Count' },
+  { key: 'available', label: 'Available' },
+  { key: 'condition', label: 'Condition' },
+  { key: 'average_price', label: 'Average Price' },
+  { key: 'paid_price', label: 'Paid Price' },
+  { key: 'asking_price', label: 'Asking Price' },
+  { key: 'point_of_purchase', label: 'Point of Purchase' },
+  { key: 'buy_date', label: 'Buy Date' },
+  { key: 'sell_price', label: 'Sell Price' },
+  { key: 'notes', label: 'Notes' },
+]
+
+export type UserTradingCardUpdate = {
+  count?: number | null
+  condition?: string | null
+  language?: string | null
+  point_of_purchase?: string | null
+  buy_date?: string | null
+  paid_price?: number | null
+  asking_price?: number | null
+  for_sale?: boolean
+  personal_img?: string | null
+  notes?: string | null
+}
+
+export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; type: string }[] = [
+  { key: 'count', label: 'Count', type: 'number' },
+  { key: 'condition', label: 'Condition', type: 'text' },
+  { key: 'language', label: 'Language', type: 'text' },
+  { key: 'paid_price', label: 'Paid Price ($)', type: 'number' },
+  { key: 'asking_price', label: 'Asking Price ($)', type: 'number' },
+  { key: 'point_of_purchase', label: 'Point of Purchase', type: 'text' },
+  { key: 'buy_date', label: 'Buy Date', type: 'date' },
+  { key: 'for_sale', label: 'For Sale', type: 'checkbox' },
+  { key: 'notes', label: 'Notes', type: 'textarea' },
+]
+
+export interface ScanCandidate {
+  card: TradingCard
+  variant_id: number | null
+  confidence: number
+  match_method: string
+}
+
+export interface IdentifyScanResponse {
+  scan_id: number
+  image_url: string
+  detected_name: string | null
+  detected_number: string | null
+  detected_set: string | null
+  detected_language: string | null
+  detected_variant: string | null
+  candidates: ScanCandidate[]
+}
+
 export function lookupResultToComicFields(result: LookupResult, upc12: string, ean5: string | null): ScanComicFields {
   return {
     publisher: result.publisher_name,

@@ -42,6 +42,7 @@ services:
       - WATCHFILES_FORCE_POLLING=true
       - CORS_ORIGINS=https://cv.digitalgiants.net,http://localhost:3002
       - COMIC_SCRAPER_URL=http://comic-scraper:9095
+      - TCG_SCRAPER_URL=http://tcg-scraper:9096
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,6 +70,37 @@ services:
       postgres:
         condition: service_healthy
 
+  tcg-scraper:
+    build:
+      context: ./tcg-scraper
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - comicvault
+    environment:
+      - APITCG_API_KEY=${APITCG_API_KEY}
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_VISION_MODEL=${OLLAMA_VISION_MODEL:-moondream}
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    networks:
+      - comicvault
+    volumes:
+      - ollama_data:/root/.ollama
+    # No GPU configured yet - uncomment when one is available, no other
+    # changes needed elsewhere (model name stays env-driven in tcg-scraper).
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
   postgres:
     image: postgres:14-alpine
     restart: unless-stopped
@@ -90,3 +122,4 @@ services:
 volumes:
   postgres_data:
   uploads_data:
+  ollama_data:

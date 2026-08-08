@@ -6,7 +6,7 @@ import os
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, crud_cards
 from app.auth import hash_password
 from app.database import Base
 from app.models import User
@@ -117,6 +117,12 @@ def backfill_master_photos():
     print("Master photos backfilled.")
 
 
+def backfill_card_master_photos():
+    with Session(engine) as session:
+        crud_cards.backfill_card_master_photos(session)
+    print("Card master photos backfilled.")
+
+
 def run():
     # Runs before the raw-SQL migrations below so tables/columns from the current
     # models.py exist on a fresh database (migrate.py runs before uvicorn/main.py's
@@ -131,6 +137,7 @@ def run():
 
     seed_kiosk_user()
     backfill_master_photos()
+    backfill_card_master_photos()
 
 
 if __name__ == "__main__":

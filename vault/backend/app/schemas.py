@@ -351,3 +351,199 @@ class KioskCardOut(BaseModel):
 class SeriesSearchResult(BaseModel):
     name: str
     count: int
+
+
+# --- Trading cards (parallel to Comics above - see app/models.py's
+# "Trading cards" section for why this isn't a shared schema) ---
+
+class CardGameOut(BaseModel):
+    id: int
+    slug: str
+    name: str
+    logo_image_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardSetOut(BaseModel):
+    id: int
+    game_id: int
+    series_id: Optional[int] = None
+    external_id: Optional[str] = None
+    name: str
+    set_code: Optional[str] = None
+    release_date: Optional[date] = None
+    printed_total: Optional[int] = None
+    total_cards: Optional[int] = None
+    language: str
+
+    class Config:
+        from_attributes = True
+
+
+class TradingCardBase(BaseModel):
+    game_id: int
+    set_id: int
+    name: str
+    card_number: Optional[str] = None
+    code: Optional[str] = None
+    rarity: Optional[str] = None
+    language: Optional[str] = "English"
+    description: Optional[str] = None
+    attributes: Optional[dict] = None
+    image_small: Optional[str] = None
+    image_medium: Optional[str] = None
+    image_large: Optional[str] = None
+    release_date: Optional[date] = None
+    average_price: Optional[float] = None
+
+
+class TradingCardCreate(TradingCardBase):
+    pass
+
+
+class TradingCardUpdate(BaseModel):
+    """Admin-only partial update, mirrors ComicUpdate's role."""
+    name: Optional[str] = None
+    card_number: Optional[str] = None
+    code: Optional[str] = None
+    rarity: Optional[str] = None
+    language: Optional[str] = None
+    description: Optional[str] = None
+    attributes: Optional[dict] = None
+    image_small: Optional[str] = None
+    image_medium: Optional[str] = None
+    image_large: Optional[str] = None
+    release_date: Optional[date] = None
+    average_price: Optional[float] = None
+
+
+class TradingCardOut(TradingCardBase):
+    id: int
+    created_at: datetime
+    master_photo: Optional[str] = None
+    # Derived from the game/set relationships (see TradingCard properties in
+    # models.py) purely so the frontend table doesn't need a separate
+    # id->name lookup for every row.
+    game_slug: Optional[str] = None
+    game_name: Optional[str] = None
+    set_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardTransactionOut(BaseModel):
+    id: int
+    user_trading_card_id: Optional[int] = None
+    transaction_type: str
+    transaction_date: date
+    source: Optional[str] = None
+    counterparty: Optional[str] = None
+    price: Optional[float] = None
+    shipping: Optional[float] = None
+    tax: Optional[float] = None
+    fees: Optional[float] = None
+    total_cost: Optional[float] = None
+    notes: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CardSaleCreate(BaseModel):
+    """Input for recording a sale specifically - a Purchase/Trade/Gift
+    transaction can be added directly via CardTransaction if ever needed,
+    but "sales" is the only transaction type with dedicated UI/API for v1."""
+    transaction_date: date
+    price: Optional[float] = None
+    notes: Optional[str] = None
+
+
+class CardSaleUpdate(BaseModel):
+    price: Optional[float] = None
+
+
+class UserTradingCardBase(BaseModel):
+    count: Optional[int] = 1
+    condition: Optional[str] = "Unknown"
+    language: Optional[str] = None
+    point_of_purchase: Optional[str] = None
+    buy_date: Optional[datetime] = None
+    paid_price: Optional[float] = None
+    asking_price: Optional[float] = None
+    for_sale: Optional[bool] = False
+    personal_img: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class UserTradingCardCreate(UserTradingCardBase):
+    card_id: int
+    variant_id: Optional[int] = None
+
+
+class UserTradingCardUpdate(BaseModel):
+    count: Optional[int] = None
+    condition: Optional[str] = None
+    language: Optional[str] = None
+    point_of_purchase: Optional[str] = None
+    buy_date: Optional[datetime] = None
+    paid_price: Optional[float] = None
+    asking_price: Optional[float] = None
+    for_sale: Optional[bool] = None
+    personal_img: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class CardBulkUpdateItem(BaseModel):
+    id: int
+    update: UserTradingCardUpdate
+
+
+class CardBulkUpdateRequest(BaseModel):
+    updates: list[CardBulkUpdateItem]
+
+
+class UserTradingCardOut(UserTradingCardBase):
+    id: int
+    user_id: int
+    card_id: int
+    card: TradingCardOut
+    created_at: datetime
+    sales: list[CardTransactionOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+# --- Card identification (scan pipeline) ---
+
+class ScanCandidateOut(BaseModel):
+    card: TradingCardOut
+    variant_id: Optional[int] = None
+    confidence: float
+    match_method: str
+
+
+class IdentifyScanResponse(BaseModel):
+    scan_id: int
+    image_url: str
+    detected_name: Optional[str] = None
+    detected_number: Optional[str] = None
+    detected_set: Optional[str] = None
+    detected_language: Optional[str] = None
+    detected_variant: Optional[str] = None
+    candidates: list[ScanCandidateOut] = []
+
+
+class CardScanConfirmRequest(BaseModel):
+    """Only an existing catalog card can be confirmed onto - creating a new
+    catalog entry stays admin-only (see /admin/cards), consistent with how
+    the rest of the trading-card feature draws that line. If a scan matches
+    nothing, the UI's "none of these" path reuses the same manual-search
+    flow as the regular Add Card modal rather than a separate creation path."""
+    candidate_card_id: int
+    variant_id: Optional[int] = None
+    user_trading_card: UserTradingCardBase = UserTradingCardBase()

@@ -1,13 +1,18 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, crud_cards
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import User
 from app.schemas import ColumnPreferenceOut, ColumnPreferenceUpdate
 
 router = APIRouter(prefix="/users/preferences", tags=["preferences"])
+
+_DEFAULTS_BY_PAGE = {
+    "sold": crud.DEFAULT_SOLD_COLUMNS,
+    "cards": crud_cards.DEFAULT_CARDS_COLUMNS,
+}
 
 
 @router.get("/columns/{page}", response_model=ColumnPreferenceOut)
@@ -19,7 +24,7 @@ def get_column_prefs(
     pref = crud.get_column_preference(db, current_user.id, page)
     if pref:
         return ColumnPreferenceOut(page=pref.page, columns=pref.columns)
-    defaults = crud.DEFAULT_SOLD_COLUMNS if page == "sold" else crud.DEFAULT_COLLECTION_COLUMNS
+    defaults = _DEFAULTS_BY_PAGE.get(page, crud.DEFAULT_COLLECTION_COLUMNS)
     return ColumnPreferenceOut(page=page, columns=defaults)
 
 

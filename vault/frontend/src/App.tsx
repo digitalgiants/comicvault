@@ -5,6 +5,7 @@ import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import DashboardPage from './pages/DashboardPage'
 import CollectionPage from './pages/CollectionPage'
+import CardsPage from './pages/CardsPage'
 import UploadPage from './pages/UploadPage'
 import ScanPage from './pages/ScanPage'
 import SearchPage from './pages/SearchPage'
@@ -41,7 +42,9 @@ function AppRoutes() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/kiosk" element={<RequireAuth><KioskPage /></RequireAuth>} />
         <Route path="/" element={<RequireNonKiosk><DashboardPage /></RequireNonKiosk>} />
-        <Route path="/collection" element={<RequireNonKiosk><CollectionPage /></RequireNonKiosk>} />
+        <Route path="/comics" element={<RequireNonKiosk><CollectionPage /></RequireNonKiosk>} />
+        <Route path="/collection" element={<Navigate to="/comics" replace />} />
+        <Route path="/cards" element={<RequireNonKiosk><CardsPage /></RequireNonKiosk>} />
         <Route path="/upload" element={<RequireNonKiosk><UploadPage /></RequireNonKiosk>} />
         <Route path="/scan" element={<RequireNonKiosk><ScanPage /></RequireNonKiosk>} />
         <Route path="/search" element={<RequireNonKiosk><SearchPage /></RequireNonKiosk>} />
