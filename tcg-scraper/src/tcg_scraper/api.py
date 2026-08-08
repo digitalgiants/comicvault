@@ -139,7 +139,15 @@ def list_games() -> list[NormalizedGame]:
     except ApiTcgError as exc:
         _handle_apitcg_errors(exc)
     return [
-        NormalizedGame(external_id=g.get("id", ""), name=g.get("name", ""), logo_image_url=g.get("logo"))
+        # apitcg is Mongoose/MongoDB-backed (confirmed live via the embedded
+        # tcg/set objects on a real product response, which both use "_id" -
+        # __v, createdAt, updatedAt are Mongoose hallmarks too), so the
+        # top-level /tcgs collection almost certainly keys on "_id" as well,
+        # not "id". Getting this wrong isn't cosmetic: every game fell back
+        # to the same empty-string default and silently overwrote the same
+        # single DB row on every sync, leaving only whichever game was last
+        # in the response. "logo" is still an unverified guess.
+        NormalizedGame(external_id=g.get("_id", ""), name=g.get("name", ""), logo_image_url=g.get("logo"))
         for g in games
     ]
 
@@ -152,11 +160,17 @@ def list_sets(slug: str) -> list[NormalizedSet]:
         _handle_apitcg_errors(exc)
     return [
         NormalizedSet(
-            external_id=s.get("id", ""),
+            # Same "_id" fix as list_games above, plus two more confirmed
+            # against the embedded set object on a real product response:
+            # the field is "serie" (no trailing s), and "release_date" is
+            # snake_case, not "releaseDate". set_code/printed_total/
+            # total_cards remain unverified guesses - the embedded
+            # per-product set object doesn't show them either way.
+            external_id=s.get("_id", ""),
             name=s.get("name", ""),
-            series_external_id=s.get("series"),
+            series_external_id=s.get("serie"),
             set_code=s.get("code"),
-            release_date=s.get("releaseDate"),
+            release_date=s.get("release_date"),
             printed_total=s.get("printedTotal"),
             total_cards=s.get("total"),
         )
