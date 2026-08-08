@@ -111,6 +111,18 @@ def seed_kiosk_user():
     print("Kiosk user ensured.")
 
 
+def promote_shop_account_admin():
+    """Ensures the shop's own account (crud.MASTER_PHOTO_OWNER_USERNAME,
+    currently "digitalgiant") is an admin. No-op if that account doesn't
+    exist yet (e.g. before it's signed up) or is already an admin."""
+    with Session(engine) as session:
+        user = session.query(User).filter(User.username == crud.MASTER_PHOTO_OWNER_USERNAME).first()
+        if user and not user.is_admin:
+            user.is_admin = True
+            session.commit()
+    print("Shop account admin status ensured.")
+
+
 def backfill_master_photos():
     with Session(engine) as session:
         crud.backfill_master_photos(session)
@@ -136,6 +148,7 @@ def run():
     print("Migrations applied.")
 
     seed_kiosk_user()
+    promote_shop_account_admin()
     backfill_master_photos()
     backfill_card_master_photos()
 

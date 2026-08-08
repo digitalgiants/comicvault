@@ -11,7 +11,14 @@ class Settings(BaseSettings):
     # note the api. subdomain, easy to miss.
     apitcg_base_url: str = "https://api.apitcg.com/api"
     apitcg_auth_header: str = "x-api-key"
-    apitcg_max_calls_per_minute: int = 30
+    # apitcg.com's real burst limit (if any) is unconfirmed - 30 was an
+    # arbitrarily conservative first guess. Raised to 60 since the actual
+    # constraint that matters (the monthly quota) is separately guarded by
+    # apitcg_monthly_call_limit below; hitting an undocumented burst limit
+    # just surfaces as a caught, retryable ApiTcgRateLimitError, not data
+    # loss. At 60/min a full ~280-call Pokemon catalog sync takes ~4.7
+    # minutes instead of ~9.3.
+    apitcg_max_calls_per_minute: int = 60
     # apitcg's real constraint is a MONTHLY quota (1,000 calls/month on the
     # free tier), not a per-minute burst - apitcg_max_calls_per_minute above
     # doesn't address this at all. This is a soft, in-process safety net

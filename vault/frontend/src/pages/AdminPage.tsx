@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw } from 'lucide-react'
+import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
-import type { BugReport } from '../types'
+import { getCardGames } from '../api/cards'
+import type { BugReport, CardGame } from '../types'
 import BugReportButton from '../components/BugReportButton'
+
+// A full-catalog sync is many sequential apitcg.com calls proxied through
+// tcg-scraper, plus a DB upsert per card - at the 60/min rate limit, ~280
+// calls alone is ~4.7 minutes for all of Pokemon, before upsert overhead.
+// Generous headroom rather than the axios default; if you're behind a
+// reverse proxy in production (e.g. Caddy), it needs a matching timeout on
+// this route too, or it'll cut the request before this client-side timeout
+// ever fires.
+const FULL_SYNC_TIMEOUT_MS = 20 * 60 * 1000
 
 interface AdminUser {
   id: number
@@ -17,8 +28,16 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards'>('users')
   const [loading, setLoading] = useState(true)
+
+  const [cardGames, setCardGames] = useState<CardGame[]>([])
+  const [selectedGameSlug, setSelectedGameSlug] = useState('')
+  const [syncingGames, setSyncingGames] = useState(false)
+  const [syncingSets, setSyncingSets] = useState(false)
+  const [syncingProducts, setSyncingProducts] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState('')
 
   useEffect(() => {
     api.get<AdminUser[]>('/admin/users').then(r => { setUsers(r.data); setLoading(false) })
@@ -27,6 +46,72 @@ export default function AdminPage() {
   useEffect(() => {
     getBugReports(showResolved ? undefined : false).then(setReports)
   }, [showResolved])
+
+  const refreshCardGames = () => getCardGames().then(games => {
+    setCardGames(games)
+    if (games.length && !selectedGameSlug) setSelectedGameSlug(games[0].slug)
+  })
+
+  useEffect(() => { refreshCardGames() }, [])
+
+  const syncErrorDetail = (err: unknown, fallback: string) =>
+    (axios.isAxiosError(err) ? err.response?.data?.detail : null) || fallback
+
+  const handleSyncGames = async () => {
+    setSyncingGames(true)
+    setSyncError('')
+    setSyncMessage(null)
+    try {
+      const { data } = await api.post<{ synced: number }>('/admin/cards/sync/games')
+      await refreshCardGames()
+      setSyncMessage(`Synced ${data.synced} game${data.synced === 1 ? '' : 's'}.`)
+    } catch (err) {
+      setSyncError(syncErrorDetail(err, 'Failed to sync games.'))
+    } finally {
+      setSyncingGames(false)
+    }
+  }
+
+  const handleSyncSets = async () => {
+    if (!selectedGameSlug) return
+    setSyncingSets(true)
+    setSyncError('')
+    setSyncMessage(null)
+    try {
+      const { data } = await api.post<{ synced: number }>('/admin/cards/sync/sets', undefined, {
+        params: { game_slug: selectedGameSlug },
+      })
+      setSyncMessage(`Synced ${data.synced} set${data.synced === 1 ? '' : 's'} for ${selectedGameSlug}.`)
+    } catch (err) {
+      setSyncError(syncErrorDetail(err, 'Failed to sync sets.'))
+    } finally {
+      setSyncingSets(false)
+    }
+  }
+
+  const handleSyncAllProducts = async () => {
+    if (!selectedGameSlug) return
+    if (!confirm(
+      `Sync the entire "${selectedGameSlug}" catalog now? This can take several minutes and counts ` +
+      'against your apitcg.com monthly call quota - see tcg-scraper/README.md for the cost (~280 calls ' +
+      'for all of Pokemon). Do not close this page while it runs.'
+    )) return
+    setSyncingProducts(true)
+    setSyncError('')
+    setSyncMessage(null)
+    try {
+      const { data } = await api.post<{ synced: number; pages: number }>(
+        '/admin/cards/sync/products/all',
+        undefined,
+        { params: { game_slug: selectedGameSlug }, timeout: FULL_SYNC_TIMEOUT_MS },
+      )
+      setSyncMessage(`Synced ${data.synced} card${data.synced === 1 ? '' : 's'} across ${data.pages} page(s) for ${selectedGameSlug}.`)
+    } catch (err) {
+      setSyncError(syncErrorDetail(err, 'Failed to sync the catalog.'))
+    } finally {
+      setSyncingProducts(false)
+    }
+  }
 
   const toggleAdmin = async (user: AdminUser) => {
     await api.patch(`/admin/users/${user.id}`, { is_admin: !user.is_admin })
@@ -69,13 +154,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
-        {(['users', 'bugs'] as const).map(t => (
+        {(['users', 'bugs', 'cards'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}`}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : 'Cards Sync'}
           </button>
         ))}
       </div>
@@ -173,6 +258,73 @@ export default function AdminPage() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {tab === 'cards' && (
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-6">
+          <div>
+            <p className="text-sm text-gray-300 mb-1">Step 1 - Games</p>
+            <p className="text-xs text-gray-500 mb-3">Pulls every TCG apitcg.com knows about (Pokemon, Magic, One Piece, etc.) - cheap, one call.</p>
+            <button
+              onClick={handleSyncGames}
+              disabled={syncingGames}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncingGames ? 'animate-spin' : ''} />
+              {syncingGames ? 'Syncing…' : 'Sync Games'}
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-gray-800">
+            <p className="text-sm text-gray-300 mb-1">Step 2 - Pick a game</p>
+            {cardGames.length === 0 ? (
+              <p className="text-xs text-gray-500">No games synced yet - run Step 1 first.</p>
+            ) : (
+              <select
+                value={selectedGameSlug}
+                onChange={e => setSelectedGameSlug(e.target.value)}
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                {cardGames.map(g => (
+                  <option key={g.slug} value={g.slug}>{g.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="pt-4 border-t border-gray-800">
+            <p className="text-sm text-gray-300 mb-1">Step 3 - Sets (optional)</p>
+            <p className="text-xs text-gray-500 mb-3">Fills in set logo/symbol images and printed totals - not required before syncing cards below, since each card carries its own set info too.</p>
+            <button
+              onClick={handleSyncSets}
+              disabled={syncingSets || !selectedGameSlug}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncingSets ? 'animate-spin' : ''} />
+              {syncingSets ? 'Syncing…' : 'Sync Sets'}
+            </button>
+          </div>
+
+          <div className="pt-4 border-t border-gray-800">
+            <p className="text-sm text-gray-300 mb-1">Step 4 - Full catalog</p>
+            <p className="text-xs text-gray-500 mb-3">
+              Syncs every card for the selected game in one paginated pass. Counts against your apitcg.com
+              monthly quota (1,000 free-tier calls/month) - roughly 280 calls for all of Pokemon. Safe to
+              re-run (upserts, no duplicates), but re-running re-spends the same quota.
+            </p>
+            <button
+              onClick={handleSyncAllProducts}
+              disabled={syncingProducts || !selectedGameSlug}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncingProducts ? 'animate-spin' : ''} />
+              {syncingProducts ? 'Syncing full catalog… this can take several minutes' : 'Sync Full Catalog'}
+            </button>
+          </div>
+
+          {syncMessage && <p className="text-green-400 text-sm">{syncMessage}</p>}
+          {syncError && <p className="text-red-400 text-sm">{syncError}</p>}
         </div>
       )}
 

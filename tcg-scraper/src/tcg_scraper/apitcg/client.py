@@ -27,7 +27,7 @@ class ApiTcgClient:
         api_key: str,
         base_url: str = "https://api.apitcg.com/api",
         auth_header: str = "x-api-key",
-        max_calls_per_minute: int = 30,
+        max_calls_per_minute: int = 60,
         monthly_call_limit: int = 950,
     ):
         self._client = httpx.Client(
