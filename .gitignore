@@ -53,3 +53,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Scratch / planning
+/feature-requests/
+/pokemon-calls/

@@ -6,8 +6,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from tcg_scraper.apitcg.client import ApiTcgClient
-from tcg_scraper.apitcg.exceptions import ApiTcgAuthError, ApiTcgError, ApiTcgNotFoundError
+from tcg_scraper.apitcg.client import MAX_PAGE_SIZE, ApiTcgClient
+from tcg_scraper.apitcg.exceptions import (
+    ApiTcgAuthError, ApiTcgError, ApiTcgNotFoundError, ApiTcgQuotaExceededError,
+)
 from tcg_scraper.cache import cached
 from tcg_scraper.config import get_settings
 from tcg_scraper.ollama.client import OllamaClient
@@ -34,6 +36,7 @@ async def lifespan(app: FastAPI):
         settings.apitcg_base_url,
         settings.apitcg_auth_header,
         settings.apitcg_max_calls_per_minute,
+        settings.apitcg_monthly_call_limit,
     )
     state["ollama"] = OllamaClient(
         settings.ollama_base_url,
@@ -52,6 +55,18 @@ app = FastAPI(title="tcg-scraper", lifespan=lifespan)
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/apitcg/usage")
+def apitcg_usage() -> dict:
+    """In-process only - resets on container restart, does not track calls
+    made outside this process. Check apitcg.com's own dashboard for the
+    real monthly total before relying on this for anything precise."""
+    client: ApiTcgClient = state["apitcg"]
+    return {
+        "calls_this_process": client.calls_made_this_process(),
+        "limit": client.monthly_call_limit,
+    }
 
 
 # --- Catalog proxy (normalized apitcg.com data, vault/backend persists it) ---
@@ -90,6 +105,13 @@ class NormalizedCard(BaseModel):
     attributes: dict = {}
     release_date: str | None = None
     average_price: float | None = None
+    # Every product response embeds its own full set object (confirmed live -
+    # see feature-requests/apitcg-calls) - carried here so a whole-catalog
+    # sync can resolve/create the set on the fly without a separate
+    # per-set pre-sync step.
+    set_external_id: str | None = None
+    set_name: str | None = None
+    set_code: str | None = None
 
 
 class ProductPage(BaseModel):
@@ -103,6 +125,8 @@ def _handle_apitcg_errors(exc: Exception) -> None:
         raise HTTPException(status_code=502, detail=str(exc))
     if isinstance(exc, ApiTcgNotFoundError):
         raise HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, ApiTcgQuotaExceededError):
+        raise HTTPException(status_code=429, detail=str(exc))
     if isinstance(exc, ApiTcgError):
         raise HTTPException(status_code=502, detail=str(exc))
     raise exc
@@ -141,46 +165,81 @@ def list_sets(slug: str) -> list[NormalizedSet]:
 
 
 def _normalize_product(item: dict) -> NormalizedCard:
-    images = item.get("images") or {}
+    # Confirmed live shape (feature-requests/apitcg-calls) - "images" is a
+    # LIST of {small,medium,large} objects, not a single object.
+    images_list = item.get("images") or []
+    images = images_list[0] if images_list else {}
+    attributes = item.get("attributes") or {}
+    set_obj = item.get("set") or {}
     markets = item.get("markets") or {}
-    # apitcg's markets shape is unverified beyond "contains tcgplayer/tcgmatch
-    # pricing" - take the first numeric price found anywhere in it as a rough
-    # average_price rather than assuming a specific nested key layout.
+
+    # Confirmed shape: markets.<source>.prices.{low,mid,high,market} - one
+    # level deeper than originally guessed. Prefer "market", fall back to
+    # any other numeric price tier found.
     average_price = None
     for source in markets.values():
-        if isinstance(source, dict):
-            for v in source.values():
-                if isinstance(v, (int, float)):
-                    average_price = float(v)
-                    break
-        if average_price is not None:
-            break
+        if not isinstance(source, dict):
+            continue
+        prices = source.get("prices")
+        if isinstance(prices, dict):
+            if isinstance(prices.get("market"), (int, float)):
+                average_price = float(prices["market"])
+                break
+            numeric = [v for v in prices.values() if isinstance(v, (int, float))]
+            if numeric:
+                average_price = float(numeric[0])
+                break
+
     return NormalizedCard(
         external_id=str(item.get("_id", "")),
         name=item.get("name", ""),
-        card_number=item.get("cardNumber"),
+        # No "cardNumber" field exists on the wire - "code" IS the card
+        # number (e.g. "91/119"), duplicated in attributes.Number.
+        card_number=item.get("code") or attributes.get("Number"),
         code=item.get("code"),
-        rarity=(item.get("attributes") or {}).get("Rarity"),
+        rarity=attributes.get("Rarity"),
         description=item.get("description"),
         images=NormalizedCardImages(
             small=images.get("small"), medium=images.get("medium"), large=images.get("large"),
         ),
-        attributes=item.get("attributes") or {},
-        release_date=item.get("release_date"),
+        attributes=attributes,
+        # Cards have no release_date of their own - it lives on the
+        # embedded set object.
+        release_date=set_obj.get("release_date"),
         average_price=average_price,
+        set_external_id=set_obj.get("_id"),
+        set_name=set_obj.get("name"),
+        set_code=set_obj.get("code"),
     )
 
 
 @app.get("/games/{slug}/sets/{set_external_id}/products", response_model=ProductPage)
-def list_products(slug: str, set_external_id: str, page: int = 1, limit: int = 250) -> ProductPage:
+def list_products(slug: str, set_external_id: str, page: int = 1, limit: int = MAX_PAGE_SIZE) -> ProductPage:
     try:
         data = state["apitcg"].search_products(slug, "card", set_external_id, page, limit)
     except ApiTcgError as exc:
         _handle_apitcg_errors(exc)
+    return _product_page_from_response(data, page, limit)
+
+
+@app.get("/games/{slug}/products", response_model=ProductPage)
+def list_all_products(slug: str, page: int = 1, limit: int = MAX_PAGE_SIZE) -> ProductPage:
+    """Paginates the WHOLE catalog for a game in one pass, no per-set
+    looping - confirmed viable live (feature-requests/apitcg-calls: a single
+    ?tcg=pokemon&type=card query reports total=27812 and pages cleanly at
+    limit=100). Each item embeds its own set info (see NormalizedCard), so
+    the caller can upsert sets on the fly rather than requiring them synced
+    first - ~280 calls for the entire Pokemon catalog, well under the
+    1,000/month free-tier quota."""
+    try:
+        data = state["apitcg"].search_products(slug, "card", None, page, limit)
+    except ApiTcgError as exc:
+        _handle_apitcg_errors(exc)
+    return _product_page_from_response(data, page, limit)
+
+
+def _product_page_from_response(data: dict, page: int, limit: int) -> ProductPage:
     items = data.get("data", data) if isinstance(data, dict) else data
-    # Pagination envelope shape is unverified - has_more defaults to False
-    # (i.e. "assume one page") unless apitcg tells us otherwise via a
-    # recognizable total/page-count field.
     total = data.get("total") if isinstance(data, dict) else None
     has_more = bool(total) and page * limit < total
     return ProductPage(items=[_normalize_product(i) for i in items], page=page, has_more=has_more)

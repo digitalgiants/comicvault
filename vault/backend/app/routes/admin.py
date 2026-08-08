@@ -17,7 +17,15 @@ from app.schemas import (
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 SYNC_TIMEOUT = 60.0  # tcg-scraper calls out to apitcg.com and paginates - can be slow
-MAX_SYNC_PAGES = 50  # safety cap - apitcg's pagination correctness is unverified
+# apitcg's confirmed real max page size is 100 (see feature-requests/apitcg-calls)
+SYNC_PAGE_SIZE = 100
+# A single set is naturally small - this is just a safety cap, not a
+# realistic ceiling (50 * 100 = 5,000 cards would be an enormous set).
+MAX_SYNC_PAGES_PER_SET = 50
+# ~280 pages covers the entire confirmed-live Pokemon catalog (27,812
+# products) - 500 leaves headroom for other/larger games without being an
+# effectively unbounded loop.
+MAX_SYNC_PAGES_ALL = 500
 
 
 @router.get("/users", response_model=list[UserOut])
@@ -189,13 +197,17 @@ def delete_card(
 
 
 # --- Trading cards catalog sync (apitcg.com via tcg-scraper) ---
-# Sync order is enforced, not assumed: games -> sets -> products, since
-# products FK to sets which FK to games. Each step validates its parent
-# already exists locally rather than silently creating thin placeholder
-# rows - calling these out of order fails loudly instead of producing bad
-# data. No "sync everything" bulk endpoint - there's no background job
-# runner anywhere in this app, so each call stays scoped to one game or
-# one set and completes within a normal request.
+# Games must be synced before anything else - each sync/products* endpoint
+# validates the target game already exists locally rather than silently
+# creating a placeholder, so calling these out of order fails loudly instead
+# of producing bad data. Sets are auto-resolved per product during a
+# products sync (see upsert_trading_card_from_sync) so they don't strictly
+# need to be pre-synced, but /admin/cards/sync/sets is still worth running
+# for the logo/symbol images and printed totals that the per-product embed
+# doesn't carry. There's still no background job runner anywhere in this
+# app, so /admin/cards/sync/products/all - despite covering an entire
+# game's catalog in one call - still runs synchronously to completion
+# within that one HTTP request (bounded by MAX_SYNC_PAGES_ALL).
 
 @router.post("/cards/sync/games", response_model=dict)
 def sync_card_games(
@@ -254,14 +266,16 @@ def sync_card_products(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_admin),
 ):
+    """Targeted re-sync of one set. For a first-time import of an entire
+    game's catalog, /admin/cards/sync/products/all is far cheaper on your
+    apitcg.com quota - see that endpoint's docstring."""
     game = crud_cards.get_game_by_slug(db, game_slug)
     if game is None:
         raise HTTPException(
             status_code=400,
             detail=f"Game '{game_slug}' hasn't been synced yet - run /admin/cards/sync/games first",
         )
-    card_set = crud_cards.get_set_by_external_id(db, game.id, set_external_id)
-    if card_set is None:
+    if crud_cards.get_set_by_external_id(db, game.id, set_external_id) is None:
         raise HTTPException(
             status_code=400,
             detail=f"Set '{set_external_id}' hasn't been synced yet - run /admin/cards/sync/sets first",
@@ -269,11 +283,11 @@ def sync_card_products(
 
     total_synced = 0
     page = 1
-    while page <= MAX_SYNC_PAGES:
+    while page <= MAX_SYNC_PAGES_PER_SET:
         try:
             resp = httpx.get(
                 f"{settings.tcg_scraper_url}/games/{game_slug}/sets/{set_external_id}/products",
-                params={"page": page, "limit": 250},
+                params={"page": page, "limit": SYNC_PAGE_SIZE},
                 timeout=SYNC_TIMEOUT,
             )
             resp.raise_for_status()
@@ -282,7 +296,7 @@ def sync_card_products(
 
         data = resp.json()
         for item in data["items"]:
-            crud_cards.upsert_trading_card_from_sync(db, card_set, item)
+            crud_cards.upsert_trading_card_from_sync(db, game.id, item)
         total_synced += len(data["items"])
 
         if not data.get("has_more"):
@@ -290,3 +304,60 @@ def sync_card_products(
         page += 1
 
     return {"synced": total_synced}
+
+
+@router.post("/cards/sync/products/all", response_model=dict)
+def sync_all_card_products(
+    game_slug: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    """Syncs an ENTIRE game's product catalog in one paginated pass, no
+    per-set looping - confirmed viable live (feature-requests/apitcg-calls:
+    a single ?tcg=pokemon&type=card query reports total=27812 and pages
+    cleanly at limit=100, ~280 calls total = ~28% of the 1,000/month
+    free-tier quota). Each product embeds its own set info, resolved/created
+    on the fly by upsert_trading_card_from_sync - sets don't need to be
+    pre-synced for this path (though running /admin/cards/sync/sets first
+    or after still enriches them with logo/symbol images and printed
+    totals, which the per-product embed doesn't carry).
+
+    This is the recommended way to do a first-time or periodic full import;
+    /admin/cards/sync/products (per-set) is for a targeted re-sync of one
+    set. tcg-scraper has an in-process monthly call counter
+    (GET /apitcg/usage on that service) that refuses further apitcg.com
+    calls once APITCG_MONTHLY_CALL_LIMIT is reached - it resets on
+    container restart, so it's a safety net against a runaway loop within
+    one run, not a true persistent quota tracker."""
+    game = crud_cards.get_game_by_slug(db, game_slug)
+    if game is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Game '{game_slug}' hasn't been synced yet - run /admin/cards/sync/games first",
+        )
+
+    total_synced = 0
+    page = 1
+    while page <= MAX_SYNC_PAGES_ALL:
+        try:
+            resp = httpx.get(
+                f"{settings.tcg_scraper_url}/games/{game_slug}/products",
+                params={"page": page, "limit": SYNC_PAGE_SIZE},
+                timeout=SYNC_TIMEOUT,
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail=f"tcg-scraper unavailable: {exc}")
+        if resp.status_code == 429:
+            raise HTTPException(status_code=429, detail=resp.json().get("detail", "apitcg.com quota reached"))
+        resp.raise_for_status()
+
+        data = resp.json()
+        for item in data["items"]:
+            crud_cards.upsert_trading_card_from_sync(db, game.id, item)
+        total_synced += len(data["items"])
+
+        if not data.get("has_more"):
+            break
+        page += 1
+
+    return {"synced": total_synced, "pages": page}

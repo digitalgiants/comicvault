@@ -203,12 +203,24 @@ def search_trading_cards(
     return q.offset(skip).limit(limit).all()
 
 
-def upsert_trading_card_from_sync(db: Session, card_set: CardSet, item: dict) -> TradingCard:
+def upsert_trading_card_from_sync(db: Session, game_id: int, item: dict) -> TradingCard:
     """Natural key is TradingCardExternalId(source='apitcg', external_id) -
     same role as ExternalIssueCache's (provider, provider_issue_id) pairing
     for comics. Falls back to find_matching_card to reconcile a
-    manually-added card before creating a new one. Caller must have already
-    confirmed card_set exists (games -> sets -> products sync order)."""
+    manually-added card before creating a new one.
+
+    Resolves/creates the card's set on the fly from the item's own embedded
+    set info - every apitcg.com product response embeds its full set object
+    (confirmed live, see feature-requests/apitcg-calls), so callers don't
+    need to pre-sync sets before syncing products. A set synced separately
+    via /admin/cards/sync/sets still enriches this with fields the
+    per-product embed doesn't carry (logo/symbol images, printed totals) -
+    upsert_set merges rather than overwrites, so running that afterward is
+    safe and additive."""
+    set_external_id = item.get("set_external_id")
+    set_name = item.get("set_name") or set_external_id or "Unknown Set"
+    card_set = upsert_set(db, game_id, set_name, external_id=set_external_id, set_code=item.get("set_code"))
+
     external_id = str(item["external_id"])
     language = item.get("language") or "English"
     card = get_card_by_external_id(db, "apitcg", external_id)
