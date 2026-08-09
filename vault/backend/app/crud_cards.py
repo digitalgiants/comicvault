@@ -547,6 +547,13 @@ def match_candidates(
              similarity >=0.7 if a set was detected) -> confidence >=0.95
     Tier 2 - same as tier 1 but ignoring set (handles a misread set name)
              -> confidence 0.70-0.85
+    Tier 2b - exact card_number match alone, when nothing cleared tier 1/2
+             (name wasn't read at all, or didn't match well enough) ->
+             confidence 0.45-0.60. Real gap this closes: a small vision
+             model often reads a large printed number reliably while
+             failing on smaller name/set text - without this tier, a
+             successful number read with a failed name read produced zero
+             candidates instead of "these cards all have that number."
     Tier 3 - name-only fuzzy match within the detected game (or across all
              games if none detected) -> floor 0.6, top `limit`
 
@@ -558,12 +565,14 @@ def match_candidates(
     norm_set = _normalize(detected_set)
 
     results: list[tuple[TradingCard, Optional[int], float, str]] = []
+    number_matches: list[TradingCard] = []
 
     if detected_number:
         q = db.query(TradingCard).filter(TradingCard.card_number == detected_number)
         if game:
             q = q.filter(TradingCard.game_id == game.id)
-        for card in q.all():
+        number_matches = q.all()
+        for card in number_matches:
             name_sim = _name_similarity(norm_name, _normalize(card.name))
             if name_sim < 0.85:
                 continue
@@ -573,6 +582,12 @@ def match_candidates(
                     results.append((card, None, min(0.99, 0.90 + name_sim * 0.09), "exact_number_name_set"))
                     continue
             results.append((card, None, 0.70 + name_sim * 0.15, "exact_number_name"))
+
+        if not results and number_matches:
+            # A single number-only match deserves more confidence than one
+            # of several (more candidates = more ambiguity to resolve).
+            confidence = 0.60 if len(number_matches) == 1 else 0.45
+            results = [(card, None, confidence, "number_only") for card in number_matches[:limit]]
 
     if not results and norm_name:
         q = db.query(TradingCard)
