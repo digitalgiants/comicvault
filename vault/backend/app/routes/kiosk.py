@@ -1,16 +1,19 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, crud_cards
 from app.auth import get_current_user
 from app.database import get_db
-from app.models import User, UserComic
-from app.schemas import KioskCardOut, KioskSignupCreate, KioskSignupOut, SeriesSearchResult
+from app.models import User, UserComic, UserTradingCard
+from app.schemas import (
+    KioskCardOut, KioskSignupCreate, KioskSignupOut, KioskTradingCardOut, SeriesSearchResult,
+)
 
 router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 
 FEATURED_LIMIT = 25
 TODAYS_PICKS_PRICE_THRESHOLD = 100.0
+CARDS_TODAYS_PICKS_PRICE_THRESHOLD = 100.0
 
 
 def _to_card(uc: UserComic) -> KioskCardOut:
@@ -39,10 +42,28 @@ def _to_card(uc: UserComic) -> KioskCardOut:
     )
 
 
-def _resolve_featured(db: Session, section: str, query_fresh) -> list[UserComic]:
+def _to_kiosk_trading_card(uc: UserTradingCard) -> KioskTradingCardOut:
+    card = uc.card
+    return KioskTradingCardOut(
+        id=uc.id,
+        name=card.name,
+        game_name=card.game_name,
+        set_name=card.set_name,
+        card_number=card.card_number,
+        rarity=card.rarity,
+        img=card.master_photo or card.image_large or card.image_medium or card.image_small,
+        average_price=card.average_price,
+        available=(uc.count or 1) - len(uc.sales),
+    )
+
+
+def _resolve_featured(db: Session, section: str, query_fresh, get_by_ids=crud.get_user_comics_by_ids) -> list:
+    """Generic over comics/cards - get_by_ids defaults to the comics lookup
+    for existing callers, pass crud_cards.get_user_trading_cards_by_ids for
+    cards sections."""
     cached_ids = crud.get_fresh_featured_ids(db, section)
     if cached_ids is not None:
-        items = crud.get_user_comics_by_ids(db, cached_ids)
+        items = get_by_ids(db, cached_ids)
         if items:
             return items
     items = query_fresh(FEATURED_LIMIT)
@@ -108,3 +129,53 @@ def kiosk_series_items(
 ):
     items = crud.get_kiosk_items_by_series(db, name)
     return [_to_card(uc) for uc in items]
+
+
+# --- Kiosk: trading cards (separate section from comics above, not merged
+# into the same feed - see feature-requests/tcg_card_scanner_build_prompt.md) ---
+
+@router.get("/cards/featured/todays-picks", response_model=list[KioskTradingCardOut])
+def kiosk_cards_todays_picks(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    items = _resolve_featured(
+        db,
+        "cards_todays_picks",
+        lambda limit: crud_cards.get_kiosk_cards_available_by_price(db, CARDS_TODAYS_PICKS_PRICE_THRESHOLD, limit),
+        get_by_ids=crud_cards.get_user_trading_cards_by_ids,
+    )
+    return [_to_kiosk_trading_card(uc) for uc in items]
+
+
+@router.get("/cards/featured/graded", response_model=list[KioskTradingCardOut])
+def kiosk_cards_graded(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    items = _resolve_featured(
+        db,
+        "cards_graded",
+        lambda limit: crud_cards.get_kiosk_cards_graded(db, limit),
+        get_by_ids=crud_cards.get_user_trading_cards_by_ids,
+    )
+    return [_to_kiosk_trading_card(uc) for uc in items]
+
+
+@router.get("/cards/search", response_model=list[SeriesSearchResult])
+def kiosk_cards_search(
+    q: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    return [SeriesSearchResult(**r) for r in crud_cards.search_kiosk_cards(db, q)]
+
+
+@router.get("/cards/items", response_model=list[KioskTradingCardOut])
+def kiosk_cards_items(
+    name: str,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    items = crud_cards.get_kiosk_cards_by_name(db, name)
+    return [_to_kiosk_trading_card(uc) for uc in items]

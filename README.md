@@ -41,16 +41,17 @@ backend (FastAPI) ---- postgres (comicvault DB)
 - **Scan** (`/scan`) — photograph or type a UPC barcode, look it up via `comic-scraper` (Metron), review/edit the pre-filled fields, add to your collection.
 - **Search** (`/search`) — look up a series by title (Metron + ComicVine) and add an issue directly, without a barcode.
 - **Sold** (`/sold`) — your sales history.
-- **Kiosk** (`/kiosk`) — a separate customer-facing, read-only storefront view (featured/signed/today's-picks sections, series browsing) for a dedicated `is_kiosk` account — comics only, cards aren't in the kiosk view yet.
-- **Admin** (`/admin`, requires `is_admin`) — manage users, manually add/edit shared catalog comics, review bug reports.
+- **Kiosk** (`/kiosk`) — a separate customer-facing, read-only storefront view for a dedicated `is_kiosk` account, with a Comics/Cards toggle. Comics side: "Today's Picks" (price threshold) and "Signed Comics" featured sections, plus series-title search/browse. Cards side: "Today's Picks" and "Graded Cards" featured sections, plus card-name search/browse — deliberately minimal detail (no grade/condition shown to customers even in the Graded Cards section). The two are separate sections, not a merged feed.
+- **Admin** (`/admin`, requires `is_admin`) — manage users, manually add/edit shared catalog comics, review bug reports, and (Cards Sync tab) trigger the apitcg.com catalog sync.
 
 ### Cards (any TCG — Pokémon, Magic, One Piece, etc.)
 - **Collection** (`/cards`) — same shape as the Comics collection: search/filter, edit ownership fields, record sales, upload your own photo.
 - **Add Card** — search the already-synced catalog by name and add a copy to your collection. (There's no self-service catalog *creation* for regular users — only admins can add new catalog cards, via `POST /admin/cards` or a sync below.)
-- **Scan Card** — photograph a card, get identified via a local Ollama vision model, review candidate matches (with confidence scores), confirm to add to your collection. Falls back to manual search if nothing matches confidently. See `tcg-scraper/README.md` for exactly how this pipeline works and what's still unverified against real hardware/models.
-- **Catalog sync** (admin-only, no frontend UI yet — call these directly): `POST /admin/cards/sync/games`, `/admin/cards/sync/sets`, `/admin/cards/sync/products` (one set), `/admin/cards/sync/products/all` (a whole game's catalog in one pass — recommended for a first import, see `tcg-scraper/README.md` for the apitcg.com quota cost).
+- **Scan Card** — photograph a card, get identified via a local Ollama vision model, review candidate matches (with confidence scores), confirm to add to your collection. Falls back to manual search if nothing matches confidently. See `tcg-scraper/README.md` for exactly how this pipeline works and what's still unverified against real hardware/models. **Not currently working end-to-end** — under active debugging.
+- **Catalog sync** — Admin dashboard's "Cards Sync" tab: sync games, pick one, sync its sets (optional) and/or its full catalog in one paginated pass. Same actions are also directly callable: `POST /admin/cards/sync/games`, `/admin/cards/sync/sets`, `/admin/cards/sync/products` (one set), `/admin/cards/sync/products/all` (a whole game's catalog in one pass — recommended for a first import, see `tcg-scraper/README.md` for the apitcg.com quota cost).
+- **Kiosk** — see the Kiosk bullet above.
 
-Cards do **not** yet have: CSV import, collection snapshots/analytics, or a kiosk view. See `feature-requests/` (gitignored, local-only) for the original build plan and phasing if you're picking this back up.
+Cards still don't have CSV import or collection snapshots/analytics. See `feature-requests/` (gitignored, local-only) for the original build plan and phasing if you're picking this back up.
 
 ## Quick start
 
@@ -104,6 +105,6 @@ Each service can run outside Docker too — see `tcg-scraper/README.md` and `com
 
 ## Known gaps / current state
 
-- Cards have no CSV import, no snapshots/analytics, and don't appear in the kiosk view (comics have all three).
-- Cards' catalog sync has no frontend UI — an admin has to call the sync endpoints directly (e.g. via `/docs` or `curl`).
-- The apitcg.com and Ollama integrations have been verified against a real captured API response and mocked tests respectively, but not yet run end-to-end against a live Docker stack with real credentials — see `tcg-scraper/README.md`'s "unverified assumptions" section before assuming everything there is battle-tested.
+- Cards have no CSV import and no collection snapshots/analytics (comics have both). Kiosk and catalog-sync UI are done.
+- **Card scanning is currently broken end-to-end** — manual add works fine, catalog sync works, but the photo-identification pipeline (`/cards/scan/identify`) is not; under active debugging. Check `docker compose logs tcg-scraper` first.
+- The apitcg.com integration has been verified against a real captured API response (including a couple of real bugs found and fixed that way - see `tcg-scraper/README.md`), but the Ollama vision-identification side is still unverified end-to-end against a live model - that's the most likely place the scanner issue above lives.

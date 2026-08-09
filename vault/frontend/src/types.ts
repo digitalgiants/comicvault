@@ -304,6 +304,18 @@ export interface KioskCard {
   available: number
 }
 
+export interface KioskTradingCard {
+  id: number
+  name: string
+  game_name: string | null
+  set_name: string | null
+  card_number: string | null
+  rarity: string | null
+  img: string | null
+  average_price: number | null
+  available: number
+}
+
 export interface SeriesSearchResult {
   name: string
   count: number

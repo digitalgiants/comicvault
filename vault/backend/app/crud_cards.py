@@ -2,11 +2,13 @@
 ~900 lines) rather than a nested per-feature package, matching this
 codebase's flat-file convention (see feature-requests/tcg_card_scanner_build_prompt.md)."""
 import difflib
+import random
 import re
 from datetime import date, datetime
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session, joinedload
 
 from app.crud import MASTER_PHOTO_OWNER_USERNAME
 from app.models import (
@@ -586,3 +588,84 @@ def match_candidates(
 
     results.sort(key=lambda t: t[2], reverse=True)
     return results[:limit]
+
+
+# --- Kiosk (customer-facing) ---
+# Direct mirror of crud.py's comics kiosk section (_available_kiosk_items,
+# get_kiosk_available_by_price, get_kiosk_available_signed,
+# get_user_comics_by_ids, search_kiosk_series, get_kiosk_items_by_series) -
+# same shape, adapted for cards. KioskFeaturedSet/get_fresh_featured_ids/
+# set_featured_ids are already generic (keyed by a plain `section` string)
+# and reused as-is from crud.py, just with new section names
+# ("cards_todays_picks", "cards_graded").
+
+def _available_kiosk_card_items(q) -> list[UserTradingCard]:
+    # UserTradingCard.sales is a derived @property over .transactions, not a
+    # real relationship - eager-load transactions (the actual relationship)
+    # so the property doesn't trigger a lazy query per row.
+    items = q.options(joinedload(UserTradingCard.transactions), joinedload(UserTradingCard.card)).all()
+    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
+
+
+def get_kiosk_cards_available_by_price(db: Session, threshold: float, limit: int) -> list[UserTradingCard]:
+    q = db.query(UserTradingCard).join(TradingCard).filter(
+        or_(
+            UserTradingCard.asking_price > threshold,
+            and_(UserTradingCard.asking_price.is_(None), TradingCard.average_price > threshold),
+        )
+    )
+    available = _available_kiosk_card_items(q)
+    return random.sample(available, min(limit, len(available)))
+
+
+def get_kiosk_cards_graded(db: Session, limit: int) -> list[UserTradingCard]:
+    q = db.query(UserTradingCard).join(TradingCard).filter(UserTradingCard.grades.any())
+    available = _available_kiosk_card_items(q)
+    return random.sample(available, min(limit, len(available)))
+
+
+def get_user_trading_cards_by_ids(db: Session, ids: list[int]) -> list[UserTradingCard]:
+    if not ids:
+        return []
+    rows = (
+        db.query(UserTradingCard)
+        .join(TradingCard)
+        .options(joinedload(UserTradingCard.transactions), joinedload(UserTradingCard.card))
+        .filter(UserTradingCard.id.in_(ids))
+        .all()
+    )
+    by_id = {uc.id: uc for uc in rows if (uc.count or 1) > len(uc.sales)}
+    return [by_id[i] for i in ids if i in by_id]
+
+
+def search_kiosk_cards(db: Session, query: str, limit: int = 10) -> list[dict]:
+    available = _available_kiosk_card_items(db.query(UserTradingCard).join(TradingCard))
+    counts: dict[str, int] = {}
+    for uc in available:
+        counts[uc.card.name] = counts.get(uc.card.name, 0) + 1
+
+    normalized_query = re.sub(r"[^a-z0-9]", "", query.strip().lower())
+    if not normalized_query:
+        return []
+
+    scored: list[tuple[float, str, int]] = []
+    for name, count in counts.items():
+        normalized_name = re.sub(r"[^a-z0-9]", "", name.lower())
+        score = 1.0 if normalized_query in normalized_name else difflib.SequenceMatcher(
+            None, normalized_query, normalized_name
+        ).ratio()
+        if score >= 0.5:
+            scored.append((score, name, count))
+
+    scored.sort(key=lambda t: t[0], reverse=True)
+    return [{"name": name, "count": count} for _score, name, count in scored[:limit]]
+
+
+def get_kiosk_cards_by_name(db: Session, card_name: str) -> list[UserTradingCard]:
+    q = db.query(UserTradingCard).join(TradingCard).filter(TradingCard.name == card_name)
+    available = _available_kiosk_card_items(q)
+
+    def sort_key(uc: UserTradingCard) -> tuple[str, str]:
+        return (uc.card.set_name or "", uc.card.card_number or "")
+
+    return sorted(available, key=sort_key)

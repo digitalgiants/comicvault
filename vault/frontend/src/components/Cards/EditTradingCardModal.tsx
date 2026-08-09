@@ -106,9 +106,9 @@ export default function EditTradingCardModal({ item, onClose, onSaved }: Props) 
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Card Info (read-only)</p>
           <div className="flex gap-4">
-            {(item.card.master_photo || item.card.image_medium || item.card.image_small) && (
+            {(item.card.master_photo || item.card.image_large || item.card.image_medium || item.card.image_small) && (
               <img
-                src={resolveImageUrl(item.card.master_photo || item.card.image_medium || item.card.image_small) ?? undefined}
+                src={resolveImageUrl(item.card.master_photo || item.card.image_large || item.card.image_medium || item.card.image_small) ?? undefined}
                 alt=""
                 className="w-16 h-24 object-cover rounded-lg border border-gray-700 flex-shrink-0"
               />

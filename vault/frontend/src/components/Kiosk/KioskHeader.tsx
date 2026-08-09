@@ -9,9 +9,13 @@ interface Props {
   searching: boolean
   onOpenSignup: () => void
   showConfirmation: boolean
+  searchPlaceholder?: string
 }
 
-export default function KioskHeader({ query, onQueryChange, onSearch, searching, onOpenSignup, showConfirmation }: Props) {
+export default function KioskHeader({
+  query, onQueryChange, onSearch, searching, onOpenSignup, showConfirmation,
+  searchPlaceholder = 'Search for a series…',
+}: Props) {
   const { logout } = useAuth()
   const navigate = useNavigate()
 
@@ -49,7 +53,7 @@ export default function KioskHeader({ query, onQueryChange, onSearch, searching,
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && onSearch()}
-                placeholder="Search for a series…"
+                placeholder={searchPlaceholder}
                 className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-3 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>

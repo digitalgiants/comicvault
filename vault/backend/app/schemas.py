@@ -348,6 +348,23 @@ class KioskCardOut(BaseModel):
     available: int = 0
 
 
+class KioskTradingCardOut(BaseModel):
+    """Customer-facing view of a pooled available card - mirrors
+    KioskCardOut's role for comics, but deliberately more minimal: no
+    grade/condition shown to customers even for the Graded Cards section
+    (that section is filtered by having a grade on file, it just doesn't
+    display it)."""
+    id: int
+    name: str
+    game_name: Optional[str] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    rarity: Optional[str] = None
+    img: Optional[str] = None
+    average_price: Optional[float] = None
+    available: int = 0
+
+
 class SeriesSearchResult(BaseModel):
     name: str
     count: int
