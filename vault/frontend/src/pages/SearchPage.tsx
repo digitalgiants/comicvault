@@ -253,7 +253,7 @@ export default function SearchPage() {
         </div>
       ) : (
         <>
-          <div className="flex gap-2 mb-2">
+          <div className="flex flex-col sm:flex-row gap-2 mb-2">
             <div className="relative flex-1">
               <SearchIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               <input
@@ -269,7 +269,7 @@ export default function SearchPage() {
               onChange={(e) => setIssueNumber(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && runSearch()}
               placeholder="Issue # (optional)"
-              className="w-40 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full sm:w-40 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <button
               onClick={runSearch}

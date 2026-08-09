@@ -123,9 +123,9 @@ export default function CollectionPage() {
 
   return (
     <div className="max-w-full px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold">My Collection</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {selected.size > 0 && (
             <button
               onClick={() => setBulkOpen(true)}

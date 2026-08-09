@@ -166,7 +166,7 @@ export default function AdminPage() {
       </div>
 
       {tab === 'users' && (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
           {loading ? (
             <div className="text-center text-gray-400 py-12">Loading…</div>
           ) : (

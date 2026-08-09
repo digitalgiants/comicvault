@@ -1,91 +1,124 @@
-import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag, CreditCard } from 'lucide-react'
+import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag, CreditCard, Menu, X } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+
+const NAV_LINKS = [
+  { to: '/comics', label: 'Comics', icon: Search },
+  { to: '/cards', label: 'Cards', icon: CreditCard },
+  { to: '/upload', label: 'Upload', icon: Upload },
+  { to: '/scan', label: 'Scan', icon: ScanBarcode },
+  { to: '/search', label: 'Search', icon: Library },
+  { to: '/sold', label: 'Sold', icon: Tag },
+]
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const handleLogout = () => {
+    setMenuOpen(false)
     logout()
     navigate('/login')
   }
 
   return (
-    <nav className="bg-gray-900 border-b border-gray-800 px-4 py-3">
+    <nav className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 px-4 py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <Link to={user?.is_kiosk ? '/kiosk' : '/'} className="flex items-center gap-2 text-brand-500 font-bold text-xl">
+        <Link
+          to={user?.is_kiosk ? '/kiosk' : '/'}
+          onClick={() => setMenuOpen(false)}
+          className="flex items-center gap-2 text-brand-500 font-bold text-xl"
+        >
           <BookOpen size={24} />
           <span>ComicVault</span>
         </Link>
 
         {user && (
-          <div className="flex items-center gap-1 sm:gap-3">
-            {!user.is_kiosk && (
-              <>
-                <Link
-                  to="/comics"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <Search size={16} />
-                  <span className="hidden sm:inline">Comics</span>
-                </Link>
-                <Link
-                  to="/cards"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <CreditCard size={16} />
-                  <span className="hidden sm:inline">Cards</span>
-                </Link>
-                <Link
-                  to="/upload"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <Upload size={16} />
-                  <span className="hidden sm:inline">Upload</span>
-                </Link>
-                <Link
-                  to="/scan"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <ScanBarcode size={16} />
-                  <span className="hidden sm:inline">Scan</span>
-                </Link>
-                <Link
-                  to="/search"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <Library size={16} />
-                  <span className="hidden sm:inline">Search</span>
-                </Link>
-                <Link
-                  to="/sold"
-                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
-                >
-                  <Tag size={16} />
-                  <span className="hidden sm:inline">Sold</span>
-                </Link>
-                {user.is_admin && (
-                  <Link
-                    to="/admin"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-yellow-400 hover:text-yellow-300 hover:bg-gray-800 transition text-sm"
-                  >
-                    <Shield size={16} />
-                    <span className="hidden sm:inline">Admin</span>
-                  </Link>
-                )}
-              </>
-            )}
+          <>
+            {/* Desktop / tablet nav */}
+            <div className="hidden md:flex items-center gap-1 lg:gap-3">
+              {!user.is_kiosk && (
+                <>
+                  {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                    <Link
+                      key={to}
+                      to={to}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
+                    >
+                      <Icon size={16} />
+                      <span className="hidden lg:inline">{label}</span>
+                    </Link>
+                  ))}
+                  {user.is_admin && (
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-yellow-400 hover:text-yellow-300 hover:bg-gray-800 transition text-sm"
+                    >
+                      <Shield size={16} />
+                      <span className="hidden lg:inline">Admin</span>
+                    </Link>
+                  )}
+                </>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
+              >
+                <LogOut size={16} />
+                <span className="hidden lg:inline">Logout</span>
+              </button>
+            </div>
+
+            {/* Mobile / small-tablet menu toggle */}
             <button
-              onClick={handleLogout}
-              className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="md:hidden flex items-center justify-center w-10 h-10 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition"
+              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
             >
-              <LogOut size={16} />
-              <span className="hidden sm:inline">Logout</span>
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
-          </div>
+          </>
         )}
       </div>
+
+      {user && menuOpen && (
+        <div className="md:hidden max-w-7xl mx-auto mt-3 pt-3 border-t border-gray-800 flex flex-col gap-1">
+          {!user.is_kiosk && (
+            <>
+              {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-300 hover:text-white hover:bg-gray-800 transition text-sm"
+                >
+                  <Icon size={18} />
+                  {label}
+                </Link>
+              ))}
+              {user.is_admin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-yellow-400 hover:text-yellow-300 hover:bg-gray-800 transition text-sm"
+                >
+                  <Shield size={18} />
+                  Admin
+                </Link>
+              )}
+            </>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      )}
     </nav>
   )
 }
