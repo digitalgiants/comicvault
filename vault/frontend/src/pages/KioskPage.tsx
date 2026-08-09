@@ -152,12 +152,12 @@ export default function KioskPage() {
       />
 
       <div className="max-w-5xl mx-auto px-4 pt-4">
-        <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
           {(['comics', 'cards'] as const).map((m) => (
             <button
               key={m}
               onClick={() => switchMode(m)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition ${mode === m ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${mode === m ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
             >
               {m === 'comics' ? 'Comics' : 'Cards'}
             </button>

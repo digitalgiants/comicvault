@@ -164,16 +164,16 @@ export default function ScanPage() {
                 )}
                 {a.status === 'success' && (
                   <div className="flex items-center justify-between gap-3 mt-2">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       {a.result.image && (
-                        <img src={a.result.image} alt="" className="w-10 h-14 object-cover rounded" />
+                        <img src={a.result.image} alt="" className="w-10 h-14 object-cover rounded flex-shrink-0" />
                       )}
-                      <div>
-                        <p className="font-medium">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">
                           {a.result.series_name} #{a.result.issue_number}
                           {a.result.variant_name && <span className="text-gray-400"> ({a.result.variant_name})</span>}
                         </p>
-                        <p className="text-gray-400 text-sm">
+                        <p className="text-gray-400 text-sm truncate">
                           {[a.result.publisher_name, a.result.series_volume ? `Vol. ${a.result.series_volume}` : null]
                             .filter(Boolean)
                             .join(' · ')}
