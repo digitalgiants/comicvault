@@ -47,7 +47,7 @@ backend (FastAPI) ---- postgres (comicvault DB)
 ### Cards (any TCG — Pokémon, Magic, One Piece, etc.)
 - **Collection** (`/cards`) — same shape as the Comics collection: search/filter, edit ownership fields, record sales, upload your own photo.
 - **Add Card** — search the already-synced catalog by name and add a copy to your collection. (There's no self-service catalog *creation* for regular users — only admins can add new catalog cards, via `POST /admin/cards` or a sync below.)
-- **Scan Card** — photograph a card, get identified via a local Ollama vision model, review candidate matches (with confidence scores), confirm to add to your collection. Falls back to manual search if nothing matches confidently. See `tcg-scraper/README.md` for exactly how this pipeline works and what's still unverified against real hardware/models. **Not currently working end-to-end** — under active debugging.
+- **Scan Card** — photograph a card, get identified via a local Ollama vision model, review candidate matches (with confidence scores), confirm to add to your collection. Falls back to manual search if nothing matches confidently. See `tcg-scraper/README.md` for exactly how this pipeline works and what's still unverified against real hardware/models. A bug that returned zero candidates whenever the vision model only read the printed card number (common with the small default model on smaller name/set text) is fixed via a number-only fallback match tier.
 - **Catalog sync** — Admin dashboard's "Cards Sync" tab: sync games, pick one, sync its sets (optional) and/or its full catalog in one paginated pass. Same actions are also directly callable: `POST /admin/cards/sync/games`, `/admin/cards/sync/sets`, `/admin/cards/sync/products` (one set), `/admin/cards/sync/products/all` (a whole game's catalog in one pass — recommended for a first import, see `tcg-scraper/README.md` for the apitcg.com quota cost).
 - **Kiosk** — see the Kiosk bullet above.
 
@@ -106,5 +106,6 @@ Each service can run outside Docker too — see `tcg-scraper/README.md` and `com
 ## Known gaps / current state
 
 - Cards have no CSV import and no collection snapshots/analytics (comics have both). Kiosk and catalog-sync UI are done.
-- **Card scanning is currently broken end-to-end** — manual add works fine, catalog sync works, but the photo-identification pipeline (`/cards/scan/identify`) is not; under active debugging. Check `docker compose logs tcg-scraper` first.
-- The apitcg.com integration has been verified against a real captured API response (including a couple of real bugs found and fixed that way - see `tcg-scraper/README.md`), but the Ollama vision-identification side is still unverified end-to-end against a live model - that's the most likely place the scanner issue above lives.
+- Card scanning previously returned zero match candidates whenever the vision model could only read the printed card number - fixed with a number-only fallback match tier (see the Scan Card bullet above). Check `docker compose logs tcg-scraper` first if a scan still comes back empty.
+- The apitcg.com integration has been verified against a real captured API response (including a couple of real bugs found and fixed that way - see `tcg-scraper/README.md`).
+- The frontend is responsive down to phone width (~375px) and tablet (~768px) - the main nav collapses into a hamburger menu below the `md` breakpoint and is sticky on every page.
