@@ -42,7 +42,12 @@ def fetch_dump(base_url: str, username: str, password: str, dump_dir: Path) -> P
 
 
 def _login(page, base_url: str, username: str, password: str) -> None:
-    page.goto(f"{base_url}{LOGIN_URL}", wait_until="networkidle")
+    # "networkidle" is unreliable on real-world sites -- comics.org apparently
+    # never goes fully network-idle within the navigation timeout (background
+    # polling/analytics), so goto() itself would time out even though the page
+    # loaded fine. "load" plus the locators' own auto-waiting is what's
+    # actually needed before interacting with the form.
+    page.goto(f"{base_url}{LOGIN_URL}", wait_until="load", timeout=60_000)
 
     try:
         page.get_by_label(re.compile("username", re.I)).fill(username)
@@ -54,14 +59,14 @@ def _login(page, base_url: str, username: str, password: str) -> None:
         ) from exc
 
     page.get_by_role("button", name=re.compile("log ?in", re.I)).click()
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load", timeout=60_000)
 
     if page.locator("form#login-form, input[name=password]").count() > 0:
         raise FetchError("GCD login did not succeed -- still on a login form after submitting.")
 
 
 def _download_sqlite_dump(page, base_url: str, dump_dir: Path) -> Path:
-    page.goto(f"{base_url}{DOWNLOAD_URL}", wait_until="networkidle")
+    page.goto(f"{base_url}{DOWNLOAD_URL}", wait_until="load", timeout=60_000)
 
     checkbox = page.get_by_role(
         "checkbox", name=re.compile("read and accept the GCD data licensing terms", re.I)
