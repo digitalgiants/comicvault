@@ -84,6 +84,27 @@ services:
     depends_on:
       - ollama
 
+  gcd-modifier:
+    build:
+      context: ./gcd-modifier
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - comicvault
+    volumes:
+      - gcd_dump_data:/data/dumps
+    environment:
+      - GCD_USERNAME=${GCD_USERNAME}
+      - GCD_PASSWORD=${GCD_PASSWORD}
+      - POSTGRES_USER=comicvault
+      - POSTGRES_PASSWORD=comicvault
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=gcd
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
@@ -123,3 +144,4 @@ volumes:
   postgres_data:
   uploads_data:
   ollama_data:
+  gcd_dump_data:

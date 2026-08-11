@@ -4,18 +4,19 @@ A web app for cataloging and managing a comic book and trading card shop's inven
 
 ## Architecture
 
-Six services, run together via the root `docker-compose.yml`:
+Seven services, run together via the root `docker-compose.yml`:
 
 | Service | What it does | Port (internal) |
 |---|---|---|
 | `frontend` | React + TypeScript UI | `3002 -> 3000` (published) |
 | `backend` | FastAPI app — the API, database models, and all business logic | `8000` (published) |
-| `postgres` | Shared Postgres server — separate databases for `backend` (`comicvault`) and `comic-scraper` (`comic_scraper`) | internal only |
+| `postgres` | Shared Postgres server — separate databases for `backend` (`comicvault`), `comic-scraper` (`comic_scraper`), and `gcd-modifier` (`gcd`) | internal only |
 | `comic-scraper` | Sibling service: UPC/EAN-5 comic issue lookup against the Metron API, used by the comics barcode scanner | `9095`, internal only |
 | `tcg-scraper` | Sibling service: trading card catalog sync against [apitcg.com](https://apitcg.com) and photo identification via a local Ollama vision model | `9096`, internal only |
 | `ollama` | Self-hosted vision-LLM runtime, used by `tcg-scraper` for card photo identification | `11434`, internal only |
+| `gcd-modifier` | Sibling service: fetches the Grand Comics Database dump on a schedule, filters to English-language comics, loads into its own `gcd` database | cron-driven, no port |
 
-`backend` is the only service with a real database schema — `comic-scraper` and `tcg-scraper` are both external-API proxies (see their own READMEs for why). `backend` talks to both over HTTP; nothing else talks to Postgres directly except `backend` and `comic-scraper`.
+`backend` is the only service with a real database schema — `comic-scraper` and `tcg-scraper` are both external-API proxies (see their own READMEs for why), and `gcd-modifier` is a batch writer to its own isolated database. `backend` talks to `comic-scraper`/`tcg-scraper` over HTTP; nothing else talks to Postgres directly except `backend`, `comic-scraper`, and `gcd-modifier`. Nothing currently reads from the `gcd` database — it's populated and ready for `backend` (or another service) to query later.
 
 ```
 Browser
@@ -31,6 +32,8 @@ backend (FastAPI) ---- postgres (comicvault DB)
   +--> tcg-scraper --> apitcg.com                        (card catalog sync)
             |
             +--> ollama (local vision model)              (card photo identification)
+
+gcd-modifier (cron, every 2 weeks) --> comics.org (GCD dump) --> postgres (gcd DB)
 ```
 
 ## Features
@@ -81,8 +84,9 @@ Root `.env` (loaded by `docker-compose.yml`):
 | `METRON_USERNAME` / `METRON_PASSWORD` | `comic-scraper` | [metron.cloud](https://metron.cloud) credentials |
 | `APITCG_API_KEY` | `tcg-scraper` | [apitcg.com](https://apitcg.com) API key |
 | `OLLAMA_VISION_MODEL` | `tcg-scraper` | Default `moondream` (small/CPU-friendly) — swap once a GPU is available, see `tcg-scraper/README.md` |
+| `GCD_USERNAME` / `GCD_PASSWORD` | `gcd-modifier` | [comics.org](https://www.comics.org) account credentials, used to log in and download the GCD data dump |
 
-`vault/backend/.env.example` and `tcg-scraper/.env.example` document each service's full settings (most have working defaults already baked into `docker-compose.yml`).
+`vault/backend/.env.example`, `tcg-scraper/.env.example`, and `gcd-modifier/.env.example` document each service's full settings (most have working defaults already baked into `docker-compose.yml`).
 
 ## Directory structure
 
@@ -94,7 +98,8 @@ comicvault/
 │   └── frontend/         React + TypeScript UI
 ├── comic-scraper/        Sibling service - comics barcode lookup (Metron)
 ├── tcg-scraper/          Sibling service - card catalog sync + photo ID (apitcg.com, Ollama)
-└── postgres-init/        One-time init SQL (creates the comic-scraper DB on a fresh volume)
+├── gcd-modifier/         Sibling service - Grand Comics Database dump fetch/filter/load, cron-driven
+└── postgres-init/        One-time init SQL (creates the comic-scraper and gcd DBs on a fresh volume)
 ```
 
 `vault/backend/app/` follows a flat-file convention deliberately, not a per-feature package layout: `models.py` (all SQLAlchemy models), `schemas.py` (all Pydantic schemas), `crud.py` (comics CRUD) / `crud_cards.py` (cards CRUD, split out only because `crud.py` was already large), and one file per feature under `routes/`.
