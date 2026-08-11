@@ -92,7 +92,11 @@ services:
     networks:
       - comicvault
     volumes:
-      - ./gcd-modifier/dumps:/data/dumps
+      # :Z relabels the host dir to container_file_t so SELinux-confined
+      # podman containers can actually read it - without it, a bind-mounted
+      # directory still tagged user_home_t is denied by policy regardless of
+      # Unix permissions.
+      - ./gcd-modifier/dumps:/data/dumps:Z
     environment:
       - GCD_USERNAME=${GCD_USERNAME}
       - GCD_PASSWORD=${GCD_PASSWORD}
