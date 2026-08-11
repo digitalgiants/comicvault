@@ -92,7 +92,7 @@ services:
     networks:
       - comicvault
     volumes:
-      - gcd_dump_data:/data/dumps
+      - ./gcd-modifier/dumps:/data/dumps
     environment:
       - GCD_USERNAME=${GCD_USERNAME}
       - GCD_PASSWORD=${GCD_PASSWORD}
@@ -144,4 +144,3 @@ volumes:
   postgres_data:
   uploads_data:
   ollama_data:
-  gcd_dump_data:

@@ -103,17 +103,31 @@ def _download_sqlite_dump(page, base_url: str, dump_dir: Path) -> Path:
 
 def _extract_sqlite_db(zip_path: Path, dump_dir: Path, timestamp: str) -> Path:
     """GCD serves the SQLite dump as a zip containing a single dated .db file."""
+    dest = extract_dump_zip(zip_path, dump_dir / f"gcd-{timestamp}.db")
+    zip_path.unlink()
+    return dest
+
+
+def extract_dump_zip(zip_path: Path, dest: Path | None = None) -> Path:
+    """Extracts a GCD dump zip (auto-fetched or manually downloaded) to a .db file.
+
+    GCD serves the SQLite dump as a zip containing a single dated .db file,
+    whether it comes from the automated fetch above or a human downloading it
+    by hand through a real browser (see manual.py -- comics.org's login is
+    behind a Cloudflare Turnstile challenge that blocks automated fetches, so
+    manual download is currently the only reliable path).
+    """
+    if dest is None:
+        dest = zip_path.with_suffix(".db")
     with zipfile.ZipFile(zip_path) as zf:
         members = zf.namelist()
         if len(members) != 1:
             raise FetchError(
                 f"Expected exactly one file in the GCD dump archive, found {len(members)}: {members}"
             )
-        dest = dump_dir / f"gcd-{timestamp}.db"
         with zf.open(members[0]) as src, dest.open("wb") as out:
             while chunk := src.read(1024 * 1024):
                 out.write(chunk)
 
-    zip_path.unlink()
     logger.info("Extracted GCD dump to %s", dest)
     return dest

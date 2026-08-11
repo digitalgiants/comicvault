@@ -1,6 +1,11 @@
 .env
 *.env.local
 
+# Manually-downloaded GCD dumps (see manual.py / `load-latest`) - bind-mounted
+# into the container at /data/dumps, never committed.
+/dumps/*
+!/dumps/.gitkeep
+
 __pycache__/
 *.py[cod]
 *.pyo

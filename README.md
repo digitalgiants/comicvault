@@ -14,7 +14,7 @@ Seven services, run together via the root `docker-compose.yml`:
 | `comic-scraper` | Sibling service: UPC/EAN-5 comic issue lookup against the Metron API, used by the comics barcode scanner | `9095`, internal only |
 | `tcg-scraper` | Sibling service: trading card catalog sync against [apitcg.com](https://apitcg.com) and photo identification via a local Ollama vision model | `9096`, internal only |
 | `ollama` | Self-hosted vision-LLM runtime, used by `tcg-scraper` for card photo identification | `11434`, internal only |
-| `gcd-modifier` | Sibling service: fetches the Grand Comics Database dump on a schedule, filters to English-language comics, loads into its own `gcd` database | cron-driven, no port |
+| `gcd-modifier` | Sibling service: loads a manually-downloaded Grand Comics Database dump on a schedule, filters to English-language comics, loads into its own `gcd` database | cron-driven, no port |
 
 `backend` is the only service with a real database schema — `comic-scraper` and `tcg-scraper` are both external-API proxies (see their own READMEs for why), and `gcd-modifier` is a batch writer to its own isolated database. `backend` talks to `comic-scraper`/`tcg-scraper` over HTTP; nothing else talks to Postgres directly except `backend`, `comic-scraper`, and `gcd-modifier`. Nothing currently reads from the `gcd` database — it's populated and ready for `backend` (or another service) to query later.
 
@@ -33,7 +33,7 @@ backend (FastAPI) ---- postgres (comicvault DB)
             |
             +--> ollama (local vision model)              (card photo identification)
 
-gcd-modifier (cron, every 2 weeks) --> comics.org (GCD dump) --> postgres (gcd DB)
+you (manual download) --> gcd-modifier/dumps/ --> gcd-modifier (cron, every 2 weeks) --> postgres (gcd DB)
 ```
 
 ## Features
@@ -114,3 +114,4 @@ Each service can run outside Docker too — see `tcg-scraper/README.md` and `com
 - Card scanning previously returned zero match candidates whenever the vision model could only read the printed card number - fixed with a number-only fallback match tier (see the Scan Card bullet above). Check `docker compose logs tcg-scraper` first if a scan still comes back empty.
 - The apitcg.com integration has been verified against a real captured API response (including a couple of real bugs found and fixed that way - see `tcg-scraper/README.md`).
 - The frontend is responsive down to phone width (~375px) and tablet (~768px) - the main nav collapses into a hamburger menu below the `md` breakpoint and is sticky on every page.
+- `gcd-modifier`'s dump fetch is manual, not automated - comics.org's login is behind a Cloudflare Turnstile challenge that blocks headless browsers. Download the dump yourself and drop it in `gcd-modifier/dumps/` (bind-mounted, gitignored); the cron sidecar loads whichever file is newest every 2 weeks. See `gcd-modifier/README.md`.
