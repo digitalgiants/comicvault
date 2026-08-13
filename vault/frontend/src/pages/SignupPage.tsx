@@ -14,7 +14,7 @@ export default function SignupPage() {
   const { signup } = useAuth()
   const navigate = useNavigate()
   const [error, setError] = useState('')
-  const { register, handleSubmit, watch, formState: { isSubmitting } } = useForm<FormData>()
+  const { register, handleSubmit, formState: { isSubmitting } } = useForm<FormData>()
 
   const onSubmit = async (data: FormData) => {
     setError('')

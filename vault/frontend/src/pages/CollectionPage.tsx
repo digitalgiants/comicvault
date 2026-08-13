@@ -106,14 +106,14 @@ export default function CollectionPage() {
       return price != null ? `$${price.toFixed(2)}` : '—'
     }
     if (key in uc.comic) {
-      const v = (uc.comic as Record<string, unknown>)[key]
+      const v = (uc.comic as unknown as Record<string, unknown>)[key]
       if (v === null || v === undefined) return '—'
       if (key === 'average_price') return `$${Number(v).toFixed(2)}`
       if (key === 'direct') return v ? 'Yes' : 'No'
       if (key === 'cover_date' || key === 'store_date') return new Date(v as string).toLocaleDateString()
       return String(v)
     }
-    const v = (uc as Record<string, unknown>)[key]
+    const v = (uc as unknown as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
     if (key === 'paid_price' || key === 'asking_price') return `$${Number(v).toFixed(2)}`
     if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'

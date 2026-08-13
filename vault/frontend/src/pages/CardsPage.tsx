@@ -86,12 +86,12 @@ export default function CardsPage() {
       return price != null ? `$${price.toFixed(2)}` : '—'
     }
     if (key in uc.card) {
-      const v = (uc.card as Record<string, unknown>)[key]
+      const v = (uc.card as unknown as Record<string, unknown>)[key]
       if (v === null || v === undefined) return '—'
       if (key === 'average_price') return `$${Number(v).toFixed(2)}`
       return String(v)
     }
-    const v = (uc as Record<string, unknown>)[key]
+    const v = (uc as unknown as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
     if (key === 'paid_price' || key === 'asking_price') return `$${Number(v).toFixed(2)}`
     if (key === 'buy_date') return new Date(v as string).toLocaleDateString()

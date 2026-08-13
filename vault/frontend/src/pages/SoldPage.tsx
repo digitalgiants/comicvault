@@ -36,7 +36,7 @@ export default function SoldPage() {
     if (key === 'sell_date') return new Date(sale.sell_date).toLocaleDateString()
     if (key === 'sell_price') return sale.sell_price != null ? `$${sale.sell_price.toFixed(2)}` : '—'
     if (key === 'notes') return sale.notes ?? '—'
-    const v = (sale.comic as Record<string, unknown>)[key]
+    const v = (sale.comic as unknown as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
     if (key === 'average_price') return `$${Number(v).toFixed(2)}`
     return String(v)
