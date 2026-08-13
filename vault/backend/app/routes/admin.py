@@ -10,7 +10,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import TradingCard, User
 from app.schemas import (
-    BugReportOut, ComicCreate, ComicOut, ComicUpdate, TradingCardCreate,
+    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSignupOut, TradingCardCreate,
     TradingCardOut, TradingCardUpdate, UserOut, UserUpdate,
 )
 
@@ -36,6 +36,14 @@ def list_users(
     _: User = Depends(get_current_admin),
 ):
     return crud.get_all_users(db, skip=skip, limit=limit)
+
+
+@router.get("/kiosk-signups", response_model=list[KioskSignupOut])
+def list_kiosk_signups(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.get_kiosk_signups(db)
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)

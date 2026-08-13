@@ -320,6 +320,15 @@ export interface SeriesSearchResult {
   count: number
 }
 
+export interface KioskSignup {
+  id: number
+  first_name: string
+  last_name: string
+  email: string
+  phone: string | null
+  created_at: string
+}
+
 export interface KioskSignupInput {
   first_name: string
   last_name: string

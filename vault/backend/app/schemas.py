@@ -318,6 +318,7 @@ class KioskSignupOut(BaseModel):
     last_name: str
     email: str
     phone: Optional[str] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

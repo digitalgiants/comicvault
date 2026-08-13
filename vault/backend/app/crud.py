@@ -551,6 +551,10 @@ def get_user_csv_imports(db: Session, user_id: int) -> list[CSVImport]:
 
 # --- Kiosk ---
 
+def get_kiosk_signups(db: Session) -> list[KioskSignup]:
+    return db.query(KioskSignup).order_by(KioskSignup.created_at.desc()).all()
+
+
 def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str]) -> KioskSignup:
     conditions = [KioskSignup.email == email]
     if phone:

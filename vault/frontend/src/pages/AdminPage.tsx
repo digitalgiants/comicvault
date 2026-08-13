@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download } from 'lucide-react'
 import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import { getCardGames } from '../api/cards'
-import type { BugReport, CardGame } from '../types'
+import type { BugReport, CardGame, KioskSignup } from '../types'
 import BugReportButton from '../components/BugReportButton'
 
 // A full-catalog sync is many sequential apitcg.com calls proxied through
@@ -28,8 +28,9 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups'>('users')
   const [loading, setLoading] = useState(true)
+  const [signups, setSignups] = useState<KioskSignup[]>([])
 
   const [cardGames, setCardGames] = useState<CardGame[]>([])
   const [selectedGameSlug, setSelectedGameSlug] = useState('')
@@ -42,6 +43,26 @@ export default function AdminPage() {
   useEffect(() => {
     api.get<AdminUser[]>('/admin/users').then(r => { setUsers(r.data); setLoading(false) })
   }, [])
+
+  useEffect(() => {
+    api.get<KioskSignup[]>('/admin/kiosk-signups').then(r => setSignups(r.data))
+  }, [])
+
+  const downloadSignupsCsv = () => {
+    const header = ['First Name', 'Last Name', 'Email', 'Phone', 'Signed Up']
+    const rows = signups.map(s => [
+      s.first_name, s.last_name, s.email, s.phone ?? '', new Date(s.created_at).toLocaleDateString(),
+    ])
+    const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+    const csv = [header, ...rows].map(row => row.map(escape).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kiosk-signups-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   useEffect(() => {
     getBugReports(showResolved ? undefined : false).then(setReports)
@@ -154,13 +175,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : 'Cards Sync'}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : `Kiosk Signups (${signups.length})`}
           </button>
         ))}
       </div>
@@ -325,6 +346,49 @@ export default function AdminPage() {
 
           {syncMessage && <p className="text-green-400 text-sm">{syncMessage}</p>}
           {syncError && <p className="text-red-400 text-sm">{syncError}</p>}
+        </div>
+      )}
+
+      {tab === 'signups' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-400">{signups.length} signup{signups.length !== 1 ? 's' : ''}</p>
+            <button
+              onClick={downloadSignupsCsv}
+              disabled={signups.length === 0}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              <Download size={14} />
+              Download CSV
+            </button>
+          </div>
+
+          {signups.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No kiosk signups yet.</div>
+          ) : (
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Name</th>
+                    <th className="px-6 py-3 text-left">Email</th>
+                    <th className="px-6 py-3 text-left">Phone</th>
+                    <th className="px-6 py-3 text-left">Signed Up</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {signups.map(s => (
+                    <tr key={s.id} className="hover:bg-gray-800/50 transition">
+                      <td className="px-6 py-4">{s.first_name} {s.last_name}</td>
+                      <td className="px-6 py-4 text-gray-300">{s.email}</td>
+                      <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
+                      <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
