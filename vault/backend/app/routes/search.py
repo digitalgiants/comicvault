@@ -2,12 +2,13 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, gcd_lookup
 from app.auth import get_current_non_kiosk
 from app.config import settings
 from app.database import get_db
 from app.external import comicvine
 from app.external.comicvine import ComicVineNotConfigured, ComicVineRateLimitError
+from app.gcd_database import get_gcd_db
 from app.models import User
 from app.schemas import (
     ComicCreate,
@@ -25,8 +26,16 @@ TIMEOUT = 15.0
 def search_series(
     query: str,
     db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> ExternalSeriesSearchResult:
+    # GCD is free/local (no API cost) so it's tried first; Metron/ComicVine
+    # (both cost real API calls) only get hit when GCD has nothing at all.
+    if gcd_db is not None:
+        gcd_results = gcd_lookup.search_series(gcd_db, query)
+        if gcd_results:
+            return ExternalSeriesSearchResult(results=gcd_results, warnings=[])
+
     normalized = crud.normalize_search_query(query)
     results: list[ExternalSeriesResult] = []
     warnings: list[str] = []
@@ -94,7 +103,7 @@ def search_series(
 
 
 def _fetch_provider_issues(
-    provider: str, provider_series_id: str, number: str | None = None
+    provider: str, provider_series_id: str, number: str | None = None, gcd_db: Session | None = None
 ) -> list[ExternalIssueSummary]:
     """Fetch issues directly from the provider (bypassing our cache) - either
     the full series (number=None) or, if number is given, a single targeted
@@ -127,6 +136,10 @@ def _fetch_provider_issues(
             raise HTTPException(status_code=400, detail=str(e))
         except ComicVineRateLimitError as e:
             raise HTTPException(status_code=429, detail=str(e))
+    elif provider == "gcd":
+        if gcd_db is None:
+            raise HTTPException(status_code=400, detail="GCD lookup is not configured")
+        return gcd_lookup.get_series_issues(gcd_db, int(provider_series_id), number=number)
     raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
 
@@ -156,9 +169,10 @@ def get_series_issues(
     number: str | None = Query(None),
     series_name: str | None = Query(None),
     db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> list[ExternalIssueSummary]:
-    if provider not in ("metron", "comicvine"):
+    if provider not in ("metron", "comicvine", "gcd"):
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
     # Targeted "series + issue number" lookup: serve from cache if we've seen
@@ -172,7 +186,7 @@ def get_series_issues(
         if hit:
             return [hit]
 
-        fetched = _fetch_provider_issues(provider, provider_series_id, number=number)
+        fetched = _fetch_provider_issues(provider, provider_series_id, number=number, gcd_db=gcd_db)
         crud.bulk_upsert_issue_summaries(db, provider, provider_series_id, fetched)
 
         target = crud.normalize_issue_number(number)
@@ -191,7 +205,7 @@ def get_series_issues(
             if current_count is None or current_count <= sync.known_issue_count:
                 return cached_issues
 
-    fetched = _fetch_provider_issues(provider, provider_series_id)
+    fetched = _fetch_provider_issues(provider, provider_series_id, gcd_db=gcd_db)
     fetched.sort(key=lambda i: crud.issue_number_sort_key(i.number))
     crud.bulk_upsert_issue_summaries(db, provider, provider_series_id, fetched)
     crud.upsert_series_sync(db, provider, provider_series_id, series_name, len(fetched))
@@ -203,13 +217,21 @@ def get_issue_fields(
     provider: str,
     provider_issue_id: str,
     db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> ComicCreate:
     cached_row = crud.get_cached_issue_fields(db, provider, provider_issue_id)
     if cached_row is not None and cached_row.fields_synced:
         return crud.cache_row_to_comic_create(cached_row)
 
-    if provider == "metron":
+    if provider == "gcd":
+        if gcd_db is None:
+            raise HTTPException(status_code=400, detail="GCD lookup is not configured")
+        try:
+            fields = gcd_lookup.get_issue_fields(gcd_db, int(provider_issue_id))
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+    elif provider == "metron":
         try:
             resp = httpx.get(
                 f"{settings.comic_scraper_url}/issue/{provider_issue_id}/fields",

@@ -3,6 +3,10 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     database_url: str
+    # Second, read-only connection to gcd-modifier's `gcd` database on the same
+    # Postgres server - empty by default so GCD lookups are simply skipped
+    # (falling through to Metron/ComicVine as before) if this isn't set.
+    gcd_database_url: str = ""
     jwt_secret: str
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 5

@@ -177,7 +177,7 @@ export interface LookupResult {
   inkers: string[]
   credits: CreditInfo[]
   matched_on: 'base_upc' | 'variant_upc'
-  source: 'cache' | 'metron'
+  source: 'cache' | 'metron' | 'gcd'
   metron_id: number | null
   cv_id: number | null
   gcd_id: number | null
@@ -254,7 +254,7 @@ export interface ScanAddRequest {
 
 // --- Series title search (Metron + ComicVine) ---
 
-export type Provider = 'metron' | 'comicvine'
+export type Provider = 'metron' | 'comicvine' | 'gcd'
 
 export interface ExternalSeriesResult {
   provider: Provider

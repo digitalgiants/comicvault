@@ -5,10 +5,11 @@ import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
 import type { ExternalIssueSummary, ExternalSeriesResult, ScanComicFields } from '../types'
 import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
 
-const PROVIDER_LABEL: Record<string, string> = { metron: 'Metron', comicvine: 'ComicVine' }
+const PROVIDER_LABEL: Record<string, string> = { metron: 'Metron', comicvine: 'ComicVine', gcd: 'GCD' }
 const PROVIDER_BADGE: Record<string, string> = {
   metron: 'bg-blue-900/50 text-blue-300',
   comicvine: 'bg-purple-900/50 text-purple-300',
+  gcd: 'bg-green-900/50 text-green-300',
 }
 
 export default function SearchPage() {

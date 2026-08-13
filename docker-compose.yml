@@ -35,6 +35,7 @@ services:
       - uploads_data:/app/uploads
     environment:
       - DATABASE_URL=postgresql://comicvault:comicvault@postgres:5432/comicvault
+      - GCD_DATABASE_URL=postgresql://comicvault:comicvault@postgres:5432/gcd
       - JWT_SECRET=${JWT_SECRET:-supersecretchangeme}
       - KIOSK_PASSWORD=${KIOSK_PASSWORD:-kiosk}
       - JWT_ALGORITHM=HS256
