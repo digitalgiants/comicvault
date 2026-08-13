@@ -46,9 +46,6 @@ export default function FeaturedCardLightbox({ title, items, loading, error }: P
                   {item.name}
                 </div>
               )}
-              {item.average_price != null && (
-                <div className="text-green-400 text-sm mt-1">${item.average_price.toFixed(2)}</div>
-              )}
             </button>
           ))}
         </div>
@@ -81,9 +78,6 @@ export default function FeaturedCardLightbox({ title, items, loading, error }: P
                 {[selected.game_name, selected.set_name].filter(Boolean).join(' · ')}
               </p>
               {selected.rarity && <p className="text-gray-400 text-sm">{selected.rarity}</p>}
-              {selected.average_price != null && (
-                <p className="text-green-400 font-medium">${selected.average_price.toFixed(2)}</p>
-              )}
               <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-green-900/50 text-green-400">
                 {selected.available} available
               </span>

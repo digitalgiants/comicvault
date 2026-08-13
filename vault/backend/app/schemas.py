@@ -351,9 +351,10 @@ class KioskCardOut(BaseModel):
 class KioskTradingCardOut(BaseModel):
     """Customer-facing view of a pooled available card - mirrors
     KioskCardOut's role for comics, but deliberately more minimal: no
-    grade/condition shown to customers even for the Graded Cards section
-    (that section is filtered by having a grade on file, it just doesn't
-    display it)."""
+    grade/condition or price shown to customers, even for the Graded Cards
+    section (that section is filtered by having a grade on file, it just
+    doesn't display it) or Today's Picks (filtered by price threshold
+    server-side, same story)."""
     id: int
     name: str
     game_name: Optional[str] = None
@@ -361,7 +362,6 @@ class KioskTradingCardOut(BaseModel):
     card_number: Optional[str] = None
     rarity: Optional[str] = None
     img: Optional[str] = None
-    average_price: Optional[float] = None
     available: int = 0
 
 

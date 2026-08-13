@@ -312,7 +312,6 @@ export interface KioskTradingCard {
   card_number: string | null
   rarity: string | null
   img: string | null
-  average_price: number | null
   available: number
 }
 
