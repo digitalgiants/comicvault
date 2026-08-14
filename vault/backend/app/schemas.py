@@ -144,6 +144,7 @@ class UserComicBase(BaseModel):
     condition: Optional[str] = None
     personal_img: Optional[str] = None
     notes: Optional[str] = None
+    do_not_sell: Optional[bool] = False
 
 
 class UserComicCreate(UserComicBase):
@@ -161,6 +162,7 @@ class UserComicUpdate(BaseModel):
     condition: Optional[str] = None
     personal_img: Optional[str] = None
     notes: Optional[str] = None
+    do_not_sell: Optional[bool] = None
 
 
 class BulkUpdateItem(BaseModel):
@@ -516,6 +518,7 @@ class UserTradingCardBase(BaseModel):
     for_sale: Optional[bool] = False
     personal_img: Optional[str] = None
     notes: Optional[str] = None
+    do_not_sell: Optional[bool] = False
 
 
 class UserTradingCardCreate(UserTradingCardBase):
@@ -534,6 +537,7 @@ class UserTradingCardUpdate(BaseModel):
     for_sale: Optional[bool] = None
     personal_img: Optional[str] = None
     notes: Optional[str] = None
+    do_not_sell: Optional[bool] = None
 
 
 class CardBulkUpdateItem(BaseModel):

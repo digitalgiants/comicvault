@@ -6,7 +6,7 @@ import pandas as pd
 
 REQUIRED_COLUMNS = {"series"}
 
-BOOLEAN_FIELDS = {"newstand/direct", "signed", "remarked"}
+BOOLEAN_FIELDS = {"newstand/direct", "signed", "remarked", "donotsell"}
 FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice", "askingprice"}
 INT_FIELDS = {"count"}
 DATE_FIELDS = {"buydate", "coverdate", "storedate", "selldate"}
@@ -39,6 +39,7 @@ COLUMN_MAP = {
     "signed": "signed",
     "remarked": "remarked",
     "notes": "notes",
+    "donotsell": "do_not_sell",
 }
 
 

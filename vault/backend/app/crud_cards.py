@@ -619,7 +619,7 @@ def _available_kiosk_card_items(q) -> list[UserTradingCard]:
     # real relationship - eager-load transactions (the actual relationship)
     # so the property doesn't trigger a lazy query per row.
     items = q.options(joinedload(UserTradingCard.transactions), joinedload(UserTradingCard.card)).all()
-    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
+    return [uc for uc in items if (uc.count or 1) > len(uc.sales) and not uc.do_not_sell]
 
 
 def _kiosk_cards_sort_key(uc: UserTradingCard) -> tuple[str, str, str]:

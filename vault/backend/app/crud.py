@@ -613,7 +613,7 @@ def update_kiosk_settings(db: Session, **fields) -> KioskSettings:
 
 def _available_kiosk_items(q) -> list[UserComic]:
     items = q.options(joinedload(UserComic.sales), joinedload(UserComic.comic)).all()
-    return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
+    return [uc for uc in items if (uc.count or 1) > len(uc.sales) and not uc.do_not_sell]
 
 
 def _kiosk_available_by_price(db: Session, threshold: float) -> list[UserComic]:

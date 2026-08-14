@@ -49,6 +49,7 @@ export interface UserComic {
   condition: string | null
   personal_img: string | null
   notes: string | null
+  do_not_sell: boolean
   created_at: string
   sales: Sale[]
 }
@@ -118,6 +119,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'remarked', label: 'Remarked' },
   { key: 'condition', label: 'Condition' },
   { key: 'notes', label: 'Notes' },
+  { key: 'do_not_sell', label: 'Do Not Sell' },
 ]
 
 export const SOLD_COLUMNS: { key: string; label: string }[] = [
@@ -142,6 +144,7 @@ export type UserComicUpdate = {
   condition?: string | null
   personal_img?: string | null
   notes?: string | null
+  do_not_sell?: boolean
 }
 
 export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string }[] = [
@@ -154,6 +157,7 @@ export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: strin
   { key: 'remarked', label: 'Remarked', type: 'checkbox' },
   { key: 'condition', label: 'Condition', type: 'text' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
+  { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
 ]
 
 // --- Barcode scanning (comic-scraper lookups) ---
@@ -410,6 +414,7 @@ export interface UserTradingCard {
   for_sale: boolean
   personal_img: string | null
   notes: string | null
+  do_not_sell: boolean
   created_at: string
   sales: CardTransaction[]
 }
@@ -446,6 +451,7 @@ export const CARDS_COLUMNS: { key: string; label: string }[] = [
   { key: 'buy_date', label: 'Buy Date' },
   { key: 'sell_price', label: 'Sell Price' },
   { key: 'notes', label: 'Notes' },
+  { key: 'do_not_sell', label: 'Do Not Sell' },
 ]
 
 export type UserTradingCardUpdate = {
@@ -459,6 +465,7 @@ export type UserTradingCardUpdate = {
   for_sale?: boolean
   personal_img?: string | null
   notes?: string | null
+  do_not_sell?: boolean
 }
 
 export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; type: string }[] = [
@@ -471,6 +478,7 @@ export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; 
   { key: 'buy_date', label: 'Buy Date', type: 'date' },
   { key: 'for_sale', label: 'For Sale', type: 'checkbox' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
+  { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
 ]
 
 export interface ScanCandidate {

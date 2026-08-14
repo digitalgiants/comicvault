@@ -25,7 +25,7 @@ export default function EditTradingCardModal({ item, onClose, onSaved }: Props) 
       if (key === 'buy_date') {
         initial[key] = val ? (val as string).split('T')[0] : ''
       } else {
-        initial[key] = val ?? (key === 'for_sale' ? false : '')
+        initial[key] = val ?? (key === 'for_sale' || key === 'do_not_sell' ? false : '')
       }
     })
     setForm(initial)

@@ -29,7 +29,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
       if (key === 'buy_date') {
         initial[key] = val ? (val as string).split('T')[0] : ''
       } else {
-        initial[key] = val ?? (key === 'signed' || key === 'remarked' ? false : '')
+        initial[key] = val ?? (key === 'signed' || key === 'remarked' || key === 'do_not_sell' ? false : '')
       }
     })
     setForm(initial)

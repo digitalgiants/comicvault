@@ -116,7 +116,7 @@ export default function CollectionPage() {
     const v = (uc as unknown as Record<string, unknown>)[key]
     if (v === null || v === undefined) return '—'
     if (key === 'paid_price' || key === 'asking_price') return `$${Number(v).toFixed(2)}`
-    if (key === 'signed' || key === 'remarked') return v ? '✓' : '—'
+    if (key === 'signed' || key === 'remarked' || key === 'do_not_sell') return v ? '✓' : '—'
     if (key === 'buy_date') return new Date(v as string).toLocaleDateString()
     return String(v)
   }
@@ -214,8 +214,8 @@ export default function CollectionPage() {
                         </button>
                         <button
                           onClick={() => setSelling(uc)}
-                          title="Record Sale"
-                          disabled={avail === 0}
+                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                          disabled={avail === 0 || uc.do_not_sell}
                           className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <DollarSign size={14} />

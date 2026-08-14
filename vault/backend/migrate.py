@@ -92,6 +92,17 @@ MIGRATIONS = [
     ALTER TABLE comics
         ADD COLUMN IF NOT EXISTS legacy_number VARCHAR
     """,
+
+    # Add do_not_sell column to user_comics and user_trading_cards
+    """
+    ALTER TABLE user_comics
+        ADD COLUMN IF NOT EXISTS do_not_sell BOOLEAN NOT NULL DEFAULT FALSE
+    """,
+
+    """
+    ALTER TABLE user_trading_cards
+        ADD COLUMN IF NOT EXISTS do_not_sell BOOLEAN NOT NULL DEFAULT FALSE
+    """,
 ]
 
 

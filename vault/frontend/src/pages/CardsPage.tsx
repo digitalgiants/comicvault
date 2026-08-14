@@ -95,6 +95,7 @@ export default function CardsPage() {
     if (v === null || v === undefined) return '—'
     if (key === 'paid_price' || key === 'asking_price') return `$${Number(v).toFixed(2)}`
     if (key === 'buy_date') return new Date(v as string).toLocaleDateString()
+    if (key === 'for_sale' || key === 'do_not_sell') return v ? '✓' : '—'
     return String(v)
   }
 
@@ -189,8 +190,8 @@ export default function CardsPage() {
                         </button>
                         <button
                           onClick={() => setSelling(uc)}
-                          title="Record Sale"
-                          disabled={avail === 0}
+                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                          disabled={avail === 0 || uc.do_not_sell}
                           className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
                         >
                           <DollarSign size={14} />

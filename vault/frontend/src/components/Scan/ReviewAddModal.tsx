@@ -35,7 +35,7 @@ export default function ReviewAddModal({ result, upc12, ean5, onClose, onAdded }
   )
   const [userForm, setUserForm] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(
-      EDITABLE_FIELDS.map(({ key }) => [key, key === 'count' ? 1 : key === 'signed' || key === 'remarked' ? false : '']),
+      EDITABLE_FIELDS.map(({ key }) => [key, key === 'count' ? 1 : key === 'signed' || key === 'remarked' || key === 'do_not_sell' ? false : '']),
     ),
   )
   const [saving, setSaving] = useState(false)

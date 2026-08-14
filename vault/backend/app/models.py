@@ -78,6 +78,7 @@ class UserComic(Base):
     condition = Column(String, nullable=True)
     personal_img = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    do_not_sell = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -532,6 +533,7 @@ class UserTradingCard(Base):
     for_sale = Column(Boolean, default=False)
     personal_img = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
+    do_not_sell = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
