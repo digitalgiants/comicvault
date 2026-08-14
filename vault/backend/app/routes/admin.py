@@ -10,8 +10,8 @@ from app.config import settings
 from app.database import get_db
 from app.models import TradingCard, User
 from app.schemas import (
-    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSignupOut, TradingCardCreate,
-    TradingCardOut, TradingCardUpdate, UserOut, UserUpdate,
+    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSettingsOut, KioskSettingsUpdate,
+    KioskSignupOut, TradingCardCreate, TradingCardOut, TradingCardUpdate, UserOut, UserUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -44,6 +44,23 @@ def list_kiosk_signups(
     _: User = Depends(get_current_admin),
 ):
     return crud.get_kiosk_signups(db)
+
+
+@router.get("/kiosk-settings", response_model=KioskSettingsOut)
+def get_kiosk_settings(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.get_kiosk_settings(db)
+
+
+@router.patch("/kiosk-settings", response_model=KioskSettingsOut)
+def update_kiosk_settings(
+    update: KioskSettingsUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.update_kiosk_settings(db, **update.model_dump(exclude_unset=True))
 
 
 @router.patch("/users/{user_id}", response_model=UserOut)

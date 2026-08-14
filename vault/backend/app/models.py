@@ -169,12 +169,28 @@ class KioskSignup(Base):
 
 
 class KioskFeaturedSet(Base):
-    """Cached random selection for a kiosk section, regenerated once every 24h."""
+    """Cached random selection for a kiosk section, regenerated on an
+    admin-configurable interval - see KioskSettings."""
     __tablename__ = "kiosk_featured_sets"
 
     section = Column(String, primary_key=True)
     item_ids = Column(JSON, default=list)
     generated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class KioskSettings(Base):
+    """Single-row admin-configurable kiosk settings - "Today's Picks" price
+    thresholds and per-section featured-set refresh intervals. Always exactly
+    one row; crud.get_kiosk_settings creates it with defaults on first access."""
+    __tablename__ = "kiosk_settings"
+
+    id = Column(Integer, primary_key=True)
+    comics_price_threshold = Column(Float, nullable=False, default=100.0)
+    cards_price_threshold = Column(Float, nullable=False, default=100.0)
+    todays_picks_refresh_minutes = Column(Integer, nullable=False, default=1440)
+    signed_refresh_minutes = Column(Integer, nullable=False, default=1440)
+    cards_todays_picks_refresh_minutes = Column(Integer, nullable=False, default=1440)
+    cards_graded_refresh_minutes = Column(Integer, nullable=False, default=1440)
 
 
 class ExternalSeriesSync(Base):

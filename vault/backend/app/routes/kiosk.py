@@ -12,8 +12,8 @@ from app.schemas import (
 router = APIRouter(prefix="/kiosk", tags=["kiosk"])
 
 FEATURED_LIMIT = 25
-TODAYS_PICKS_PRICE_THRESHOLD = 100.0
-CARDS_TODAYS_PICKS_PRICE_THRESHOLD = 100.0
+# Price thresholds and per-section refresh intervals are admin-configurable
+# (see KioskSettings / /admin/kiosk-settings) - no hardcoded defaults here.
 
 
 def _to_card(uc: UserComic) -> KioskCardOut:
@@ -56,11 +56,11 @@ def _to_kiosk_trading_card(uc: UserTradingCard) -> KioskTradingCardOut:
     )
 
 
-def _resolve_featured(db: Session, section: str, query_fresh, get_by_ids=crud.get_user_comics_by_ids) -> list:
+def _resolve_featured(db: Session, section: str, query_fresh, ttl_minutes: int, get_by_ids=crud.get_user_comics_by_ids) -> list:
     """Generic over comics/cards - get_by_ids defaults to the comics lookup
     for existing callers, pass crud_cards.get_user_trading_cards_by_ids for
     cards sections."""
-    cached_ids = crud.get_fresh_featured_ids(db, section)
+    cached_ids = crud.get_fresh_featured_ids(db, section, ttl_minutes)
     if cached_ids is not None:
         items = get_by_ids(db, cached_ids)
         if items:
@@ -90,10 +90,12 @@ def kiosk_todays_picks(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    settings = crud.get_kiosk_settings(db)
     items = _resolve_featured(
         db,
         "todays_picks",
-        lambda limit: crud.get_kiosk_available_by_price(db, TODAYS_PICKS_PRICE_THRESHOLD, limit),
+        lambda limit: crud.get_kiosk_available_by_price(db, settings.comics_price_threshold, limit),
+        settings.todays_picks_refresh_minutes,
     )
     return [_to_card(uc) for uc in items]
 
@@ -103,10 +105,12 @@ def kiosk_signed_comics(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    settings = crud.get_kiosk_settings(db)
     items = _resolve_featured(
         db,
         "signed",
         lambda limit: crud.get_kiosk_available_signed(db, limit),
+        settings.signed_refresh_minutes,
     )
     return [_to_card(uc) for uc in items]
 
@@ -138,10 +142,12 @@ def kiosk_cards_todays_picks(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    settings = crud.get_kiosk_settings(db)
     items = _resolve_featured(
         db,
         "cards_todays_picks",
-        lambda limit: crud_cards.get_kiosk_cards_available_by_price(db, CARDS_TODAYS_PICKS_PRICE_THRESHOLD, limit),
+        lambda limit: crud_cards.get_kiosk_cards_available_by_price(db, settings.cards_price_threshold, limit),
+        settings.cards_todays_picks_refresh_minutes,
         get_by_ids=crud_cards.get_user_trading_cards_by_ids,
     )
     return [_to_kiosk_trading_card(uc) for uc in items]
@@ -152,10 +158,12 @@ def kiosk_cards_graded(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    settings = crud.get_kiosk_settings(db)
     items = _resolve_featured(
         db,
         "cards_graded",
         lambda limit: crud_cards.get_kiosk_cards_graded(db, limit),
+        settings.cards_graded_refresh_minutes,
         get_by_ids=crud_cards.get_user_trading_cards_by_ids,
     )
     return [_to_kiosk_trading_card(uc) for uc in items]

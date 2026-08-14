@@ -329,6 +329,15 @@ export interface KioskSignup {
   created_at: string
 }
 
+export interface KioskSettings {
+  comics_price_threshold: number
+  cards_price_threshold: number
+  todays_picks_refresh_minutes: number
+  signed_refresh_minutes: number
+  cards_todays_picks_refresh_minutes: number
+  cards_graded_refresh_minutes: number
+}
+
 export interface KioskSignupInput {
   first_name: string
   last_name: string

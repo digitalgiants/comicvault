@@ -4,7 +4,7 @@ import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import { getCardGames } from '../api/cards'
-import type { BugReport, CardGame, KioskSignup } from '../types'
+import type { BugReport, CardGame, KioskSettings, KioskSignup } from '../types'
 import BugReportButton from '../components/BugReportButton'
 
 // A full-catalog sync is many sequential apitcg.com calls proxied through
@@ -28,9 +28,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'settings'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
+
+  const [kioskSettings, setKioskSettings] = useState<KioskSettings | null>(null)
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState<string | null>(null)
+  const [settingsError, setSettingsError] = useState('')
 
   const [cardGames, setCardGames] = useState<CardGame[]>([])
   const [selectedGameSlug, setSelectedGameSlug] = useState('')
@@ -47,6 +52,31 @@ export default function AdminPage() {
   useEffect(() => {
     api.get<KioskSignup[]>('/admin/kiosk-signups').then(r => setSignups(r.data))
   }, [])
+
+  useEffect(() => {
+    api.get<KioskSettings>('/admin/kiosk-settings').then(r => setKioskSettings(r.data))
+  }, [])
+
+  const updateSettingsField = (key: keyof KioskSettings, value: number) => {
+    setKioskSettings(prev => prev ? { ...prev, [key]: value } : prev)
+  }
+
+  const saveKioskSettings = async () => {
+    if (!kioskSettings) return
+    setSavingSettings(true)
+    setSettingsMessage(null)
+    setSettingsError('')
+    try {
+      const { data } = await api.patch<KioskSettings>('/admin/kiosk-settings', kioskSettings)
+      setKioskSettings(data)
+      setSettingsMessage('Saved.')
+    } catch (err) {
+      const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
+      setSettingsError(typeof detail === 'string' ? detail : 'Failed to save settings.')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
 
   const downloadSignupsCsv = () => {
     const header = ['First Name', 'Last Name', 'Email', 'Phone', 'Signed Up']
@@ -175,13 +205,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups', 'settings'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : `Kiosk Signups (${signups.length})`}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : 'Kiosk Settings'}
           </button>
         ))}
       </div>
@@ -388,6 +418,96 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'settings' && (
+        <div className="space-y-6">
+          {!kioskSettings ? (
+            <div className="text-center text-gray-400 py-12">Loading…</div>
+          ) : (
+            <>
+              <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+                <p className="text-sm text-gray-300 mb-4">Comics</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Today's Picks price threshold ($)</label>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={kioskSettings.comics_price_threshold}
+                      onChange={e => updateSettingsField('comics_price_threshold', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Today's Picks refresh (minutes)</label>
+                    <input
+                      type="number" min={10} max={1440} step={10}
+                      value={kioskSettings.todays_picks_refresh_minutes}
+                      onChange={e => updateSettingsField('todays_picks_refresh_minutes', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Signed Comics refresh (minutes)</label>
+                    <input
+                      type="number" min={10} max={1440} step={10}
+                      value={kioskSettings.signed_refresh_minutes}
+                      onChange={e => updateSettingsField('signed_refresh_minutes', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Refresh intervals: 10–1440 minutes (up to 24 hours).</p>
+              </div>
+
+              <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+                <p className="text-sm text-gray-300 mb-4">Cards</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Today's Picks price threshold ($)</label>
+                    <input
+                      type="number" min={0} step="0.01"
+                      value={kioskSettings.cards_price_threshold}
+                      onChange={e => updateSettingsField('cards_price_threshold', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Today's Picks refresh (minutes)</label>
+                    <input
+                      type="number" min={10} max={1440} step={10}
+                      value={kioskSettings.cards_todays_picks_refresh_minutes}
+                      onChange={e => updateSettingsField('cards_todays_picks_refresh_minutes', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Graded Cards refresh (minutes)</label>
+                    <input
+                      type="number" min={10} max={1440} step={10}
+                      value={kioskSettings.cards_graded_refresh_minutes}
+                      onChange={e => updateSettingsField('cards_graded_refresh_minutes', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">Refresh intervals: 10–1440 minutes (up to 24 hours).</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={saveKioskSettings}
+                  disabled={savingSettings}
+                  className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+                >
+                  {savingSettings ? 'Saving…' : 'Save Settings'}
+                </button>
+                {settingsMessage && <p className="text-green-400 text-sm">{settingsMessage}</p>}
+                {settingsError && <p className="text-red-400 text-sm">{settingsError}</p>}
+              </div>
+            </>
           )}
         </div>
       )}

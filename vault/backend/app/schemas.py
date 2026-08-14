@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # --- Auth ---
@@ -369,6 +369,27 @@ class KioskTradingCardOut(BaseModel):
 class SeriesSearchResult(BaseModel):
     name: str
     count: int
+
+
+class KioskSettingsOut(BaseModel):
+    comics_price_threshold: float
+    cards_price_threshold: float
+    todays_picks_refresh_minutes: int
+    signed_refresh_minutes: int
+    cards_todays_picks_refresh_minutes: int
+    cards_graded_refresh_minutes: int
+
+    class Config:
+        from_attributes = True
+
+
+class KioskSettingsUpdate(BaseModel):
+    comics_price_threshold: Optional[float] = Field(default=None, ge=0)
+    cards_price_threshold: Optional[float] = Field(default=None, ge=0)
+    todays_picks_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
+    signed_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
+    cards_todays_picks_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
+    cards_graded_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
 
 
 # --- Trading cards (parallel to Comics above - see app/models.py's

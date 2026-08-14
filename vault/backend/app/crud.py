@@ -11,7 +11,7 @@ from app.auth import hash_password
 from app.models import (
     BugReport, CollectionSnapshot, Comic, CSVImport, ExternalIssueCache,
     ExternalSeriesSearchCache, ExternalSeriesSearchLog, ExternalSeriesSync,
-    KioskFeaturedSet, KioskSignup, Sale, User, UserComic, UserColumnPreference,
+    KioskFeaturedSet, KioskSettings, KioskSignup, Sale, User, UserComic, UserColumnPreference,
 )
 from app.schemas import (
     BugReportCreate, ComicCreate, ComicUpdate, ExternalIssueSummary,
@@ -19,7 +19,6 @@ from app.schemas import (
     UserComicUpdate, UserCreate,
 )
 
-FEATURED_TTL = timedelta(hours=24)
 SERIES_SEARCH_TTL = timedelta(hours=24)
 
 # The shop's own account - its photo of a comic is always the master image
@@ -575,9 +574,9 @@ def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str
     return existing
 
 
-def get_fresh_featured_ids(db: Session, section: str) -> Optional[list[int]]:
+def get_fresh_featured_ids(db: Session, section: str, ttl_minutes: int) -> Optional[list[int]]:
     row = db.query(KioskFeaturedSet).filter(KioskFeaturedSet.section == section).first()
-    if row is None or datetime.utcnow() - row.generated_at > FEATURED_TTL:
+    if row is None or datetime.utcnow() - row.generated_at > timedelta(minutes=ttl_minutes):
         return None
     return list(row.item_ids)
 
@@ -590,6 +589,26 @@ def set_featured_ids(db: Session, section: str, item_ids: list[int]) -> None:
     row.item_ids = item_ids
     row.generated_at = datetime.utcnow()
     db.commit()
+
+
+def get_kiosk_settings(db: Session) -> KioskSettings:
+    row = db.query(KioskSettings).first()
+    if row is None:
+        row = KioskSettings()
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def update_kiosk_settings(db: Session, **fields) -> KioskSettings:
+    row = get_kiosk_settings(db)
+    for key, value in fields.items():
+        if value is not None:
+            setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def _available_kiosk_items(q) -> list[UserComic]:
