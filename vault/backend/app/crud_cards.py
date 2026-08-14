@@ -622,21 +622,45 @@ def _available_kiosk_card_items(q) -> list[UserTradingCard]:
     return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
 
 
-def get_kiosk_cards_available_by_price(db: Session, threshold: float, limit: int) -> list[UserTradingCard]:
+def _kiosk_cards_sort_key(uc: UserTradingCard) -> tuple[str, str, str]:
+    return (uc.card.name, uc.card.set_name or "", uc.card.card_number or "")
+
+
+def _kiosk_cards_available_by_price(db: Session, threshold: float) -> list[UserTradingCard]:
     q = db.query(UserTradingCard).join(TradingCard).filter(
         or_(
             UserTradingCard.asking_price > threshold,
             and_(UserTradingCard.asking_price.is_(None), TradingCard.average_price > threshold),
         )
     )
-    available = _available_kiosk_card_items(q)
+    return _available_kiosk_card_items(q)
+
+
+def get_kiosk_cards_available_by_price(db: Session, threshold: float, limit: int) -> list[UserTradingCard]:
+    available = _kiosk_cards_available_by_price(db, threshold)
     return random.sample(available, min(limit, len(available)))
+
+
+def get_all_kiosk_cards_available_by_price(db: Session, threshold: float) -> list[UserTradingCard]:
+    """Unsampled - the full "Browse All" pool, not just a featured subset."""
+    available = _kiosk_cards_available_by_price(db, threshold)
+    return sorted(available, key=_kiosk_cards_sort_key)
+
+
+def _kiosk_cards_graded(db: Session) -> list[UserTradingCard]:
+    q = db.query(UserTradingCard).join(TradingCard).filter(UserTradingCard.grades.any())
+    return _available_kiosk_card_items(q)
 
 
 def get_kiosk_cards_graded(db: Session, limit: int) -> list[UserTradingCard]:
-    q = db.query(UserTradingCard).join(TradingCard).filter(UserTradingCard.grades.any())
-    available = _available_kiosk_card_items(q)
+    available = _kiosk_cards_graded(db)
     return random.sample(available, min(limit, len(available)))
+
+
+def get_all_kiosk_cards_graded(db: Session) -> list[UserTradingCard]:
+    """Unsampled - the full "Browse All" pool, not just a featured subset."""
+    available = _kiosk_cards_graded(db)
+    return sorted(available, key=_kiosk_cards_sort_key)
 
 
 def get_user_trading_cards_by_ids(db: Session, ids: list[int]) -> list[UserTradingCard]:

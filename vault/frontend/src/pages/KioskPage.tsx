@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react'
 import {
   fetchKioskSeriesItems, fetchSignedComics, fetchTodaysPicks, searchKioskSeries,
   fetchCardsTodaysPicks, fetchGradedCards, searchKioskCards, fetchKioskCardItems,
+  fetchTodaysPicksAll, fetchSignedComicsAll, fetchCardsTodaysPicksAll, fetchGradedCardsAll,
 } from '../api/kiosk'
 import { resolveImageUrl } from '../api/client'
 import KioskHeader from '../components/Kiosk/KioskHeader'
@@ -324,6 +325,7 @@ export default function KioskPage() {
               items={todaysPicks}
               loading={todaysPicksLoading}
               error={todaysPicksError}
+              browseAll={fetchTodaysPicksAll}
             />
 
             <FeaturedLightbox
@@ -331,6 +333,7 @@ export default function KioskPage() {
               items={signedComics}
               loading={signedLoading}
               error={signedError}
+              browseAll={fetchSignedComicsAll}
             />
           </>
         ) : (
@@ -340,6 +343,7 @@ export default function KioskPage() {
               items={cardsTodaysPicks}
               loading={cardsTodaysPicksLoading}
               error={cardsTodaysPicksError}
+              browseAll={fetchCardsTodaysPicksAll}
             />
 
             <FeaturedCardLightbox
@@ -347,6 +351,7 @@ export default function KioskPage() {
               items={gradedCards}
               loading={gradedLoading}
               error={gradedError}
+              browseAll={fetchGradedCardsAll}
             />
           </>
         )}

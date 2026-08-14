@@ -115,6 +115,25 @@ def kiosk_signed_comics(
     return [_to_card(uc) for uc in items]
 
 
+@router.get("/browse/todays-picks", response_model=list[KioskCardOut])
+def kiosk_browse_todays_picks(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    settings = crud.get_kiosk_settings(db)
+    items = crud.get_all_kiosk_available_by_price(db, settings.comics_price_threshold)
+    return [_to_card(uc) for uc in items]
+
+
+@router.get("/browse/signed", response_model=list[KioskCardOut])
+def kiosk_browse_signed_comics(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    items = crud.get_all_kiosk_available_signed(db)
+    return [_to_card(uc) for uc in items]
+
+
 @router.get("/series/search", response_model=list[SeriesSearchResult])
 def kiosk_series_search(
     q: str,
@@ -166,6 +185,25 @@ def kiosk_cards_graded(
         settings.cards_graded_refresh_minutes,
         get_by_ids=crud_cards.get_user_trading_cards_by_ids,
     )
+    return [_to_kiosk_trading_card(uc) for uc in items]
+
+
+@router.get("/cards/browse/todays-picks", response_model=list[KioskTradingCardOut])
+def kiosk_cards_browse_todays_picks(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    settings = crud.get_kiosk_settings(db)
+    items = crud_cards.get_all_kiosk_cards_available_by_price(db, settings.cards_price_threshold)
+    return [_to_kiosk_trading_card(uc) for uc in items]
+
+
+@router.get("/cards/browse/graded", response_model=list[KioskTradingCardOut])
+def kiosk_cards_browse_graded(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    items = crud_cards.get_all_kiosk_cards_graded(db)
     return [_to_kiosk_trading_card(uc) for uc in items]
 
 

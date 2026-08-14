@@ -616,21 +616,41 @@ def _available_kiosk_items(q) -> list[UserComic]:
     return [uc for uc in items if (uc.count or 1) > len(uc.sales)]
 
 
-def get_kiosk_available_by_price(db: Session, threshold: float, limit: int) -> list[UserComic]:
+def _kiosk_available_by_price(db: Session, threshold: float) -> list[UserComic]:
     q = db.query(UserComic).join(Comic).filter(
         or_(
             UserComic.asking_price > threshold,
             and_(UserComic.asking_price.is_(None), Comic.average_price > threshold),
         )
     )
-    available = _available_kiosk_items(q)
+    return _available_kiosk_items(q)
+
+
+def get_kiosk_available_by_price(db: Session, threshold: float, limit: int) -> list[UserComic]:
+    available = _kiosk_available_by_price(db, threshold)
     return random.sample(available, min(limit, len(available)))
+
+
+def get_all_kiosk_available_by_price(db: Session, threshold: float) -> list[UserComic]:
+    """Unsampled - the full "Browse All" pool, not just a featured subset."""
+    available = _kiosk_available_by_price(db, threshold)
+    return sorted(available, key=lambda uc: (uc.comic.series, issue_number_sort_key(uc.comic.issue_number)))
+
+
+def _kiosk_available_signed(db: Session) -> list[UserComic]:
+    q = db.query(UserComic).join(Comic).filter(UserComic.signed.is_(True))
+    return _available_kiosk_items(q)
 
 
 def get_kiosk_available_signed(db: Session, limit: int) -> list[UserComic]:
-    q = db.query(UserComic).join(Comic).filter(UserComic.signed.is_(True))
-    available = _available_kiosk_items(q)
+    available = _kiosk_available_signed(db)
     return random.sample(available, min(limit, len(available)))
+
+
+def get_all_kiosk_available_signed(db: Session) -> list[UserComic]:
+    """Unsampled - the full "Browse All" pool, not just a featured subset."""
+    available = _kiosk_available_signed(db)
+    return sorted(available, key=lambda uc: (uc.comic.series, issue_number_sort_key(uc.comic.issue_number)))
 
 
 def get_user_comics_by_ids(db: Session, ids: list[int]) -> list[UserComic]:
