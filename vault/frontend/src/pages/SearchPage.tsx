@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, BookOpen, RotateCcw, Search as SearchIcon, X } from 'lucide-react'
 import BugReportButton from '../components/BugReportButton'
@@ -21,6 +21,9 @@ export default function SearchPage() {
   const [results, setResults] = useState<ExternalSeriesResult[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
   const [searching, setSearching] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
 
   const [selectedSeries, setSelectedSeries] = useState<ExternalSeriesResult | null>(null)
   const [issues, setIssues] = useState<ExternalIssueSummary[]>([])
@@ -50,11 +53,13 @@ export default function SearchPage() {
     setIssueMatches([])
     setNoIssueAnywhere(false)
     setBrowseAllOverride(false)
+    setHasMore(false)
     searchSeries(trimmed)
       .then(async (data) => {
         if (id !== requestId.current) return
         setResults(data.results)
         setWarnings(data.warnings)
+        setHasMore(data.has_more)
         setSearching(false)
 
         // With an issue number given, don't make the user pick a series at
@@ -71,6 +76,37 @@ export default function SearchPage() {
         setSearching(false)
       })
   }
+
+  // Infinite scroll continuation - only ever paginates GCD (the only branch
+  // that ever sets has_more; see routes/search.py), so offsetting by the
+  // number of results already loaded always lines up with GCD's own list.
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return
+    const trimmed = query.trim()
+    if (trimmed.length < 2) return
+    const id = requestId.current
+    setLoadingMore(true)
+    searchSeries(trimmed, results.length)
+      .then((data) => {
+        if (id !== requestId.current) return
+        setResults(prev => [...prev, ...data.results])
+        setHasMore(data.has_more)
+      })
+      .finally(() => {
+        if (id === requestId.current) setLoadingMore(false)
+      })
+  }, [loadingMore, hasMore, query, results.length])
+
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || !hasMore) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMore() },
+      { rootMargin: '300px' },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [hasMore, loadMore])
 
   // Deep-link support (e.g. from Upload's "Declined Imports" -> "Search
   // manually"): seed the boxes and run the search once on mount if the URL
@@ -177,6 +213,8 @@ export default function SearchPage() {
     setResults([])
     setWarnings([])
     setSearching(false)
+    setHasMore(false)
+    setLoadingMore(false)
     setSelectedSeries(null)
     setIssues([])
     setIssuesLoading(false)
@@ -365,35 +403,42 @@ export default function SearchPage() {
           ) : hasSearched && results.length === 0 ? (
             <p className="text-gray-500 italic">No results found in either database — try a different title.</p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {results.map((series) => (
-                <button
-                  key={`${series.provider}-${series.provider_series_id}`}
-                  onClick={() => selectSeries(series)}
-                  className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition"
-                >
-                  <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
-                    {series.image ? (
-                      <img src={series.image} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <BookOpen size={28} className="text-gray-600" />
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{series.name}</p>
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {results.map((series) => (
+                  <button
+                    key={`${series.provider}-${series.provider_series_id}`}
+                    onClick={() => selectSeries(series)}
+                    className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition"
+                  >
+                    <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
+                      {series.image ? (
+                        <img src={series.image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <BookOpen size={28} className="text-gray-600" />
+                      )}
                     </div>
-                    <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${PROVIDER_BADGE[series.provider]}`}>
-                      {PROVIDER_LABEL[series.provider]}
-                    </span>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {[series.publisher, series.start_year, series.issue_count ? `${series.issue_count} issues` : null]
-                        .filter(Boolean).join(' · ')}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
+                    <div className="p-3">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{series.name}</p>
+                      </div>
+                      <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${PROVIDER_BADGE[series.provider]}`}>
+                        {PROVIDER_LABEL[series.provider]}
+                      </span>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {[series.publisher, series.start_year, series.issue_count ? `${series.issue_count} issues` : null]
+                          .filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              {hasMore && (
+                <div ref={sentinelRef} className="text-center text-gray-500 text-sm py-6">
+                  {loadingMore ? 'Loading more…' : ''}
+                </div>
+              )}
+            </>
           )}
         </>
       )}

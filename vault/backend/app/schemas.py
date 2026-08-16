@@ -210,6 +210,7 @@ class ExternalSeriesResult(BaseModel):
 class ExternalSeriesSearchResult(BaseModel):
     results: list[ExternalSeriesResult]
     warnings: list[str] = []
+    has_more: bool = False
 
 
 class ExternalIssueSummary(BaseModel):

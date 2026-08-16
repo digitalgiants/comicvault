@@ -10,7 +10,7 @@ import re
 from datetime import date
 from typing import Iterable
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.crud import normalize_issue_number, normalize_search_query
@@ -124,19 +124,38 @@ def enrich_comic_from_gcd(gcd_db: Session, comic_data: dict) -> tuple[list[tuple
     return conflicts, True
 
 
-def search_series(gcd_db: Session, query: str, limit: int = SEARCH_LIMIT) -> list[ExternalSeriesResult]:
+def search_series(
+    gcd_db: Session, query: str, limit: int = SEARCH_LIMIT, offset: int = 0
+) -> tuple[list[ExternalSeriesResult], int]:
+    """Returns (page of results, total matching count). GCD's series table is
+    exhaustive - a plain substring match on a common word like "batman" pulls
+    in every tie-in/team-up/reprint title containing it anywhere, and a plain
+    alphabetical sort can bury (or, under the old hard 20-row cap, entirely
+    hide) the actual flagship series behind those. Rank exact match, then
+    starts-with, then contains-elsewhere, alphabetical within each tier."""
     normalized = normalize_search_query(query)
     if not normalized:
-        return []
-    rows = (
+        return [], 0
+
+    name_lower = func.lower(Series.name)
+    rank = case(
+        (name_lower == normalized, 0),
+        (name_lower.like(f"{normalized}%"), 1),
+        else_=2,
+    )
+    base_q = (
         gcd_db.query(Series, Publisher)
         .join(Publisher, Series.publisher_id == Publisher.id)
         .filter(Series.name.ilike(f"%{normalized}%"))
-        .order_by(Series.name)
+    )
+    total = base_q.count()
+    rows = (
+        base_q.order_by(rank, Series.name)
+        .offset(offset)
         .limit(limit)
         .all()
     )
-    return [
+    results = [
         ExternalSeriesResult(
             provider="gcd",
             provider_series_id=str(series.id),
@@ -148,6 +167,7 @@ def search_series(gcd_db: Session, query: str, limit: int = SEARCH_LIMIT) -> lis
         )
         for series, publisher in rows
     ]
+    return results, total
 
 
 def get_series_issues(gcd_db: Session, series_id: int, number: str | None = None) -> list[ExternalIssueSummary]:

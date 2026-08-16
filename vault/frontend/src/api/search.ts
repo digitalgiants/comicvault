@@ -1,8 +1,8 @@
 import api from './client'
 import type { ExternalIssueSummary, ExternalSeriesSearchResult, Provider, ScanComicFields } from '../types'
 
-export const searchSeries = (query: string) =>
-  api.get<ExternalSeriesSearchResult>('/search/series', { params: { query } }).then(r => r.data)
+export const searchSeries = (query: string, offset = 0) =>
+  api.get<ExternalSeriesSearchResult>('/search/series', { params: { query, offset } }).then(r => r.data)
 
 export const getSeriesIssues = (
   provider: Provider,

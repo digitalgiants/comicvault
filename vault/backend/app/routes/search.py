@@ -25,16 +25,21 @@ TIMEOUT = 15.0
 @router.get("/series", response_model=ExternalSeriesSearchResult)
 def search_series(
     query: str,
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> ExternalSeriesSearchResult:
     # GCD is free/local (no API cost) so it's tried first; Metron/ComicVine
-    # (both cost real API calls) only get hit when GCD has nothing at all.
+    # (both cost real API calls) only get hit when GCD has nothing at all on
+    # the first page. A later page (offset > 0) means GCD already won on
+    # page 1, so it keeps paginating GCD rather than switching providers
+    # mid-scroll - an empty later page just means "no more GCD results".
     if gcd_db is not None:
-        gcd_results = gcd_lookup.search_series(gcd_db, query)
-        if gcd_results:
-            return ExternalSeriesSearchResult(results=gcd_results, warnings=[])
+        gcd_results, gcd_total = gcd_lookup.search_series(gcd_db, query, offset=offset)
+        if gcd_results or offset > 0:
+            has_more = offset + len(gcd_results) < gcd_total
+            return ExternalSeriesSearchResult(results=gcd_results, warnings=[], has_more=has_more)
 
     normalized = crud.normalize_search_query(query)
     results: list[ExternalSeriesResult] = []

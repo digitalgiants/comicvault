@@ -277,6 +277,7 @@ export interface ExternalSeriesResult {
 export interface ExternalSeriesSearchResult {
   results: ExternalSeriesResult[]
   warnings: string[]
+  has_more: boolean
 }
 
 export interface ExternalIssueSummary {
