@@ -421,9 +421,8 @@ def create_card_sale(db: Session, user_id: int, uc_id: int, sale_in: CardSaleCre
     uc = get_user_trading_card_by_id(db, user_id, uc_id)
     if not uc:
         return None
-    total_copies = uc.count or 1
-    if len(uc.sales) >= total_copies:
-        return None  # over-sell guard; caller checks for None
+    if not _is_available_for_sale(uc):
+        return None  # over-sell guard (also respects reserve_count/do_not_sell); caller checks for None
     txn = CardTransaction(
         user_trading_card_id=uc_id,
         transaction_type="Sale",
@@ -614,12 +613,20 @@ def match_candidates(
 # and reused as-is from crud.py, just with new section names
 # ("cards_todays_picks", "cards_graded").
 
+def _is_available_for_sale(uc: UserTradingCard) -> bool:
+    """True if at least one copy is neither sold, reserved (reserve_count),
+    nor fully withheld (do_not_sell). Shared by every kiosk-facing query,
+    the cached-featured-id rehydration helper, and the sale-recording
+    over-sell guard - mirrors crud.py's comics version exactly."""
+    return (uc.count or 1) - len(uc.sales) - (uc.reserve_count or 0) > 0 and not uc.do_not_sell
+
+
 def _available_kiosk_card_items(q) -> list[UserTradingCard]:
     # UserTradingCard.sales is a derived @property over .transactions, not a
     # real relationship - eager-load transactions (the actual relationship)
     # so the property doesn't trigger a lazy query per row.
     items = q.options(joinedload(UserTradingCard.transactions), joinedload(UserTradingCard.card)).all()
-    return [uc for uc in items if (uc.count or 1) > len(uc.sales) and not uc.do_not_sell]
+    return [uc for uc in items if _is_available_for_sale(uc)]
 
 
 def _kiosk_cards_sort_key(uc: UserTradingCard) -> tuple[str, str, str]:
@@ -673,7 +680,7 @@ def get_user_trading_cards_by_ids(db: Session, ids: list[int]) -> list[UserTradi
         .filter(UserTradingCard.id.in_(ids))
         .all()
     )
-    by_id = {uc.id: uc for uc in rows if (uc.count or 1) > len(uc.sales)}
+    by_id = {uc.id: uc for uc in rows if _is_available_for_sale(uc)}
     return [by_id[i] for i in ids if i in by_id]
 
 

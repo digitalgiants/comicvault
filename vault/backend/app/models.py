@@ -79,6 +79,11 @@ class UserComic(Base):
     personal_img = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     do_not_sell = Column(Boolean, nullable=False, default=False)
+    # How many of `count` are held back and never counted as available for
+    # sale (e.g. "sell all but one") - independent of do_not_sell, which
+    # withholds all of them. See crud._available_kiosk_items and
+    # availableCopies() in the frontend for how this factors into "available".
+    reserve_count = Column(Integer, nullable=True, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -534,6 +539,7 @@ class UserTradingCard(Base):
     personal_img = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     do_not_sell = Column(Boolean, nullable=False, default=False)
+    reserve_count = Column(Integer, nullable=True, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

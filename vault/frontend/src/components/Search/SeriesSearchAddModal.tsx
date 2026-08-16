@@ -32,7 +32,7 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
   )
   const [userForm, setUserForm] = useState<Record<string, unknown>>(() =>
     Object.fromEntries(
-      EDITABLE_FIELDS.map(({ key }) => [key, key === 'count' ? 1 : key === 'signed' || key === 'remarked' || key === 'do_not_sell' ? false : '']),
+      EDITABLE_FIELDS.map(({ key }) => [key, key === 'count' ? 1 : key === 'reserve_count' ? 0 : key === 'signed' || key === 'remarked' || key === 'do_not_sell' ? false : '']),
     ),
   )
   const [saving, setSaving] = useState(false)

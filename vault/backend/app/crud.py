@@ -274,7 +274,7 @@ def get_kiosk_collection(
         q = q.filter(Comic.series.ilike(f"%{series}%"))
     if publisher:
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
-    available = [uc for uc in q.all() if (uc.count or 1) > len(uc.sales)]
+    available = [uc for uc in q.all() if _is_available_for_sale(uc)]
     return available[skip:skip + limit], len(available)
 
 
@@ -386,9 +386,8 @@ def create_sale(db: Session, user_id: int, uc_id: int, sale_in: SaleCreate) -> O
     uc = get_user_comic_by_id(db, user_id, uc_id)
     if not uc:
         return None
-    total_copies = uc.count or 1
-    if len(uc.sales) >= total_copies:
-        return None  # over-sell guard; caller checks for None
+    if not _is_available_for_sale(uc):
+        return None  # over-sell guard (also respects reserve_count/do_not_sell); caller checks for None
     sale = Sale(
         user_comic_id=uc_id,
         sell_date=sale_in.sell_date,
@@ -611,9 +610,18 @@ def update_kiosk_settings(db: Session, **fields) -> KioskSettings:
     return row
 
 
+def _is_available_for_sale(uc: UserComic) -> bool:
+    """True if at least one copy is neither sold, reserved (reserve_count),
+    nor fully withheld (do_not_sell). Shared by every kiosk-facing query,
+    the cached-featured-id rehydration helper, and the sale-recording
+    over-sell guard, so all three enforce the exact same notion of
+    "available" - see UserComic.reserve_count / do_not_sell in models.py."""
+    return (uc.count or 1) - len(uc.sales) - (uc.reserve_count or 0) > 0 and not uc.do_not_sell
+
+
 def _available_kiosk_items(q) -> list[UserComic]:
     items = q.options(joinedload(UserComic.sales), joinedload(UserComic.comic)).all()
-    return [uc for uc in items if (uc.count or 1) > len(uc.sales) and not uc.do_not_sell]
+    return [uc for uc in items if _is_available_for_sale(uc)]
 
 
 def _kiosk_available_by_price(db: Session, threshold: float) -> list[UserComic]:
@@ -663,7 +671,7 @@ def get_user_comics_by_ids(db: Session, ids: list[int]) -> list[UserComic]:
         .filter(UserComic.id.in_(ids))
         .all()
     )
-    by_id = {uc.id: uc for uc in rows if (uc.count or 1) > len(uc.sales)}
+    by_id = {uc.id: uc for uc in rows if _is_available_for_sale(uc)}
     return [by_id[i] for i in ids if i in by_id]
 
 

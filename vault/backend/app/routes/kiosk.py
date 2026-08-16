@@ -38,7 +38,7 @@ def _to_card(uc: UserComic) -> KioskCardOut:
         signed=uc.signed,
         remarked=uc.remarked,
         condition=uc.condition,
-        available=(uc.count or 1) - len(uc.sales),
+        available=max(0, (uc.count or 1) - len(uc.sales) - (uc.reserve_count or 0)),
     )
 
 
@@ -52,7 +52,7 @@ def _to_kiosk_trading_card(uc: UserTradingCard) -> KioskTradingCardOut:
         card_number=card.card_number,
         rarity=card.rarity,
         img=card.master_photo or card.image_large or card.image_medium or card.image_small,
-        available=(uc.count or 1) - len(uc.sales),
+        available=max(0, (uc.count or 1) - len(uc.sales) - (uc.reserve_count or 0)),
     )
 
 

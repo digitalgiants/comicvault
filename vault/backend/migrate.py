@@ -103,6 +103,21 @@ MIGRATIONS = [
     ALTER TABLE user_trading_cards
         ADD COLUMN IF NOT EXISTS do_not_sell BOOLEAN NOT NULL DEFAULT FALSE
     """,
+
+    # Add reserve_count column to user_comics and user_trading_cards - how
+    # many of `count` are held back from being counted as available for sale.
+    # Nullable (like `count` itself) rather than NOT NULL - a cleared number
+    # input on the frontend sends null, not 0, and every read site already
+    # treats null the same as 0 (`uc.reserve_count or 0`).
+    """
+    ALTER TABLE user_comics
+        ADD COLUMN IF NOT EXISTS reserve_count INTEGER DEFAULT 0
+    """,
+
+    """
+    ALTER TABLE user_trading_cards
+        ADD COLUMN IF NOT EXISTS reserve_count INTEGER DEFAULT 0
+    """,
 ]
 
 

@@ -97,6 +97,7 @@ async def upload_csv(
                 remarked=row.get("remarked") or False,
                 notes=row.get("notes"),
                 do_not_sell=row.get("do_not_sell") or False,
+                reserve_count=row.get("reserve_count") or 0,
             )
             uc = crud.create_user_comic(db, current_user.id, uc_data)
             imported += 1

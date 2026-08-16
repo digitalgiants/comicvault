@@ -50,12 +50,13 @@ export interface UserComic {
   personal_img: string | null
   notes: string | null
   do_not_sell: boolean
+  reserve_count: number
   created_at: string
   sales: Sale[]
 }
 
 export function availableCopies(uc: UserComic): number {
-  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0), 0)
+  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0) - (uc.reserve_count ?? 0), 0)
 }
 
 // Priority: your own photo of your copy, then the catalog's master photo
@@ -120,6 +121,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'condition', label: 'Condition' },
   { key: 'notes', label: 'Notes' },
   { key: 'do_not_sell', label: 'Do Not Sell' },
+  { key: 'reserve_count', label: 'Reserve Count' },
 ]
 
 export const SOLD_COLUMNS: { key: string; label: string }[] = [
@@ -145,6 +147,7 @@ export type UserComicUpdate = {
   personal_img?: string | null
   notes?: string | null
   do_not_sell?: boolean
+  reserve_count?: number | null
 }
 
 export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string }[] = [
@@ -158,6 +161,7 @@ export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: strin
   { key: 'condition', label: 'Condition', type: 'text' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
   { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
+  { key: 'reserve_count', label: 'Reserve Count (keep back from sale)', type: 'number' },
 ]
 
 // --- Barcode scanning (comic-scraper lookups) ---
@@ -415,12 +419,13 @@ export interface UserTradingCard {
   personal_img: string | null
   notes: string | null
   do_not_sell: boolean
+  reserve_count: number
   created_at: string
   sales: CardTransaction[]
 }
 
 export function availableCardCopies(uc: UserTradingCard): number {
-  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0), 0)
+  return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0) - (uc.reserve_count ?? 0), 0)
 }
 
 // Priority: your own photo, then the catalog's master photo, then whatever
@@ -452,6 +457,7 @@ export const CARDS_COLUMNS: { key: string; label: string }[] = [
   { key: 'sell_price', label: 'Sell Price' },
   { key: 'notes', label: 'Notes' },
   { key: 'do_not_sell', label: 'Do Not Sell' },
+  { key: 'reserve_count', label: 'Reserve Count' },
 ]
 
 export type UserTradingCardUpdate = {
@@ -466,6 +472,7 @@ export type UserTradingCardUpdate = {
   personal_img?: string | null
   notes?: string | null
   do_not_sell?: boolean
+  reserve_count?: number | null
 }
 
 export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; type: string }[] = [
@@ -479,6 +486,7 @@ export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; 
   { key: 'for_sale', label: 'For Sale', type: 'checkbox' },
   { key: 'notes', label: 'Notes', type: 'textarea' },
   { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
+  { key: 'reserve_count', label: 'Reserve Count (keep back from sale)', type: 'number' },
 ]
 
 export interface ScanCandidate {
