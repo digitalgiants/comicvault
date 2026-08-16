@@ -63,6 +63,20 @@ export default function CollectionPage() {
 
   const visibleCols = COLLECTION_COLUMNS.filter(c => visibility[c.key] !== false)
 
+  // UPC and Cover stay pinned to the left edge while scrolling horizontally
+  // through the rest of the (often very wide) column set. Their order is
+  // fixed by COLLECTION_COLUMNS (no column reordering exists), so img's
+  // offset only ever depends on whether upc is also visible before it.
+  const upcVisible = visibleCols.some(c => c.key === 'upc')
+  const imgVisible = visibleCols.some(c => c.key === 'img')
+  const lastFrozenKey = imgVisible ? 'img' : upcVisible ? 'upc' : null
+  const frozenWidth = (key: string) => (key === 'upc' ? 'w-28' : 'w-16')
+  const frozenLeft = (key: string) => (key === 'img' && upcVisible ? 'left-28' : 'left-0')
+  const frozenColClass = (key: string) =>
+    key === 'upc' || key === 'img'
+      ? `sticky z-10 ${frozenLeft(key)} ${frozenWidth(key)} ${key === lastFrozenKey ? 'border-r border-gray-700' : ''} ${key === 'upc' ? 'overflow-hidden text-ellipsis' : ''}`
+      : ''
+
   const toggleSelect = (id: number) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -178,7 +192,14 @@ export default function CollectionPage() {
                 <th className="px-3 py-3">
                   <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-brand-500" />
                 </th>
-                {visibleCols.map(c => <th key={c.key} className="px-4 py-3 text-left whitespace-nowrap">{c.label}</th>)}
+                {visibleCols.map(c => (
+                  <th
+                    key={c.key}
+                    className={`px-4 py-3 text-left whitespace-nowrap ${frozenColClass(c.key)} ${c.key === 'upc' || c.key === 'img' ? 'bg-gray-800' : ''}`}
+                  >
+                    {c.label}
+                  </th>
+                ))}
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -186,12 +207,19 @@ export default function CollectionPage() {
               {items.map(uc => {
                 const avail = availableCopies(uc)
                 return (
-                  <tr key={uc.id} className={`hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
+                  <tr key={uc.id} className={`group hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
                     <td className="px-3 py-3">
                       <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
                     </td>
                     {visibleCols.map(c => (
-                      <td key={c.key} className="px-4 py-3 whitespace-nowrap text-gray-300">
+                      <td
+                        key={c.key}
+                        className={`px-4 py-3 whitespace-nowrap text-gray-300 ${frozenColClass(c.key)} ${
+                          c.key === 'upc' || c.key === 'img'
+                            ? selected.has(uc.id) ? 'bg-gray-800' : 'bg-gray-950 group-hover:bg-gray-900'
+                            : ''
+                        }`}
+                      >
                         {c.key === 'available' ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
                             {avail}/{uc.count ?? 1}
