@@ -85,19 +85,45 @@ def _normalize_headers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _detect_delimiter(file_bytes: bytes) -> str:
-    """Sniffs the delimiter from the first few lines instead of assuming
-    comma. A file exported/copied as tab- or semicolon-separated (common
-    from Excel/Sheets/Numbers) would otherwise have its entire header read
-    as a single column by pandas' comma-only default, surfacing as a
-    confusing "missing required column: series" error rather than the real
-    delimiter problem."""
+_DELIM_CHARS = ",\t;|"
+
+
+def _is_blank_line(line: str) -> bool:
+    """True once delimiter characters and whitespace are stripped away -
+    catches spreadsheet-export rows like ',,,,,,,,,,' that have no real
+    content but aren't literally empty strings, so pandas' own blank-line
+    skipping (which only catches truly empty lines) won't skip them."""
+    return not line.translate(str.maketrans("", "", _DELIM_CHARS)).strip()
+
+
+def _sniff_delimiter_and_header(file_bytes: bytes) -> tuple[str, int]:
+    """Returns (delimiter, header_row_index). Handles two real-world export
+    quirks instead of assuming comma-delimited with the header on line 1:
+    - A file exported/copied as tab- or semicolon-separated (common from
+      Excel/Sheets/Numbers) would otherwise have its entire header read as a
+      single column by pandas' comma-only default.
+    - Some exports (seen from Numbers/Excel on Mac) prepend fully-empty rows
+      before the real header, so pandas would grab an all-empty row as the
+      header instead.
+    Both surface as a confusing "missing required column: series" error
+    rather than the real problem, so we sniff past blank lines for both the
+    delimiter and the actual header row."""
     try:
-        sample = file_bytes[:4096].decode("utf-8-sig", errors="ignore")
-        sample_lines = "\n".join(sample.splitlines()[:5])
-        return csv.Sniffer().sniff(sample_lines, delimiters=",\t;|").delimiter
+        sample = file_bytes[:8192].decode("utf-8-sig", errors="ignore")
     except Exception:
-        return ","
+        return ",", 0
+
+    real_lines = [(i, line) for i, line in enumerate(sample.splitlines()) if not _is_blank_line(line)]
+    if not real_lines:
+        return ",", 0
+
+    header_row = real_lines[0][0]
+    try:
+        sniff_sample = "\n".join(line for _, line in real_lines[:5])
+        delimiter = csv.Sniffer().sniff(sniff_sample, delimiters=_DELIM_CHARS).delimiter
+    except Exception:
+        delimiter = ","
+    return delimiter, header_row
 
 
 def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]:
@@ -106,8 +132,8 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
     errors are dicts with {row, comic, error}.
     """
     try:
-        delimiter = _detect_delimiter(file_bytes)
-        df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False, sep=delimiter)
+        delimiter, header_row = _sniff_delimiter_and_header(file_bytes)
+        df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False, sep=delimiter, header=header_row)
     except Exception as e:
         return [], [{"row": 0, "comic": "", "error": f"Could not parse CSV: {e}"}]
 
@@ -122,7 +148,7 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
     errors = []
 
     for idx, raw_row in df.iterrows():
-        row_num = idx + 2  # 1-based + header
+        row_num = idx + header_row + 2  # 1-based + header (header may not be on line 1, see _sniff_delimiter_and_header)
         row = {"_row_num": row_num}
         comic_label = f"{raw_row.get('series', '')} #{raw_row.get('issuenumber', '')}"
 
