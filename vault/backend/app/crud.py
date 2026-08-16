@@ -4,7 +4,7 @@ import re
 from datetime import date, datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
@@ -231,6 +231,20 @@ def bulk_update_user_comics(db: Session, user_id: int, updates: list[dict]) -> i
     return count
 
 
+def _comic_sort_order():
+    """Alphabetical by title, then volume, then issue number. Volume and
+    issue_number are stored as strings, so a plain ORDER BY would put "10"
+    before "2" - sorting by length first approximates numeric order without
+    needing to parse non-numeric values like "Annual" or "1A". Comics
+    missing a volume/issue sort after ones that have it (Postgres' default
+    NULLS LAST for ascending order)."""
+    return (
+        func.lower(Comic.series),
+        func.length(Comic.volume), Comic.volume,
+        func.length(Comic.issue_number), Comic.issue_number,
+    )
+
+
 def get_user_collection(
     db: Session,
     user_id: int,
@@ -253,7 +267,7 @@ def get_user_collection(
     if writer:
         q = q.filter(Comic.writer.ilike(f"%{writer}%"))
     total = q.count()
-    items = q.order_by(Comic.series, Comic.issue_number).offset(skip).limit(limit).all()
+    items = q.order_by(*_comic_sort_order()).offset(skip).limit(limit).all()
     return items, total
 
 
@@ -269,6 +283,7 @@ def get_kiosk_collection(
         db.query(UserComic)
         .join(Comic)
         .options(joinedload(UserComic.sales))
+        .order_by(*_comic_sort_order())
     )
     if series:
         q = q.filter(Comic.series.ilike(f"%{series}%"))
