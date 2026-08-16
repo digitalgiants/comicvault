@@ -11,10 +11,12 @@ from app.external.comicvine import ComicVineNotConfigured, ComicVineRateLimitErr
 from app.gcd_database import get_gcd_db
 from app.models import User
 from app.schemas import (
+    BackfillImageResult,
     ComicCreate,
     ExternalIssueSummary,
     ExternalSeriesResult,
     ExternalSeriesSearchResult,
+    ImageCandidateOut,
 )
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -22,25 +24,11 @@ router = APIRouter(prefix="/search", tags=["search"])
 TIMEOUT = 15.0
 
 
-@router.get("/series", response_model=ExternalSeriesSearchResult)
-def search_series(
-    query: str,
-    offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db),
-    gcd_db: Session | None = Depends(get_gcd_db),
-    current_user: User = Depends(get_current_non_kiosk),
-) -> ExternalSeriesSearchResult:
-    # GCD is free/local (no API cost) so it's tried first; Metron/ComicVine
-    # (both cost real API calls) only get hit when GCD has nothing at all on
-    # the first page. A later page (offset > 0) means GCD already won on
-    # page 1, so it keeps paginating GCD rather than switching providers
-    # mid-scroll - an empty later page just means "no more GCD results".
-    if gcd_db is not None:
-        gcd_results, gcd_total = gcd_lookup.search_series(gcd_db, query, offset=offset)
-        if gcd_results or offset > 0:
-            has_more = offset + len(gcd_results) < gcd_total
-            return ExternalSeriesSearchResult(results=gcd_results, warnings=[], has_more=has_more)
-
+def _search_metron_comicvine(query: str, db: Session) -> tuple[list[ExternalSeriesResult], list[str]]:
+    """Metron + ComicVine series search, merged and cached - the fallback
+    used both by the general series search (when GCD has nothing) and by
+    the image-finding endpoints below (GCD never has images, so they always
+    go straight here rather than trying GCD first)."""
     normalized = crud.normalize_search_query(query)
     results: list[ExternalSeriesResult] = []
     warnings: list[str] = []
@@ -104,6 +92,29 @@ def search_series(
                 warnings.append("ComicVine search failed")
 
     results.sort(key=lambda r: r.name)
+    return results, warnings
+
+
+@router.get("/series", response_model=ExternalSeriesSearchResult)
+def search_series(
+    query: str,
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
+    current_user: User = Depends(get_current_non_kiosk),
+) -> ExternalSeriesSearchResult:
+    # GCD is free/local (no API cost) so it's tried first; Metron/ComicVine
+    # (both cost real API calls) only get hit when GCD has nothing at all on
+    # the first page. A later page (offset > 0) means GCD already won on
+    # page 1, so it keeps paginating GCD rather than switching providers
+    # mid-scroll - an empty later page just means "no more GCD results".
+    if gcd_db is not None:
+        gcd_results, gcd_total = gcd_lookup.search_series(gcd_db, query, offset=offset)
+        if gcd_results or offset > 0:
+            has_more = offset + len(gcd_results) < gcd_total
+            return ExternalSeriesSearchResult(results=gcd_results, warnings=[], has_more=has_more)
+
+    results, warnings = _search_metron_comicvine(query, db)
     return ExternalSeriesSearchResult(results=results, warnings=warnings)
 
 
@@ -146,6 +157,70 @@ def _fetch_provider_issues(
             raise HTTPException(status_code=400, detail="GCD lookup is not configured")
         return gcd_lookup.get_series_issues(gcd_db, int(provider_series_id), number=number)
     raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+
+def _find_cover_images(db: Session, series_name: str, issue_number: str, max_series: int = 5) -> list[ImageCandidateOut]:
+    """Searches Metron + ComicVine (never GCD - it has no images at all) for
+    series matching `series_name`, then hunts `issue_number` across the top
+    matches, collecting every distinct cover image found. Mirrors the
+    frontend's huntForIssue, server-side, scoped to just images so both the
+    single-comic picker and the bulk backfill endpoint below can share it."""
+    series_results, _ = _search_metron_comicvine(series_name, db)
+    target = crud.normalize_issue_number(issue_number)
+    candidates: list[ImageCandidateOut] = []
+    seen_images: set[str] = set()
+    for series in series_results[:max_series]:
+        try:
+            issues = _fetch_provider_issues(series.provider, series.provider_series_id, number=issue_number)
+        except HTTPException:
+            continue  # provider unavailable/rate-limited for this series - try the next one
+        for issue in issues:
+            if crud.normalize_issue_number(issue.number) != target:
+                continue
+            if not issue.image or issue.image in seen_images:
+                continue
+            seen_images.add(issue.image)
+            candidates.append(ImageCandidateOut(provider=series.provider, series_name=series.name, image=issue.image))
+    return candidates
+
+
+@router.get("/image-candidates", response_model=list[ImageCandidateOut])
+def get_image_candidates(
+    comic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+) -> list[ImageCandidateOut]:
+    comic = crud.get_comic_by_id(db, comic_id)
+    if comic is None:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    if not comic.issue_number:
+        return []
+    return _find_cover_images(db, comic.series, comic.issue_number)
+
+
+@router.post("/backfill-image/{comic_id}", response_model=BackfillImageResult)
+def backfill_image(
+    comic_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+) -> BackfillImageResult:
+    """Auto-applies the first candidate found, unlike /image-candidates which
+    lists them for a human to pick - used by the bulk "find images" action,
+    where picking one-by-one across many comics isn't the point."""
+    comic = crud.get_comic_by_id(db, comic_id)
+    if comic is None:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    if comic.img:
+        return BackfillImageResult(status="already_has_image", image=comic.img)
+    if not comic.issue_number:
+        return BackfillImageResult(status="not_found")
+
+    candidates = _find_cover_images(db, comic.series, comic.issue_number)
+    if not candidates:
+        return BackfillImageResult(status="not_found")
+
+    crud.update_comic_metadata(db, comic_id, {"img": candidates[0].image})
+    return BackfillImageResult(status="found", image=candidates[0].image)
 
 
 def _current_issue_count(provider: str, provider_series_id: str) -> int | None:

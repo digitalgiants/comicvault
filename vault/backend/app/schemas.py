@@ -83,6 +83,7 @@ class ComicMetadataUpdate(BaseModel):
     admin-only ComicUpdate which allows editing the full record."""
     upc: Optional[str] = None
     cover_artist: Optional[str] = None
+    img: Optional[str] = None
 
 
 class ComicOut(ComicBase):
@@ -211,6 +212,17 @@ class ExternalSeriesSearchResult(BaseModel):
     results: list[ExternalSeriesResult]
     warnings: list[str] = []
     has_more: bool = False
+
+
+class ImageCandidateOut(BaseModel):
+    provider: str
+    series_name: str
+    image: str
+
+
+class BackfillImageResult(BaseModel):
+    status: str  # "found" | "already_has_image" | "not_found"
+    image: Optional[str] = None
 
 
 class ExternalIssueSummary(BaseModel):

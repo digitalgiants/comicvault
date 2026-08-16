@@ -280,6 +280,17 @@ export interface ExternalSeriesSearchResult {
   has_more: boolean
 }
 
+export interface ImageCandidate {
+  provider: Provider
+  series_name: string
+  image: string
+}
+
+export interface BackfillImageResult {
+  status: 'found' | 'already_has_image' | 'not_found'
+  image: string | null
+}
+
 export interface ExternalIssueSummary {
   provider: Provider
   provider_issue_id: string

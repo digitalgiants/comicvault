@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
-import { availableCopies, coverImage, latestSalePrice, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
+import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
+import FindImageModal from '../components/Collection/FindImageModal'
+import BulkFindImagesModal from '../components/Collection/BulkFindImagesModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
 import BugReportButton from '../components/BugReportButton'
 import RecordSaleModal from '../components/Collection/RecordSaleModal'
@@ -24,6 +26,8 @@ export default function CollectionPage() {
   const [editing, setEditing] = useState<UserComic | null>(null)
   const [selling, setSelling] = useState<UserComic | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
+  const [findingImage, setFindingImage] = useState<UserComic | null>(null)
+  const [bulkFindingImages, setBulkFindingImages] = useState(false)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
@@ -108,6 +112,13 @@ export default function CollectionPage() {
     setSelling(null)
   }
 
+  const handleImageSaved = (comic: Comic) => {
+    // Matches on comic.id, not the row's uc.id - the catalog image is shared,
+    // so every row referencing this same comic should pick up the change.
+    setItems(prev => prev.map(i => i.comic.id === comic.id ? { ...i, comic } : i))
+    setFindingImage(null)
+  }
+
   const selectedItems = items.filter(i => selected.has(i.id))
 
   const fmt = (uc: UserComic, key: string): string => {
@@ -141,12 +152,20 @@ export default function CollectionPage() {
         <h1 className="text-2xl font-bold">My Collection</h1>
         <div className="flex flex-wrap items-center gap-2">
           {selected.size > 0 && (
-            <button
-              onClick={() => setBulkOpen(true)}
-              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
-            >
-              Bulk Edit ({selected.size})
-            </button>
+            <>
+              <button
+                onClick={() => setBulkOpen(true)}
+                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
+              >
+                Bulk Edit ({selected.size})
+              </button>
+              <button
+                onClick={() => setBulkFindingImages(true)}
+                className="flex items-center gap-1.5 px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
+              >
+                <ImageIcon size={14} /> Find Images ({selected.size})
+              </button>
+            </>
           )}
           <ColumnPicker page="collection" columns={COLLECTION_COLUMNS} visibility={visibility} onChange={setVisibility} />
         </div>
@@ -240,6 +259,9 @@ export default function CollectionPage() {
                         <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <Pencil size={14} />
                         </button>
+                        <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                          <ImageIcon size={14} />
+                        </button>
                         <button
                           onClick={() => setSelling(uc)}
                           title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
@@ -302,6 +324,19 @@ export default function CollectionPage() {
         />
       )}
       {bulkOpen && <BulkEditModal selected={selectedItems} onClose={() => setBulkOpen(false)} onSaved={() => { setBulkOpen(false); setSelected(new Set()); fetchCollection() }} />}
+      {findingImage && (
+        <FindImageModal
+          item={findingImage}
+          onClose={() => setFindingImage(null)}
+          onSaved={handleImageSaved}
+        />
+      )}
+      {bulkFindingImages && (
+        <BulkFindImagesModal
+          selected={selectedItems}
+          onClose={() => { setBulkFindingImages(false); setSelected(new Set()); fetchCollection() }}
+        />
+      )}
       <BugReportButton activeComic={activeComic} />
     </div>
   )
