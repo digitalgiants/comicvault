@@ -118,6 +118,40 @@ MIGRATIONS = [
     ALTER TABLE user_trading_cards
         ADD COLUMN IF NOT EXISTS reserve_count INTEGER DEFAULT 0
     """,
+
+    # Rename comics.direct -> comics.newstand, inverting its meaning: the old
+    # column meant "is this a direct-market copy" (True = direct), CSV header
+    # "newstand/direct"; the new one means "is this a newsstand copy" (True =
+    # newsstand, the rarer case) with a plain "Newstand" CSV header - so
+    # existing True/False values must flip, not just get relabeled. Guarded on
+    # the old column still existing so this only ever runs once.
+    """
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'comics' AND column_name = 'direct'
+        ) THEN
+            UPDATE comics SET direct = NOT direct WHERE direct IS NOT NULL;
+            ALTER TABLE comics RENAME COLUMN direct TO newstand;
+        END IF;
+    END $$
+    """,
+
+    # Same rename on external_issue_cache - always NULL there (GCD never
+    # supplies this field, see gcd_lookup.ENRICHABLE_FIELDS), so no invert
+    # needed, just keeping the column name consistent with comics.newstand.
+    """
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'external_issue_cache' AND column_name = 'direct'
+        ) THEN
+            ALTER TABLE external_issue_cache RENAME COLUMN direct TO newstand;
+        END IF;
+    END $$
+    """,
 ]
 
 

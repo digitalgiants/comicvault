@@ -46,7 +46,9 @@ class Comic(Base):
     legacy_number = Column(String, nullable=True)
     cover_date = Column(Date, nullable=True)
     store_date = Column(Date, nullable=True)
-    direct = Column(Boolean, nullable=True)
+    # True = newsstand edition, False/None = direct market (the common case).
+    # Renamed+inverted from the old `direct` column - see migrate.py.
+    newstand = Column(Boolean, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
     cover_artist = Column(String, nullable=True)
@@ -266,7 +268,7 @@ class ExternalIssueCache(Base):
     store_date = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
-    direct = Column(Boolean, nullable=True)
+    newstand = Column(Boolean, nullable=True)
     writer = Column(String, nullable=True)
     penciller = Column(String, nullable=True)
     inker = Column(String, nullable=True)

@@ -10,7 +10,7 @@ export interface Comic {
   legacy_number: string | null
   cover_date: string | null
   store_date: string | null
-  direct: boolean | null
+  newstand: boolean | null
   print_run: string | null
   variant: string | null
   cover_artist: string | null
@@ -100,7 +100,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'legacy_number', label: 'Lgcy Number' },
   { key: 'cover_date', label: 'Cover Date' },
   { key: 'store_date', label: 'Store Date' },
-  { key: 'direct', label: 'Newstand / Direct' },
+  { key: 'newstand', label: 'Newstand' },
   { key: 'publisher', label: 'Publisher' },
   { key: 'count', label: 'Count' },
   { key: 'available', label: 'Available' },
@@ -231,7 +231,7 @@ export interface ScanComicFields {
   legacy_number: string | null
   cover_date: string | null
   store_date: string | null
-  direct: boolean | null
+  newstand: boolean | null
   print_run: string | null
   variant: string | null
   writer: string | null
@@ -303,7 +303,7 @@ export interface KioskCard {
   penciller: string | null
   inker: string | null
   writer: string | null
-  direct: boolean | null
+  newstand: boolean | null
   print_run: string | null
   average_price: number | null
   signed: boolean
@@ -527,7 +527,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     legacy_number: null,
     cover_date: result.cover_date || null,
     store_date: result.store_date,
-    direct: null,
+    newstand: null,
     print_run: null,
     variant: result.variant_name,
     writer: result.writers.length ? result.writers.join(', ') : null,

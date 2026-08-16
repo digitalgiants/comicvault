@@ -109,7 +109,7 @@ export default function CollectionPage() {
       const v = (uc.comic as unknown as Record<string, unknown>)[key]
       if (v === null || v === undefined) return '—'
       if (key === 'average_price') return `$${Number(v).toFixed(2)}`
-      if (key === 'direct') return v ? 'Yes' : 'No'
+      if (key === 'newstand') return v ? 'Yes' : 'No'
       if (key === 'cover_date' || key === 'store_date') return new Date(v as string).toLocaleDateString()
       return String(v)
     }

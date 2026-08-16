@@ -29,7 +29,7 @@ MASTER_PHOTO_OWNER_USERNAME = "digitalgiant"
 
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
     "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
-    "cover_date": True, "store_date": True, "direct": True, "publisher": True,
+    "cover_date": True, "store_date": True, "newstand": True, "publisher": True,
     "count": True, "print_run": True, "variant": True, "legacy_number": True, "cover_artist": True,
     "penciller": True, "inker": True, "writer": True,
     "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
@@ -836,7 +836,7 @@ def cache_row_to_comic_create(row: ExternalIssueCache) -> ComicCreate:
         store_date=row.store_date,
         print_run=row.print_run,
         variant=row.variant,
-        direct=row.direct,
+        newstand=row.newstand,
         writer=row.writer,
         penciller=row.penciller,
         inker=row.inker,
@@ -953,7 +953,7 @@ def update_issue_cache_fields(
     row.store_date = fields.store_date.isoformat() if hasattr(fields.store_date, "isoformat") else fields.store_date
     row.print_run = fields.print_run
     row.variant = fields.variant
-    row.direct = fields.direct
+    row.newstand = fields.newstand
     row.writer = fields.writer
     row.penciller = fields.penciller
     row.inker = fields.inker

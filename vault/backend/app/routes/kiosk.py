@@ -32,7 +32,7 @@ def _to_card(uc: UserComic) -> KioskCardOut:
         penciller=comic.penciller,
         inker=comic.inker,
         writer=comic.writer,
-        direct=comic.direct,
+        newstand=comic.newstand,
         print_run=comic.print_run,
         average_price=comic.average_price,
         signed=uc.signed,

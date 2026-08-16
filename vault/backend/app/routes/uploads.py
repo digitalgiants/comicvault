@@ -62,7 +62,7 @@ async def upload_csv(
                 "legacy_number": row.get("legacy_number"),
                 "cover_date": row.get("cover_date"),
                 "store_date": row.get("store_date"),
-                "direct": row.get("direct"),
+                "newstand": row.get("newstand"),
                 "print_run": row.get("print_run"),
                 "variant": row.get("variant"),
                 "writer": row.get("writer"),

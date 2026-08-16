@@ -160,9 +160,9 @@ export default function FeaturedLightbox({ title, items, loading, error, browseA
                 {selected.remarked && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400">Remarked</span>
                 )}
-                {selected.direct !== null && (
+                {selected.newstand && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
-                    {selected.direct ? 'Direct' : 'Newsstand'}
+                    Newstand
                   </span>
                 )}
                 <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-900/50 text-green-400">

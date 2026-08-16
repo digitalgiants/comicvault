@@ -23,7 +23,7 @@ COMIC_STORY_TYPE = "comic story"
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (legacy_number, print_run, direct, cover_artist, upc, img).
+# supplies (legacy_number, print_run, newstand, cover_artist, upc, img).
 ENRICHABLE_FIELDS = [
     "publisher", "volume", "cover_date", "store_date",
     "variant", "writer", "penciller", "inker", "average_price",
@@ -200,7 +200,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         store_date=_parse_gcd_date(issue.on_sale_date),
         print_run=None,
         variant=(issue.variant_name or None) if issue.variant_of_id else None,
-        direct=None,
+        newstand=None,
         writer=writer,
         penciller=penciller,
         inker=inker,

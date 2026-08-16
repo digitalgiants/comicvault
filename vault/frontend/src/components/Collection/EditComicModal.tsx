@@ -154,7 +154,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 ['Print Run', item.comic.print_run],
                 ['Cover Date', item.comic.cover_date],
                 ['Store Date', item.comic.store_date],
-                ['Newsstand / Direct', item.comic.direct == null ? null : (item.comic.direct ? 'Direct' : 'Newsstand')],
+                ['Newstand', item.comic.newstand == null ? null : (item.comic.newstand ? 'Yes' : 'No')],
                 ['Avg Price', item.comic.average_price != null ? `$${item.comic.average_price.toFixed(2)}` : null],
               ].filter(([, v]) => v).map(([label, val]) => (
                 <div key={label as string}>
