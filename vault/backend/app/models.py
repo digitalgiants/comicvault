@@ -120,6 +120,30 @@ class CSVImport(Base):
     user = relationship("User", back_populates="csv_imports")
 
 
+class CsvImportConflict(Base):
+    """A single field where a CSV import row had a value that DIFFERED from
+    what GCD reported for the same comic - never applied automatically,
+    held here for the user to accept (apply GCD's value) or reject (keep
+    what was already imported from the CSV) via the Upload page's
+    persistent review queue. Blank CSV cells are filled from GCD directly
+    at import time and never produce a row here - only genuine conflicts."""
+    __tablename__ = "csv_import_conflicts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    csv_import_id = Column(Integer, ForeignKey("csv_imports.id"), nullable=True)
+    comic_id = Column(Integer, ForeignKey("comics.id"), nullable=False, index=True)
+    field_name = Column(String, nullable=False)
+    csv_value = Column(String, nullable=True)
+    gcd_value = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="pending")  # pending / accepted / rejected
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+    comic = relationship("Comic")
+
+
 class CollectionSnapshot(Base):
     __tablename__ = "collection_snapshots"
 

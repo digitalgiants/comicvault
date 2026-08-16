@@ -3,11 +3,12 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, gcd_lookup
 from app.auth import get_current_non_kiosk
 from app.database import get_db
+from app.gcd_database import get_gcd_db
 from app.models import User
-from app.schemas import CSVImportResult, ComicCreate, SaleCreate, UserComicCreate
+from app.schemas import CSVImportConflictOut, CSVImportResult, ComicCreate, SaleCreate, UserComicCreate
 from app.utils.csv_parser import parse_csv
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
@@ -19,6 +20,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 async def upload_csv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
     if not file.filename.endswith(".csv"):
@@ -33,10 +35,19 @@ async def upload_csv(
     if not rows and parse_errors:
         raise HTTPException(status_code=422, detail=parse_errors[0]["error"])
 
+    # Created early (placeholder stats) so conflicts found during the loop
+    # below can reference this import's id; stats get filled in at the end.
+    csv_import = crud.create_csv_import(
+        db, user_id=current_user.id, filename=file.filename,
+        total=len(rows) + len(parse_errors), success=0, failed=0, errors=[],
+    )
+
     imported = 0
     new_added = 0
     linked = 0
     sales_recorded = 0
+    conflicts_queued = 0
+    declined: list[dict] = []
     row_errors = list(parse_errors)
 
     for row in rows:
@@ -75,8 +86,22 @@ async def upload_csv(
                 comic = existing
                 linked += 1
             else:
+                conflicts: list[tuple[str, str, str]] = []
+                if gcd_db is not None:
+                    conflicts, found = gcd_lookup.enrich_comic_from_gcd(gcd_db, comic_data)
+                    if not found:
+                        declined.append({
+                            "row": row.get("_row_num", "?"),
+                            "series": comic_data["series"],
+                            "issue_number": comic_data.get("issue_number"),
+                        })
                 comic = crud.create_comic(db, ComicCreate(**comic_data), user_id=current_user.id)
                 new_added += 1
+                for field_name, csv_value, gcd_value in conflicts:
+                    crud.create_csv_conflict(
+                        db, current_user.id, csv_import.id, comic.id, field_name, csv_value, gcd_value,
+                    )
+                    conflicts_queued += 1
 
             if crud.user_already_owns(db, current_user.id, comic.id):
                 row_errors.append({
@@ -124,14 +149,11 @@ async def upload_csv(
             })
 
     crud.record_snapshot(db, current_user.id)
-    crud.create_csv_import(
-        db,
-        user_id=current_user.id,
-        filename=file.filename,
-        total=len(rows) + len(parse_errors),
-        success=imported,
-        failed=len(row_errors),
-        errors=row_errors,
+    crud.update_csv_import_stats(
+        db, csv_import.id,
+        successful_imports=imported,
+        failed_rows=len(row_errors),
+        error_log=row_errors,
     )
 
     return CSVImportResult(
@@ -144,6 +166,8 @@ async def upload_csv(
         existing_comics_linked=linked,
         sales_recorded=sales_recorded,
         errors=row_errors,
+        declined=declined,
+        conflicts_queued=conflicts_queued,
     )
 
 
@@ -153,3 +177,56 @@ def get_upload_history(
     current_user: User = Depends(get_current_non_kiosk),
 ):
     return crud.get_user_csv_imports(db, current_user.id)
+
+
+@router.get("/conflicts", response_model=list[CSVImportConflictOut])
+def list_csv_conflicts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    conflicts = crud.get_pending_csv_conflicts(db, current_user.id)
+    return [
+        CSVImportConflictOut(
+            id=c.id,
+            comic_id=c.comic_id,
+            comic_series=c.comic.series,
+            comic_issue_number=c.comic.issue_number,
+            field_name=c.field_name,
+            csv_value=c.csv_value,
+            gcd_value=c.gcd_value,
+            created_at=c.created_at,
+        )
+        for c in conflicts
+    ]
+
+
+@router.post("/conflicts/{conflict_id}/accept", response_model=CSVImportConflictOut)
+def accept_csv_conflict(
+    conflict_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    conflict = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=True)
+    if not conflict:
+        raise HTTPException(status_code=404, detail="Conflict not found")
+    return CSVImportConflictOut(
+        id=conflict.id, comic_id=conflict.comic_id, comic_series=conflict.comic.series,
+        comic_issue_number=conflict.comic.issue_number, field_name=conflict.field_name,
+        csv_value=conflict.csv_value, gcd_value=conflict.gcd_value, created_at=conflict.created_at,
+    )
+
+
+@router.post("/conflicts/{conflict_id}/reject", response_model=CSVImportConflictOut)
+def reject_csv_conflict(
+    conflict_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    conflict = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=False)
+    if not conflict:
+        raise HTTPException(status_code=404, detail="Conflict not found")
+    return CSVImportConflictOut(
+        id=conflict.id, comic_id=conflict.comic_id, comic_series=conflict.comic.series,
+        comic_issue_number=conflict.comic.issue_number, field_name=conflict.field_name,
+        csv_value=conflict.csv_value, gcd_value=conflict.gcd_value, created_at=conflict.created_at,
+    )

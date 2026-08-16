@@ -346,6 +346,17 @@ export interface KioskSettings {
   cards_graded_refresh_minutes: number
 }
 
+export interface CsvImportConflict {
+  id: number
+  comic_id: number
+  comic_series: string
+  comic_issue_number: string | null
+  field_name: string
+  csv_value: string | null
+  gcd_value: string | null
+  created_at: string
+}
+
 export interface KioskSignupInput {
   first_name: string
   last_name: string

@@ -10,6 +10,7 @@ import re
 from datetime import date
 from typing import Iterable
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.crud import normalize_issue_number, normalize_search_query
@@ -18,6 +19,15 @@ from app.schemas import ComicCreate, ExternalIssueSummary, ExternalSeriesResult
 
 SEARCH_LIMIT = 20
 COMIC_STORY_TYPE = "comic story"
+
+# Fields get_issue_fields() actually populates from GCD - the set CSV import
+# enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
+# series/issue_number (used for matching itself) and the fields GCD never
+# supplies (legacy_number, print_run, direct, cover_artist, upc, img).
+ENRICHABLE_FIELDS = [
+    "publisher", "volume", "cover_date", "store_date",
+    "variant", "writer", "penciller", "inker", "average_price",
+]
 
 _DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _USD_PRICE_RE = re.compile(r"(\d+\.\d{2})\s*USD", re.IGNORECASE)
@@ -44,6 +54,74 @@ def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
         if issue.barcode == upc12:
             return issue
     return min(candidates, key=lambda i: i.id)
+
+
+def find_issue_by_series_issue(
+    gcd_db: Session, series: str, issue_number: str, publisher: str | None = None
+) -> Issue | None:
+    """Exact (case-insensitive) series+issue match against GCD - used by CSV
+    import enrichment, deliberately NOT the fuzzy/similarity matching
+    search_series() does, since this runs unattended across a whole import
+    batch with no per-row review. If publisher is given, it must match too
+    (disambiguates two different publishers having a same-named series);
+    SQL narrows to one series' issues first, then a small Python loop
+    handles issue-number normalization (zero-padding etc. - not expressible
+    as a plain SQL comparison).
+    """
+    q = gcd_db.query(Issue).join(Series, Issue.series_id == Series.id).filter(
+        func.lower(Series.name) == series.strip().lower()
+    )
+    if publisher:
+        q = q.join(Publisher, Series.publisher_id == Publisher.id).filter(
+            func.lower(Publisher.name) == publisher.strip().lower()
+        )
+    target = normalize_issue_number(issue_number)
+    for issue in q.all():
+        if normalize_issue_number(issue.number) == target:
+            return issue
+    return None
+
+
+def enrich_comic_from_gcd(gcd_db: Session, comic_data: dict) -> tuple[list[tuple[str, str, str]], bool]:
+    """Attempts to enrich a CSV-import row (comic_data, keyed like ComicCreate
+    fields) from GCD before the Comic is created - tries UPC first, then an
+    exact series+issue match if that fails or there's no UPC. Only ever
+    called for brand-new comics (an existing catalog match is never touched).
+
+    comic_data is mutated in place: any field that's blank gets filled
+    directly from GCD, no review needed. A field that's already set to
+    something DIFFERENT than GCD's value is never overwritten - instead
+    it's returned as a conflict for the caller to queue for manual
+    accept/reject (see crud.create_csv_conflict).
+
+    Returns (conflicts, found) where conflicts is a list of
+    (field_name, csv_value, gcd_value) tuples (as strings, for storage) and
+    found is whether any GCD match was located at all - False drives the
+    "Declined Imports" report for rows GCD has nothing on.
+    """
+    issue = None
+    upc = comic_data.get("upc")
+    if upc:
+        issue = find_issue_by_upc(gcd_db, upc)
+    if issue is None and comic_data.get("series") and comic_data.get("issue_number"):
+        issue = find_issue_by_series_issue(
+            gcd_db, comic_data["series"], comic_data["issue_number"], comic_data.get("publisher")
+        )
+    if issue is None:
+        return [], False
+
+    fields = get_issue_fields(gcd_db, issue.id)
+    conflicts: list[tuple[str, str, str]] = []
+    for field in ENRICHABLE_FIELDS:
+        gcd_val = getattr(fields, field)
+        if gcd_val is None:
+            continue
+        csv_val = comic_data.get(field)
+        if csv_val is None or csv_val == "":
+            comic_data[field] = gcd_val
+        elif str(csv_val) != str(gcd_val):
+            conflicts.append((field, str(csv_val), str(gcd_val)))
+    return conflicts, True
 
 
 def search_series(gcd_db: Session, query: str, limit: int = SEARCH_LIMIT) -> list[ExternalSeriesResult]:

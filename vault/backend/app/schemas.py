@@ -232,6 +232,22 @@ class CSVImportResult(BaseModel):
     existing_comics_linked: int
     sales_recorded: int
     errors: list[dict[str, Any]]
+    declined: list[dict[str, Any]] = []
+    conflicts_queued: int = 0
+
+
+class CSVImportConflictOut(BaseModel):
+    id: int
+    comic_id: int
+    comic_series: str
+    comic_issue_number: Optional[str] = None
+    field_name: str
+    csv_value: Optional[str] = None
+    gcd_value: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 # --- Admin ---

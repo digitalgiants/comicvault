@@ -1,8 +1,11 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import BugReportButton from '../components/BugReportButton'
 import { useDropzone } from 'react-dropzone'
-import { Upload, CheckCircle, XCircle, FileText } from 'lucide-react'
+import { Upload, CheckCircle, XCircle, FileText, HelpCircle, GitCompare, Search, Check, X } from 'lucide-react'
 import api from '../api/client'
+import { fetchCsvConflicts, acceptCsvConflict, rejectCsvConflict } from '../api/uploads'
+import { COLLECTION_COLUMNS, type CsvImportConflict } from '../types'
 
 interface ImportResult {
   success: boolean
@@ -14,12 +17,47 @@ interface ImportResult {
   existing_comics_linked: number
   sales_recorded: number
   errors: Array<{ row: number | string; comic: string; error: string }>
+  declined: Array<{ row: number | string; series: string; issue_number: string | null }>
+  conflicts_queued: number
 }
 
+const FIELD_LABELS: Record<string, string> = Object.fromEntries(
+  COLLECTION_COLUMNS.map(c => [c.key, c.label]),
+)
+const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key
+
 export default function UploadPage() {
+  const navigate = useNavigate()
   const [result, setResult] = useState<ImportResult | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
+
+  const [conflicts, setConflicts] = useState<CsvImportConflict[]>([])
+  const [conflictsLoading, setConflictsLoading] = useState(true)
+  const [resolvingId, setResolvingId] = useState<number | null>(null)
+
+  const loadConflicts = useCallback(() => {
+    setConflictsLoading(true)
+    fetchCsvConflicts().then(setConflicts).finally(() => setConflictsLoading(false))
+  }, [])
+
+  useEffect(() => { loadConflicts() }, [loadConflicts])
+
+  const resolveConflict = async (id: number, accept: boolean) => {
+    setResolvingId(id)
+    try {
+      await (accept ? acceptCsvConflict(id) : rejectCsvConflict(id))
+      setConflicts(prev => prev.filter(c => c.id !== id))
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
+  const searchManually = (series: string, issueNumber: string | null) => {
+    const params = new URLSearchParams({ series })
+    if (issueNumber) params.set('issue', issueNumber)
+    navigate(`/search?${params.toString()}`)
+  }
 
   const onDrop = useCallback(async (accepted: File[]) => {
     const file = accepted[0]
@@ -37,13 +75,14 @@ export default function UploadPage() {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setResult(data)
+      if (data.conflicts_queued > 0) loadConflicts()
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
       setError(detail || 'Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
-  }, [])
+  }, [loadConflicts])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -106,6 +145,11 @@ export default function UploadPage() {
               <Stat label="Matched existing" value={result.existing_comics_linked} />
               <Stat label="Sales recorded" value={result.sales_recorded} />
             </div>
+            {result.conflicts_queued > 0 && (
+              <p className="text-amber-400 text-sm mt-4">
+                {result.conflicts_queued} field{result.conflicts_queued !== 1 ? 's' : ''} queued for review below — GCD had different data than your CSV for some new comics.
+              </p>
+            )}
           </div>
 
           {result.errors.length > 0 && (
@@ -125,6 +169,88 @@ export default function UploadPage() {
               </div>
             </div>
           )}
+
+          {result.declined.length > 0 && (
+            <div className="bg-gray-900 rounded-2xl p-6 border border-amber-900/40">
+              <div className="flex items-center gap-2 mb-4">
+                <HelpCircle size={18} className="text-amber-400" />
+                <h3 className="font-medium text-amber-300">Declined Imports ({result.declined.length})</h3>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                GCD had no matching data for these — they still imported using only what was in your CSV.
+              </p>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {result.declined.map((d, i) => (
+                  <div key={i} className="flex items-center justify-between gap-3 text-sm bg-gray-800 rounded-lg px-4 py-2">
+                    <div>
+                      <span className="text-gray-400">Row {d.row}</span>
+                      <span className="text-gray-300 ml-2">
+                        {d.series}{d.issue_number ? ` #${d.issue_number}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => searchManually(d.series, d.issue_number)}
+                      className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition flex-shrink-0"
+                    >
+                      <Search size={12} /> Search manually
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!conflictsLoading && conflicts.length > 0 && (
+        <div className="mt-6 bg-gray-900 rounded-2xl p-6 border border-blue-900/40">
+          <div className="flex items-center gap-2 mb-4">
+            <GitCompare size={18} className="text-blue-400" />
+            <h3 className="font-medium text-blue-300">Pending Enrichment Conflicts ({conflicts.length})</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            GCD had different data than your CSV for these fields. Your CSV's value is already saved — accept to replace it with GCD's, or reject to keep what you have.
+          </p>
+          <div className="space-y-2 max-h-96 overflow-y-auto">
+            {conflicts.map(c => (
+              <div key={c.id} className="bg-gray-800 rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div className="text-sm text-gray-300">
+                    {c.comic_series}{c.comic_issue_number ? ` #${c.comic_issue_number}` : ''}
+                    <span className="text-gray-500 ml-2">— {fieldLabel(c.field_name)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      onClick={() => resolveConflict(c.id, true)}
+                      disabled={resolvingId === c.id}
+                      title="Accept GCD's value"
+                      className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30"
+                    >
+                      <Check size={14} />
+                    </button>
+                    <button
+                      onClick={() => resolveConflict(c.id, false)}
+                      disabled={resolvingId === c.id}
+                      title="Reject, keep my CSV value"
+                      className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="bg-gray-900 rounded px-3 py-1.5">
+                    <span className="text-gray-500">Your CSV: </span>
+                    <span className="text-gray-300">{c.csv_value ?? '—'}</span>
+                  </div>
+                  <div className="bg-gray-900 rounded px-3 py-1.5">
+                    <span className="text-gray-500">GCD: </span>
+                    <span className="text-gray-300">{c.gcd_value ?? '—'}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -148,6 +274,9 @@ export default function UploadPage() {
           ))}
         </div>
         <p className="text-xs text-gray-500 mt-3">Only <span className="text-brand-400 font-mono">series</span> is required. All other columns are optional.</p>
+        <p className="text-xs text-gray-500 mt-2">
+          New comics with a UPC or an exact series+issue match in GCD get blank fields filled in automatically. Fields where GCD disagrees with your CSV show up above for review, never applied automatically.
+        </p>
       </div>
     </div>
   )

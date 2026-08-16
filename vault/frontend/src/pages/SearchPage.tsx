@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, BookOpen, RotateCcw, Search as SearchIcon, X } from 'lucide-react'
 import BugReportButton from '../components/BugReportButton'
 import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
@@ -13,6 +14,7 @@ const PROVIDER_BADGE: Record<string, string> = {
 }
 
 export default function SearchPage() {
+  const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [issueNumber, setIssueNumber] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
@@ -36,11 +38,11 @@ export default function SearchPage() {
 
   const requestId = useRef(0)
 
-  const runSearch = () => {
-    const trimmed = query.trim()
+  const runSearch = (queryOverride?: string, issueOverride?: string) => {
+    const trimmed = (queryOverride ?? query).trim()
     if (trimmed.length < 2) return
 
-    const trimmedNumber = issueNumber.trim()
+    const trimmedNumber = (issueOverride ?? issueNumber).trim()
     const id = ++requestId.current
     setSearching(true)
     setHasSearched(true)
@@ -69,6 +71,21 @@ export default function SearchPage() {
         setSearching(false)
       })
   }
+
+  // Deep-link support (e.g. from Upload's "Declined Imports" -> "Search
+  // manually"): seed the boxes and run the search once on mount if the URL
+  // has ?series=&issue=. Passed as explicit overrides rather than relying on
+  // the query/issueNumber state set just above, since state updates aren't
+  // visible within the same synchronous effect run.
+  useEffect(() => {
+    const seriesParam = searchParams.get('series')
+    if (!seriesParam) return
+    const issueParam = searchParams.get('issue') ?? ''
+    setQuery(seriesParam)
+    setIssueNumber(issueParam)
+    runSearch(seriesParam, issueParam)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Checks the top-ranked series match first (cheap, and right most of the
   // time for a specific-enough title). Only if that comes up empty do we pay
@@ -273,7 +290,7 @@ export default function SearchPage() {
               className="w-full sm:w-40 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
             <button
-              onClick={runSearch}
+              onClick={() => runSearch()}
               disabled={searching || query.trim().length < 2}
               className="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white font-medium rounded-xl transition disabled:opacity-50"
             >

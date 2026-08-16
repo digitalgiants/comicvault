@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.auth import hash_password
 from app.models import (
-    BugReport, CollectionSnapshot, Comic, CSVImport, ExternalIssueCache,
+    BugReport, CollectionSnapshot, Comic, CSVImport, CsvImportConflict, ExternalIssueCache,
     ExternalSeriesSearchCache, ExternalSeriesSearchLog, ExternalSeriesSync,
     KioskFeaturedSet, KioskSettings, KioskSignup, Sale, User, UserComic, UserColumnPreference,
 )
@@ -545,6 +545,84 @@ def create_csv_import(db: Session, user_id: int, filename: str, total: int, succ
 
 def get_user_csv_imports(db: Session, user_id: int) -> list[CSVImport]:
     return db.query(CSVImport).filter(CSVImport.user_id == user_id).order_by(CSVImport.created_at.desc()).all()
+
+
+def update_csv_import_stats(db: Session, import_id: int, **fields) -> Optional[CSVImport]:
+    record = db.query(CSVImport).filter(CSVImport.id == import_id).first()
+    if not record:
+        return None
+    for key, value in fields.items():
+        setattr(record, key, value)
+    db.commit()
+    db.refresh(record)
+    return record
+
+
+# --- CSV import GCD-enrichment conflicts (see app.gcd_lookup.enrich_comic_from_gcd) ---
+
+_CSV_CONFLICT_DATE_FIELDS = {"cover_date", "store_date"}
+_CSV_CONFLICT_FLOAT_FIELDS = {"average_price"}
+
+
+def _coerce_csv_conflict_value(field_name: str, raw: Optional[str]):
+    if raw is None:
+        return None
+    if field_name in _CSV_CONFLICT_DATE_FIELDS:
+        return date.fromisoformat(raw)
+    if field_name in _CSV_CONFLICT_FLOAT_FIELDS:
+        return float(raw)
+    return raw
+
+
+def create_csv_conflict(
+    db: Session, user_id: int, csv_import_id: Optional[int], comic_id: int,
+    field_name: str, csv_value: Optional[str], gcd_value: Optional[str],
+) -> CsvImportConflict:
+    conflict = CsvImportConflict(
+        user_id=user_id,
+        csv_import_id=csv_import_id,
+        comic_id=comic_id,
+        field_name=field_name,
+        csv_value=csv_value,
+        gcd_value=gcd_value,
+    )
+    db.add(conflict)
+    db.commit()
+    db.refresh(conflict)
+    return conflict
+
+
+def get_pending_csv_conflicts(db: Session, user_id: int) -> list[CsvImportConflict]:
+    return (
+        db.query(CsvImportConflict)
+        .filter(CsvImportConflict.user_id == user_id, CsvImportConflict.status == "pending")
+        .order_by(CsvImportConflict.created_at.desc())
+        .all()
+    )
+
+
+def resolve_csv_conflict(db: Session, user_id: int, conflict_id: int, accept: bool) -> Optional[CsvImportConflict]:
+    conflict = (
+        db.query(CsvImportConflict)
+        .filter(
+            CsvImportConflict.id == conflict_id,
+            CsvImportConflict.user_id == user_id,
+            CsvImportConflict.status == "pending",
+        )
+        .first()
+    )
+    if not conflict:
+        return None
+    if accept:
+        value = _coerce_csv_conflict_value(conflict.field_name, conflict.gcd_value)
+        update_comic_metadata(db, conflict.comic_id, {conflict.field_name: value})
+        conflict.status = "accepted"
+    else:
+        conflict.status = "rejected"
+    conflict.resolved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(conflict)
+    return conflict
 
 
 # --- Kiosk ---

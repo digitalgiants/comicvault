@@ -106,7 +106,7 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
 
     for idx, raw_row in df.iterrows():
         row_num = idx + 2  # 1-based + header
-        row = {}
+        row = {"_row_num": row_num}
         comic_label = f"{raw_row.get('series', '')} #{raw_row.get('issuenumber', '')}"
 
         try:
@@ -124,7 +124,15 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
                 elif csv_col in DATE_FIELDS:
                     row[db_col] = _parse_date(val)
                 else:
-                    row[db_col] = val if val and str(val).strip() else None
+                    # A genuinely empty cell reads back from pandas as NaN
+                    # (a float), not "" - even with keep_default_na=False,
+                    # which only controls recognized NA *strings*, not truly
+                    # blank fields. Every other branch above already guards
+                    # this via pd.isna() in its own parser helper; this one
+                    # didn't, so a blank cell here (any plain string field -
+                    # publisher, writer, etc.) came out as `nan` rather than
+                    # None. Also strips actual string values on the way in.
+                    row[db_col] = None if pd.isna(val) else (str(val).strip() or None)
 
             if not row.get("series"):
                 errors.append({"row": row_num, "comic": comic_label, "error": "Missing required field: series"})
