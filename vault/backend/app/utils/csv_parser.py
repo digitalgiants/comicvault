@@ -1,3 +1,4 @@
+import csv
 import io
 from datetime import datetime
 from typing import Any
@@ -6,7 +7,7 @@ import pandas as pd
 
 REQUIRED_COLUMNS = {"series"}
 
-BOOLEAN_FIELDS = {"newstand/direct", "signed", "remarked", "donotsell"}
+BOOLEAN_FIELDS = {"direct", "signed", "remarked", "donotsell"}
 FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice", "askingprice"}
 INT_FIELDS = {"count", "reservecount"}
 DATE_FIELDS = {"buydate", "coverdate", "storedate", "selldate"}
@@ -20,7 +21,7 @@ COLUMN_MAP = {
     "legacynumber": "legacy_number",
     "coverdate": "cover_date",
     "storedate": "store_date",
-    "newstand/direct": "direct",
+    "direct": "direct",
     "publisher": "publisher",
     "count": "count",
     "printrun": "print_run",
@@ -84,13 +85,29 @@ def _normalize_headers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _detect_delimiter(file_bytes: bytes) -> str:
+    """Sniffs the delimiter from the first few lines instead of assuming
+    comma. A file exported/copied as tab- or semicolon-separated (common
+    from Excel/Sheets/Numbers) would otherwise have its entire header read
+    as a single column by pandas' comma-only default, surfacing as a
+    confusing "missing required column: series" error rather than the real
+    delimiter problem."""
+    try:
+        sample = file_bytes[:4096].decode("utf-8-sig", errors="ignore")
+        sample_lines = "\n".join(sample.splitlines()[:5])
+        return csv.Sniffer().sniff(sample_lines, delimiters=",\t;|").delimiter
+    except Exception:
+        return ","
+
+
 def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]:
     """
     Returns (rows, errors) where rows are clean dicts ready for DB insertion.
     errors are dicts with {row, comic, error}.
     """
     try:
-        df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False)
+        delimiter = _detect_delimiter(file_bytes)
+        df = pd.read_csv(io.BytesIO(file_bytes), dtype=str, keep_default_na=False, sep=delimiter)
     except Exception as e:
         return [], [{"row": 0, "comic": "", "error": f"Could not parse CSV: {e}"}]
 
