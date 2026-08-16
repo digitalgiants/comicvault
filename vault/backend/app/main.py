@@ -20,8 +20,6 @@ app.add_middleware(
     expose_headers=["X-Total-Count"],
 )
 
-app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
-
 app.include_router(users.router)
 app.include_router(comics.router)
 app.include_router(cards.router)
@@ -33,6 +31,13 @@ app.include_router(scan.router)
 app.include_router(kiosk.router)
 app.include_router(search.router)
 
+# Registered after the routers above (specifically uploads.router's POST
+# /uploads/csv) - Starlette matches routes in registration order, and a
+# Mount matches by path prefix regardless of method, so mounting this first
+# would swallow every /uploads/* request - including POST /uploads/csv,
+# which StaticFiles doesn't support (only GET/HEAD) - into a 405 before the
+# CSV-import route ever got a chance to match.
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
 @app.get("/health")
 @app.get("/v1/health")
