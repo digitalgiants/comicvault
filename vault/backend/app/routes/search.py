@@ -91,7 +91,23 @@ def _search_metron_comicvine(query: str, db: Session) -> tuple[list[ExternalSeri
             else:
                 warnings.append("ComicVine search failed")
 
-    results.sort(key=lambda r: r.name)
+    # Rank exact/starts-with matches first, same as gcd_lookup.search_series -
+    # otherwise a plain alphabetical sort can bury the actual series (e.g.
+    # "Batman") behind every alphabetically-earlier tie-in/spinoff title,
+    # which is especially costly for _find_cover_images below: it only
+    # checks the top `max_series` results, so a buried match isn't just
+    # inconvenient, it's silently invisible.
+    query_lower = normalized
+    def _relevance(r: ExternalSeriesResult) -> tuple[int, str]:
+        name_lower = r.name.lower()
+        if name_lower == query_lower:
+            tier = 0
+        elif name_lower.startswith(query_lower):
+            tier = 1
+        else:
+            tier = 2
+        return (tier, name_lower)
+    results.sort(key=_relevance)
     return results, warnings
 
 
@@ -159,7 +175,7 @@ def _fetch_provider_issues(
     raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
 
-def _find_cover_images(db: Session, series_name: str, issue_number: str, max_series: int = 5) -> list[ImageCandidateOut]:
+def _find_cover_images(db: Session, series_name: str, issue_number: str, max_series: int = 8) -> list[ImageCandidateOut]:
     """Searches Metron + ComicVine (never GCD - it has no images at all) for
     series matching `series_name`, then hunts `issue_number` across the top
     matches, collecting every distinct cover image found. Mirrors the
