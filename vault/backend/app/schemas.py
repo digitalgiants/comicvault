@@ -225,6 +225,10 @@ class BackfillImageResult(BaseModel):
     image: Optional[str] = None
 
 
+class UpcLookupResult(BaseModel):
+    upc: Optional[str] = None
+
+
 class ExternalIssueSummary(BaseModel):
     provider: str
     provider_issue_id: str

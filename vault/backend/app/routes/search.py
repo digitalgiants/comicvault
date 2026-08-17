@@ -17,6 +17,7 @@ from app.schemas import (
     ExternalSeriesResult,
     ExternalSeriesSearchResult,
     ImageCandidateOut,
+    UpcLookupResult,
 )
 
 router = APIRouter(prefix="/search", tags=["search"])
@@ -236,6 +237,26 @@ def get_image_candidates(
     if not series or not issue_number:
         raise HTTPException(status_code=400, detail="Provide either comic_id or series and issue_number")
     return _find_cover_images(db, series, issue_number, publisher=publisher)
+
+
+@router.get("/upc", response_model=UpcLookupResult)
+def find_upc(
+    series: str = Query(...),
+    issue_number: str = Query(...),
+    publisher: str | None = Query(None),
+    gcd_db: Session | None = Depends(get_gcd_db),
+    current_user: User = Depends(get_current_non_kiosk),
+) -> UpcLookupResult:
+    """GCD-only, unlike image search - GCD reliably supplies real UPCs via
+    Issue.barcode (see gcd_lookup.get_issue_fields), and an exact series+
+    issue match only ever yields at most one candidate, so there's nothing
+    for a human to pick between the way there is with cover images."""
+    if gcd_db is None:
+        return UpcLookupResult(upc=None)
+    issue = gcd_lookup.find_issue_by_series_issue(gcd_db, series, issue_number, publisher)
+    if issue is None:
+        return UpcLookupResult(upc=None)
+    return UpcLookupResult(upc=gcd_lookup.get_issue_fields(gcd_db, issue.id).upc)
 
 
 @router.post("/backfill-image/{comic_id}", response_model=BackfillImageResult)

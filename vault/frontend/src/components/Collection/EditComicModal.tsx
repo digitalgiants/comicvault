@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Search } from 'lucide-react'
 import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto } from '../../api/collection'
+import { findUpc } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
 import PhotoCapture from './PhotoCapture'
@@ -21,6 +22,8 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
   const [upcValue, setUpcValue] = useState(item.comic.upc ?? '')
   const [coverArtistValue, setCoverArtistValue] = useState(item.comic.cover_artist ?? '')
+  const [findingUpc, setFindingUpc] = useState(false)
+  const [upcLookupMessage, setUpcLookupMessage] = useState('')
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -41,6 +44,27 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
   const handleChange = (key: string, value: unknown) => {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  const handleFindUpc = async () => {
+    if (!item.comic.issue_number) {
+      setUpcLookupMessage('No issue number on file to search with.')
+      return
+    }
+    setFindingUpc(true)
+    setUpcLookupMessage('')
+    try {
+      const result = await findUpc(item.comic.series, item.comic.issue_number, item.comic.publisher)
+      if (result.upc) {
+        setUpcValue(result.upc)
+      } else {
+        setUpcLookupMessage('No UPC found on GCD for this issue.')
+      }
+    } catch {
+      setUpcLookupMessage('UPC search failed. Please try again.')
+    } finally {
+      setFindingUpc(false)
+    }
   }
 
   const handleSave = async () => {
@@ -172,12 +196,27 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">UPC</label>
-                <input
-                  value={upcValue}
-                  onChange={e => setUpcValue(e.target.value)}
-                  placeholder="e.g. 76194130546700111"
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
+                <div className="flex gap-2">
+                  <input
+                    value={upcValue}
+                    onChange={e => { setUpcValue(e.target.value); setUpcLookupMessage('') }}
+                    placeholder="e.g. 76194130546700111"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                  {!upcValue && (
+                    <button
+                      type="button"
+                      onClick={handleFindUpc}
+                      disabled={findingUpc}
+                      title="Search GCD for this issue's UPC"
+                      className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-50"
+                    >
+                      <Search size={14} />
+                      {findingUpc ? 'Searching…' : 'Find UPC'}
+                    </button>
+                  )}
+                </div>
+                {upcLookupMessage && <p className="text-xs text-gray-500 mt-1">{upcLookupMessage}</p>}
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Cover Artist</label>

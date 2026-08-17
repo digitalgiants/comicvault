@@ -291,6 +291,10 @@ export interface BackfillImageResult {
   image: string | null
 }
 
+export interface UpcLookupResult {
+  upc: string | null
+}
+
 export interface ExternalIssueSummary {
   provider: Provider
   provider_issue_id: string

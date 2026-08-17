@@ -1,5 +1,5 @@
 import api from './client'
-import type { BackfillImageResult, ExternalIssueSummary, ExternalSeriesSearchResult, ImageCandidate, Provider, ScanComicFields } from '../types'
+import type { BackfillImageResult, ExternalIssueSummary, ExternalSeriesSearchResult, ImageCandidate, Provider, ScanComicFields, UpcLookupResult } from '../types'
 
 export const searchSeries = (query: string, offset = 0) =>
   api.get<ExternalSeriesSearchResult>('/search/series', { params: { query, offset } }).then(r => r.data)
@@ -27,3 +27,8 @@ export const getImageCandidates = (
 
 export const backfillImage = (comicId: number) =>
   api.post<BackfillImageResult>(`/search/backfill-image/${comicId}`).then(r => r.data)
+
+export const findUpc = (series: string, issueNumber: string, publisher?: string | null) =>
+  api.get<UpcLookupResult>('/search/upc', {
+    params: { series, issue_number: issueNumber, publisher: publisher || undefined },
+  }).then(r => r.data)
