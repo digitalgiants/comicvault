@@ -24,17 +24,24 @@ export default function BulkFindImagesModal({ selected, onClose }: Props) {
     const run = async () => {
       for (const comicId of comicIds) {
         if (cancelledInEffect) return
+        let status: 'found' | 'already_has_image' | 'not_found' = 'not_found'
         try {
-          const result = await backfillImage(comicId)
-          if (result.status === 'found') setFound(f => f + 1)
-          else if (result.status === 'already_has_image') setAlreadyHad(a => a + 1)
-          else setNotFound(n => n + 1)
+          status = (await backfillImage(comicId)).status
         } catch {
-          setNotFound(n => n + 1)
+          // treated as not_found below
         }
+        // Re-check after the await, not just at the top of the loop - without
+        // this, an in-flight request from a cleaned-up effect instance (e.g.
+        // React StrictMode's dev-only double-invoke) still lands its state
+        // updates after resolving, double-counting `processed` past
+        // comicIds.length and blowing the progress bar's width past 100%.
+        if (cancelledInEffect) return
+        if (status === 'found') setFound(f => f + 1)
+        else if (status === 'already_has_image') setAlreadyHad(a => a + 1)
+        else setNotFound(n => n + 1)
         setProcessed(p => p + 1)
       }
-      setDone(true)
+      if (!cancelledInEffect) setDone(true)
     }
     run()
     return () => { cancelledInEffect = true }
@@ -59,10 +66,10 @@ export default function BulkFindImagesModal({ selected, onClose }: Props) {
               <span>{done ? 'Done' : 'Searching Metron & ComicVine…'}</span>
               <span>{processed} / {comicIds.length}</span>
             </div>
-            <div className="w-full bg-gray-800 rounded-full h-2">
+            <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-brand-500 h-2 rounded-full transition-all"
-                style={{ width: `${comicIds.length ? (processed / comicIds.length) * 100 : 100}%` }}
+                style={{ width: `${Math.min(100, comicIds.length ? (processed / comicIds.length) * 100 : 100)}%` }}
               />
             </div>
           </div>
