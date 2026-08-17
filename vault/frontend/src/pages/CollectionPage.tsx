@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
 import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
@@ -28,6 +28,7 @@ export default function CollectionPage() {
   const [bulkOpen, setBulkOpen] = useState(false)
   const [findingImage, setFindingImage] = useState<UserComic | null>(null)
   const [bulkFindingImages, setBulkFindingImages] = useState(false)
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
@@ -245,11 +246,18 @@ export default function CollectionPage() {
                           </span>
                         ) : c.key === 'img' ? (
                           coverImage(uc) ? (
-                            <img
-                              src={resolveImageUrl(coverImage(uc)) ?? undefined}
-                              alt=""
-                              className="w-8 h-11 object-cover rounded border border-gray-700"
-                            />
+                            <button
+                              type="button"
+                              onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))}
+                              title="View larger"
+                              className="block"
+                            >
+                              <img
+                                src={resolveImageUrl(coverImage(uc)) ?? undefined}
+                                alt=""
+                                className="w-8 h-11 object-cover rounded border border-gray-700 hover:border-brand-500 transition cursor-zoom-in"
+                              />
+                            </button>
                           ) : '—'
                         ) : fmt(uc, c.key)}
                       </td>
@@ -336,6 +344,25 @@ export default function CollectionPage() {
           selected={selectedItems}
           onClose={() => { setBulkFindingImages(false); setSelected(new Set()); fetchCollection() }}
         />
+      )}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out"
+          onClick={() => setZoomedImage(null)}
+        >
+          <button
+            onClick={() => setZoomedImage(null)}
+            className="absolute top-4 right-4 text-gray-300 hover:text-white transition"
+          >
+            <X size={28} />
+          </button>
+          <img
+            src={zoomedImage}
+            alt=""
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
       )}
       <BugReportButton activeComic={activeComic} />
     </div>

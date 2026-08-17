@@ -175,13 +175,26 @@ def _fetch_provider_issues(
     raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
 
-def _find_cover_images(db: Session, series_name: str, issue_number: str, max_series: int = 8) -> list[ImageCandidateOut]:
+def _find_cover_images(
+    db: Session, series_name: str, issue_number: str, publisher: str | None = None, max_series: int = 8
+) -> list[ImageCandidateOut]:
     """Searches Metron + ComicVine (never GCD - it has no images at all) for
     series matching `series_name`, then hunts `issue_number` across the top
     matches, collecting every distinct cover image found. Mirrors the
     frontend's huntForIssue, server-side, scoped to just images so both the
     single-comic picker and the bulk backfill endpoint below can share it."""
     series_results, _ = _search_metron_comicvine(series_name, db)
+    if publisher:
+        # A name like "Batman" can span multiple imprints/eras with unrelated
+        # issue numbering - trying same-publisher series first (not
+        # excluding others, since provider publisher strings don't always
+        # match our stored value exactly) avoids matching the right issue
+        # number to the wrong volume's cover.
+        publisher_norm = publisher.strip().lower()
+        series_results = sorted(
+            series_results,
+            key=lambda s: 0 if (s.publisher and s.publisher.strip().lower() == publisher_norm) else 1,
+        )
     target = crud.normalize_issue_number(issue_number)
     candidates: list[ImageCandidateOut] = []
     seen_images: set[str] = set()
@@ -211,7 +224,7 @@ def get_image_candidates(
         raise HTTPException(status_code=404, detail="Comic not found")
     if not comic.issue_number:
         return []
-    return _find_cover_images(db, comic.series, comic.issue_number)
+    return _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
 
 
 @router.post("/backfill-image/{comic_id}", response_model=BackfillImageResult)
@@ -231,7 +244,7 @@ def backfill_image(
     if not comic.issue_number:
         return BackfillImageResult(status="not_found")
 
-    candidates = _find_cover_images(db, comic.series, comic.issue_number)
+    candidates = _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
     if not candidates:
         return BackfillImageResult(status="not_found")
 

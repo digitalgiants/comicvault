@@ -88,7 +88,7 @@ async def upload_csv(
             else:
                 conflicts: list[tuple[str, str, str]] = []
                 if gcd_db is not None:
-                    conflicts, found = gcd_lookup.enrich_comic_from_gcd(gcd_db, comic_data)
+                    conflicts, found = gcd_lookup.enrich_comic_from_gcd(db, gcd_db, comic_data)
                     if not found:
                         declined.append({
                             "row": row.get("_row_num", "?"),

@@ -13,7 +13,7 @@ from typing import Iterable
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.crud import normalize_issue_number, normalize_search_query
+from app.crud import get_comic_by_upc, normalize_issue_number, normalize_search_query
 from app.gcd_models import Issue, Publisher, Series, Story, StoryType
 from app.schemas import ComicCreate, ExternalIssueSummary, ExternalSeriesResult
 
@@ -23,15 +23,31 @@ COMIC_STORY_TYPE = "comic story"
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (legacy_number, print_run, newstand, cover_artist, upc, img).
+# supplies (legacy_number, print_run, newstand, cover_artist, img).
 ENRICHABLE_FIELDS = [
     "publisher", "volume", "cover_date", "store_date",
-    "variant", "writer", "penciller", "inker", "average_price",
+    "variant", "writer", "penciller", "inker", "average_price", "upc",
 ]
 
 _DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 _USD_PRICE_RE = re.compile(r"(\d+\.\d{2})\s*USD", re.IGNORECASE)
 _ANY_PRICE_RE = re.compile(r"(\d+\.\d{2})")
+
+
+def _extract_upc(barcode: str | None) -> str | None:
+    """The forward direction of find_issue_by_upc's own logic: GCD's barcode
+    field stores a bare 12-digit UPC, a UPC + 5-digit price supplement (17
+    digits), an ISBN-based barcode (18 digits, "978..." prefix - not a real
+    UPC, excluded), or sometimes blank/non-numeric junk. When present, the
+    UPC is always the leading 12 digits."""
+    if not barcode:
+        return None
+    digits = barcode.strip()
+    if not digits.isdigit() or len(digits) < 12:
+        return None
+    if digits.startswith("978") and len(digits) == 18:
+        return None
+    return digits[:12]
 
 
 def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
@@ -82,7 +98,7 @@ def find_issue_by_series_issue(
     return None
 
 
-def enrich_comic_from_gcd(gcd_db: Session, comic_data: dict) -> tuple[list[tuple[str, str, str]], bool]:
+def enrich_comic_from_gcd(db: Session, gcd_db: Session, comic_data: dict) -> tuple[list[tuple[str, str, str]], bool]:
     """Attempts to enrich a CSV-import row (comic_data, keyed like ComicCreate
     fields) from GCD before the Comic is created - tries UPC first, then an
     exact series+issue match if that fails or there's no UPC. Only ever
@@ -115,6 +131,14 @@ def enrich_comic_from_gcd(gcd_db: Session, comic_data: dict) -> tuple[list[tuple
     for field in ENRICHABLE_FIELDS:
         gcd_val = getattr(fields, field)
         if gcd_val is None:
+            continue
+        # GCD documents UPCs sometimes shared across reprints/variants (see
+        # find_issue_by_upc), and Comic.upc is unique - blank-filling one
+        # already claimed by another comic would crash the row's insert.
+        # Silently skipping it (leaving upc blank) fits this feature's
+        # "never surprise/crash an unattended batch" design better than
+        # erroring the whole import over one field on one row.
+        if field == "upc" and get_comic_by_upc(db, gcd_val) is not None:
             continue
         csv_val = comic_data.get(field)
         if csv_val is None or csv_val == "":
@@ -226,7 +250,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         inker=inker,
         cover_artist=None,
         average_price=_parse_gcd_price(issue.price),
-        upc=None,
+        upc=_extract_upc(issue.barcode),
         img=None,
     )
 
