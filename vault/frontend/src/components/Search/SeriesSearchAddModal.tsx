@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import { X, Image as ImageIcon } from 'lucide-react'
 import { addScannedComic } from '../../api/scan'
-import { EDITABLE_FIELDS, type ScanComicFields, type UserComic } from '../../types'
+import { resolveImageUrl } from '../../api/client'
+import FindImageByFieldsModal from './FindImageByFieldsModal'
+import { EDITABLE_FIELDS, type ImageCandidate, type ScanComicFields, type UserComic } from '../../types'
 
 interface Props {
   initial: ScanComicFields
@@ -37,6 +39,8 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [img, setImg] = useState<string | null>(initial.img ?? null)
+  const [pickingImage, setPickingImage] = useState(false)
 
   const handleComicChange = (key: string, value: unknown) => setComicForm((prev) => ({ ...prev, [key]: value }))
   const handleUserChange = (key: string, value: unknown) => setUserForm((prev) => ({ ...prev, [key]: value }))
@@ -58,6 +62,7 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
             return [key, val === '' ? null : val]
           }),
         ),
+        img,
       }
 
       const uc = await addScannedComic({
@@ -89,10 +94,23 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            {initial.img && (
-              <img src={initial.img} alt="" className="w-10 h-14 object-cover rounded" />
+            {img ? (
+              <img src={resolveImageUrl(img) ?? undefined} alt="" className="w-10 h-14 object-cover rounded" />
+            ) : (
+              <div className="w-10 h-14 rounded bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <ImageIcon size={16} className="text-gray-600" />
+              </div>
             )}
-            <h2 className="font-semibold text-lg">Add to Collection</h2>
+            <div>
+              <h2 className="font-semibold text-lg">Add to Collection</h2>
+              <button
+                type="button"
+                onClick={() => setPickingImage(true)}
+                className="flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition"
+              >
+                <ImageIcon size={12} /> {img ? 'Change cover image' : 'Find cover image'}
+              </button>
+            </div>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition">
             <X size={20} />
@@ -165,6 +183,16 @@ export default function SeriesSearchAddModal({ initial, onClose, onAdded }: Prop
           </button>
         </div>
       </div>
+
+      {pickingImage && (
+        <FindImageByFieldsModal
+          series={String(comicForm.series ?? '')}
+          issueNumber={String(comicForm.issue_number ?? '')}
+          publisher={String(comicForm.publisher ?? '')}
+          onPick={(candidate: ImageCandidate) => { setImg(candidate.image); setPickingImage(false) }}
+          onClose={() => setPickingImage(false)}
+        />
+      )}
     </div>
   )
 }

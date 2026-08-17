@@ -1,50 +1,37 @@
 import { useEffect, useState } from 'react'
 import { X, BookOpen } from 'lucide-react'
 import { getImageCandidates } from '../../api/search'
-import { updateComicMetadata } from '../../api/collection'
-import ImageCandidateGrid from './ImageCandidateGrid'
-import type { Comic, ImageCandidate, UserComic } from '../../types'
+import ImageCandidateGrid from '../Collection/ImageCandidateGrid'
+import type { ImageCandidate } from '../../types'
 
 interface Props {
-  item: UserComic
+  series: string
+  issueNumber: string
+  publisher?: string | null
+  onPick: (candidate: ImageCandidate) => void
   onClose: () => void
-  onSaved: (comic: Comic) => void
 }
 
-export default function FindImageModal({ item, onClose, onSaved }: Props) {
+export default function FindImageByFieldsModal({ series, issueNumber, publisher, onPick, onClose }: Props) {
   const [loading, setLoading] = useState(true)
   const [candidates, setCandidates] = useState<ImageCandidate[]>([])
-  const [applying, setApplying] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getImageCandidates({ comicId: item.comic.id })
+    getImageCandidates({ series, issueNumber, publisher })
       .then(setCandidates)
       .catch(() => setError('Failed to search for images. Please try again.'))
       .finally(() => setLoading(false))
-  }, [item.comic.id])
-
-  const pick = async (candidate: ImageCandidate) => {
-    setApplying(candidate.image)
-    setError('')
-    try {
-      const updated = await updateComicMetadata(item.comic.id, { img: candidate.image })
-      onSaved(updated)
-    } catch {
-      setError('Failed to set image. Please try again.')
-      setApplying(null)
-    }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
           <div>
             <h2 className="font-semibold text-lg">Find Image</h2>
-            <p className="text-gray-400 text-sm">
-              {item.comic.series}{item.comic.issue_number ? ` #${item.comic.issue_number}` : ''}
-            </p>
+            <p className="text-gray-400 text-sm">{series}{issueNumber ? ` #${issueNumber}` : ''}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition">
             <X size={20} />
@@ -61,14 +48,14 @@ export default function FindImageModal({ item, onClose, onSaved }: Props) {
               No cover images found for this issue on Metron or ComicVine.
             </p>
           ) : (
-            <ImageCandidateGrid candidates={candidates} applying={applying} onPick={pick} />
+            <ImageCandidateGrid candidates={candidates} applying={null} onPick={onPick} />
           )}
         </div>
 
         {!loading && candidates.length === 0 && (
           <div className="px-6 py-4 border-t border-gray-800 text-xs text-gray-500 flex items-center gap-2">
             <BookOpen size={14} className="flex-shrink-0" />
-            Try searching manually from the Search & Add page instead.
+            You can still add the comic without a cover and use Find Image on it later.
           </div>
         )}
       </div>

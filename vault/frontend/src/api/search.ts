@@ -16,8 +16,14 @@ export const getSeriesIssues = (
 export const getIssueFields = (provider: Provider, providerIssueId: string) =>
   api.get<ScanComicFields>(`/search/issue/${provider}/${providerIssueId}`).then(r => r.data)
 
-export const getImageCandidates = (comicId: number) =>
-  api.get<ImageCandidate[]>('/search/image-candidates', { params: { comic_id: comicId } }).then(r => r.data)
+export const getImageCandidates = (
+  params: { comicId: number } | { series: string; issueNumber: string; publisher?: string | null },
+) =>
+  api.get<ImageCandidate[]>('/search/image-candidates', {
+    params: 'comicId' in params
+      ? { comic_id: params.comicId }
+      : { series: params.series, issue_number: params.issueNumber, publisher: params.publisher || undefined },
+  }).then(r => r.data)
 
 export const backfillImage = (comicId: number) =>
   api.post<BackfillImageResult>(`/search/backfill-image/${comicId}`).then(r => r.data)

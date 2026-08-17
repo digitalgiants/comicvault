@@ -215,16 +215,27 @@ def _find_cover_images(
 
 @router.get("/image-candidates", response_model=list[ImageCandidateOut])
 def get_image_candidates(
-    comic_id: int,
+    comic_id: int | None = Query(None),
+    series: str | None = Query(None),
+    issue_number: str | None = Query(None),
+    publisher: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ) -> list[ImageCandidateOut]:
-    comic = crud.get_comic_by_id(db, comic_id)
-    if comic is None:
-        raise HTTPException(status_code=404, detail="Comic not found")
-    if not comic.issue_number:
-        return []
-    return _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
+    """Either comic_id (an existing comic - the Collection page's Find Image
+    button) or series+issue_number/publisher (no comic yet - the Search &
+    Add flow, so a cover can be picked before the comic is even created)."""
+    if comic_id is not None:
+        comic = crud.get_comic_by_id(db, comic_id)
+        if comic is None:
+            raise HTTPException(status_code=404, detail="Comic not found")
+        if not comic.issue_number:
+            return []
+        return _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
+
+    if not series or not issue_number:
+        raise HTTPException(status_code=400, detail="Provide either comic_id or series and issue_number")
+    return _find_cover_images(db, series, issue_number, publisher=publisher)
 
 
 @router.post("/backfill-image/{comic_id}", response_model=BackfillImageResult)
