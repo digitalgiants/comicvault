@@ -101,7 +101,7 @@ def get_comic_by_upc(db: Session, upc: str) -> Optional[Comic]:
 
 def find_matching_comic(db: Session, data: dict) -> Optional[Comic]:
     q = db.query(Comic).filter(Comic.series == data.get("series"))
-    for field in ["publisher", "volume", "issue_number", "variant", "print_run"]:
+    for field in ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]:
         val = data.get(field)
         if val is not None:
             q = q.filter(getattr(Comic, field) == val)

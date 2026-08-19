@@ -1,3 +1,5 @@
+import json
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -98,21 +100,57 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
 @router.post("/lookup/batch")
 def lookup_barcode_batch(
     payload: dict,
+    gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
-    def proxy_stream():
+    items = payload.get("items", [])
+
+    def event_stream():
+        # GCD first, same as single-item scan (_lookup_gcd) - previously this
+        # endpoint skipped GCD entirely and went straight to comic-scraper,
+        # unlike every other lookup path in the app. GCD hits stream out
+        # immediately; anything left over is re-batched to comic-scraper in
+        # one call, with indices translated back to their original position
+        # (the frontend places results by event.index, not arrival order, so
+        # GCD hits arriving before the comic-scraper batch is fine).
+        unresolved: list[tuple[int, dict]] = []
+        for index, item in enumerate(items):
+            upc12 = item.get("upc12")
+            ean5 = item.get("ean5")
+            gcd_result = _lookup_gcd(gcd_db, upc12, ean5) if gcd_db is not None else None
+            if gcd_result is not None:
+                event = {"index": index, "upc12": upc12, "ean5": ean5, "status": "success", "result": gcd_result}
+                yield f"data: {json.dumps(event)}\n\n".encode()
+            else:
+                unresolved.append((index, item))
+
+        if not unresolved:
+            return
+
+        sub_payload = {"items": [item for _, item in unresolved]}
         try:
             with httpx.stream(
                 "POST",
                 f"{settings.comic_scraper_url}/lookup/batch",
-                json=payload,
+                json=sub_payload,
                 timeout=None,
             ) as r:
-                yield from r.iter_bytes()
+                for line in r.iter_lines():
+                    if not line.startswith("data: "):
+                        continue
+                    event = json.loads(line[len("data: "):])
+                    original_index, _ = unresolved[event["index"]]
+                    event["index"] = original_index
+                    yield f"data: {json.dumps(event)}\n\n".encode()
         except httpx.RequestError:
-            yield 'data: {"status": "error", "message": "Lookup service unavailable"}\n\n'.encode()
+            for original_index, item in unresolved:
+                event = {
+                    "index": original_index, "upc12": item.get("upc12"), "ean5": item.get("ean5"),
+                    "status": "error", "message": "Lookup service unavailable",
+                }
+                yield f"data: {json.dumps(event)}\n\n".encode()
 
-    return StreamingResponse(proxy_stream(), media_type="text/event-stream")
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/add", response_model=UserComicOut)

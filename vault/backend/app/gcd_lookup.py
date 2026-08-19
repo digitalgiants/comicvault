@@ -73,7 +73,7 @@ def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
 
 
 def find_issue_by_series_issue(
-    gcd_db: Session, series: str, issue_number: str, publisher: str | None = None
+    gcd_db: Session, series: str, issue_number: str, publisher: str | None = None, cover_letter: str | None = None
 ) -> Issue | None:
     """Exact (case-insensitive) series+issue match against GCD - used by CSV
     import enrichment, deliberately NOT the fuzzy/similarity matching
@@ -83,6 +83,17 @@ def find_issue_by_series_issue(
     SQL narrows to one series' issues first, then a small Python loop
     handles issue-number normalization (zero-padding etc. - not expressible
     as a plain SQL comparison).
+
+    GCD often stores different covers of the same issue as separate rows
+    sharing one issue_number, distinguished only by its own free-text
+    variant_name (e.g. "Cover B") - without cover_letter to disambiguate,
+    whichever row the query happens to return first wins, which can
+    silently enrich a row with the wrong cover's metadata. cover_letter
+    narrows to the row whose variant_name contains "cover <letter>"; "A"
+    additionally matches the base printing (variant_of_id is None), since
+    GCD leaves that one's variant_name blank rather than writing "Cover A".
+    Falls back to the first match if nothing lines up - a best-effort
+    match still beats leaving the row entirely unenriched.
     """
     q = gcd_db.query(Issue).join(Series, Issue.series_id == Series.id).filter(
         func.lower(Series.name) == series.strip().lower()
@@ -92,10 +103,22 @@ def find_issue_by_series_issue(
             func.lower(Publisher.name) == publisher.strip().lower()
         )
     target = normalize_issue_number(issue_number)
-    for issue in q.all():
-        if normalize_issue_number(issue.number) == target:
-            return issue
-    return None
+    matches = [issue for issue in q.all() if normalize_issue_number(issue.number) == target]
+    if not matches:
+        return None
+
+    if cover_letter and len(matches) > 1:
+        letter = cover_letter.strip().lower()
+        needle = f"cover {letter}"
+        for issue in matches:
+            if issue.variant_name and needle in issue.variant_name.lower():
+                return issue
+        if letter == "a":
+            base = next((i for i in matches if not i.variant_of_id), None)
+            if base:
+                return base
+
+    return matches[0]
 
 
 def enrich_comic_from_gcd(db: Session, gcd_db: Session, comic_data: dict) -> tuple[list[tuple[str, str, str]], bool]:
@@ -121,7 +144,8 @@ def enrich_comic_from_gcd(db: Session, gcd_db: Session, comic_data: dict) -> tup
         issue = find_issue_by_upc(gcd_db, upc)
     if issue is None and comic_data.get("series") and comic_data.get("issue_number"):
         issue = find_issue_by_series_issue(
-            gcd_db, comic_data["series"], comic_data["issue_number"], comic_data.get("publisher")
+            gcd_db, comic_data["series"], comic_data["issue_number"],
+            comic_data.get("publisher"), comic_data.get("cover_letter"),
         )
     if issue is None:
         return [], False
