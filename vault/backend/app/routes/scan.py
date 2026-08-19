@@ -52,29 +52,23 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
     through to the existing comic-scraper (Metron) proxy unchanged. On a hit,
     builds a response shaped exactly like comic-scraper's own LookupResult
     (see comic-scraper/src/comic_scraper/lookup.py) so the frontend needs no
-    source-specific handling - it makes one extra call to comic-scraper solely
-    to pull a cover image (cheap and precise, anchored by the same UPC),
-    swallowing any failure since a missing image shouldn't block the add.
+    source-specific handling.
+
+    GCD is crowd-sourced and can have sparse stub entries - a very recent
+    release might have just series/issue/date cataloged, with publisher,
+    creator credits, and cover pricing filled in by editors later. Rather
+    than committing to a possibly-incomplete GCD-only result, any field GCD
+    came back blank on gets backfilled from Metron, via the same
+    comic-scraper lookup already needed for the cover image (no extra
+    network call - just using more of the one response). Swallows failure
+    since a missing image/backfill shouldn't block the add.
     """
     issue = gcd_lookup.find_issue_by_upc(gcd_db, upc12)
     if issue is None:
         return None
     fields = gcd_lookup.get_issue_fields(gcd_db, issue.id)
 
-    image = None
-    try:
-        params = {"ean5": ean5} if ean5 else {}
-        resp = httpx.get(
-            f"{settings.comic_scraper_url}/lookup/{upc12}",
-            params=params,
-            timeout=LOOKUP_TIMEOUT,
-        )
-        if resp.is_success:
-            image = resp.json().get("image")
-    except httpx.RequestError:
-        pass
-
-    return {
+    result = {
         "series_name": fields.series,
         "issue_number": fields.issue_number or "",
         "cover_date": fields.cover_date.isoformat() if fields.cover_date else "",
@@ -92,9 +86,31 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
         "metron_id": None,
         "cv_id": None,
         "gcd_id": issue.id,
-        "image": image,
+        "image": None,
         "cover_hash": None,
     }
+
+    try:
+        params = {"ean5": ean5} if ean5 else {}
+        resp = httpx.get(
+            f"{settings.comic_scraper_url}/lookup/{upc12}",
+            params=params,
+            timeout=LOOKUP_TIMEOUT,
+        )
+        if resp.is_success:
+            metron = resp.json()
+            result["image"] = metron.get("image")
+            for key in (
+                "publisher_name", "cover_date", "series_volume", "variant_name",
+                "cover_artists", "writers", "pencillers", "inkers", "credits",
+                "store_date", "cover_hash", "metron_id", "cv_id",
+            ):
+                if not result.get(key) and metron.get(key):
+                    result[key] = metron[key]
+    except httpx.RequestError:
+        pass
+
+    return result
 
 
 @router.post("/lookup/batch")
