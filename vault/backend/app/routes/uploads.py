@@ -65,6 +65,7 @@ async def upload_csv(
                 "newstand": row.get("newstand"),
                 "print_run": row.get("print_run"),
                 "variant": row.get("variant"),
+                "cover_letter": row.get("cover_letter"),
                 "writer": row.get("writer"),
                 "penciller": row.get("penciller"),
                 "inker": row.get("inker"),

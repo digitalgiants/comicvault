@@ -261,7 +261,7 @@ export default function UploadPage() {
         <div className="flex flex-wrap gap-2">
           {[
             'upc','img','series','volume','issueNumber','legacyNumber','coverDate','storeDate','Newstand',
-            'publisher','count','printRun','variant','coverArtist','penciller',
+            'publisher','count','printRun','variant','coverLetter','coverArtist','penciller',
             'inker','writer','averagePrice','paidPrice','askingPrice','pointOfPurchase','buyDate',
             'sellPrice','sellDate','signed','remarked','notes','doNotSell','reserveCount'
           ].map((col) => (

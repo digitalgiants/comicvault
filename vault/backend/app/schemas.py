@@ -44,6 +44,7 @@ class ComicBase(BaseModel):
     store_date: Optional[date] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
+    cover_letter: Optional[str] = None
     newstand: Optional[bool] = None
     writer: Optional[str] = None
     penciller: Optional[str] = None
@@ -69,6 +70,7 @@ class ComicUpdate(BaseModel):
     store_date: Optional[date] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
+    cover_letter: Optional[str] = None
     newstand: Optional[bool] = None
     writer: Optional[str] = None
     penciller: Optional[str] = None
@@ -83,6 +85,7 @@ class ComicMetadataUpdate(BaseModel):
     admin-only ComicUpdate which allows editing the full record."""
     upc: Optional[str] = None
     cover_artist: Optional[str] = None
+    cover_letter: Optional[str] = None
     img: Optional[str] = None
 
 
@@ -372,6 +375,7 @@ class KioskCardOut(BaseModel):
     cover_date: Optional[date] = None
     publisher: Optional[str] = None
     variant: Optional[str] = None
+    cover_letter: Optional[str] = None
     img: Optional[str] = None
     cover_artist: Optional[str] = None
     penciller: Optional[str] = None

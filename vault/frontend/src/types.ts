@@ -13,6 +13,7 @@ export interface Comic {
   newstand: boolean | null
   print_run: string | null
   variant: string | null
+  cover_letter: string | null
   cover_artist: string | null
   penciller: string | null
   inker: string | null
@@ -106,6 +107,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'available', label: 'Available' },
   { key: 'print_run', label: 'Print Run' },
   { key: 'variant', label: 'Variant' },
+  { key: 'cover_letter', label: 'Cover Letter' },
   { key: 'cover_artist', label: 'Cover Artist' },
   { key: 'penciller', label: 'Penciller' },
   { key: 'inker', label: 'Inker' },
@@ -234,6 +236,7 @@ export interface ScanComicFields {
   newstand: boolean | null
   print_run: string | null
   variant: string | null
+  cover_letter: string | null
   writer: string | null
   penciller: string | null
   inker: string | null
@@ -314,6 +317,7 @@ export interface KioskCard {
   cover_date: string | null
   publisher: string | null
   variant: string | null
+  cover_letter: string | null
   img: string | null
   cover_artist: string | null
   penciller: string | null
@@ -546,6 +550,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     newstand: null,
     print_run: null,
     variant: result.variant_name,
+    cover_letter: null,
     writer: result.writers.length ? result.writers.join(', ') : null,
     penciller: result.pencillers.length ? result.pencillers.join(', ') : null,
     inker: result.inkers.length ? result.inkers.join(', ') : null,

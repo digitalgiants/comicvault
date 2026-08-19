@@ -244,6 +244,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         store_date=_parse_gcd_date(issue.on_sale_date),
         print_run=None,
         variant=(issue.variant_name or None) if issue.variant_of_id else None,
+        cover_letter=None,
         newstand=None,
         writer=writer,
         penciller=penciller,

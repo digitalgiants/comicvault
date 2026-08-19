@@ -26,6 +26,7 @@ COLUMN_MAP = {
     "count": "count",
     "printrun": "print_run",
     "variant": "variant",
+    "coverletter": "cover_letter",
     "coverartist": "cover_artist",
     "penciller": "penciller",
     "inker": "inker",

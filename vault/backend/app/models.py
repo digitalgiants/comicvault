@@ -51,6 +51,10 @@ class Comic(Base):
     newstand = Column(Boolean, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
+    # The short cover designation (e.g. "A", "B", "1"), distinct from
+    # `variant`'s free-text description (e.g. "Cover B - John Doe Variant").
+    # No lookup provider currently supplies this - manual/CSV entry only.
+    cover_letter = Column(String, nullable=True)
     cover_artist = Column(String, nullable=True)
     penciller = Column(String, nullable=True)
     inker = Column(String, nullable=True)
@@ -268,6 +272,7 @@ class ExternalIssueCache(Base):
     store_date = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
+    cover_letter = Column(String, nullable=True)
     newstand = Column(Boolean, nullable=True)
     writer = Column(String, nullable=True)
     penciller = Column(String, nullable=True)

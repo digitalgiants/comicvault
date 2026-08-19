@@ -20,6 +20,7 @@ const COMIC_FIELDS: { key: keyof ScanComicFields; label: string; type: string }[
   { key: 'cover_date', label: 'Cover Date', type: 'date' },
   { key: 'store_date', label: 'Store Date', type: 'date' },
   { key: 'variant', label: 'Variant', type: 'text' },
+  { key: 'cover_letter', label: 'Cover Letter', type: 'text' },
   { key: 'print_run', label: 'Print Run', type: 'text' },
   { key: 'writer', label: 'Writer', type: 'text' },
   { key: 'penciller', label: 'Penciller', type: 'text' },

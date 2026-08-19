@@ -30,7 +30,7 @@ MASTER_PHOTO_OWNER_USERNAME = "digitalgiant"
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
     "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
     "cover_date": True, "store_date": True, "newstand": True, "publisher": True,
-    "count": True, "print_run": True, "variant": True, "legacy_number": True, "cover_artist": True,
+    "count": True, "print_run": True, "variant": True, "cover_letter": True, "legacy_number": True, "cover_artist": True,
     "penciller": True, "inker": True, "writer": True,
     "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
     "point_of_purchase": True, "signed": True, "remarked": True, "notes": True,

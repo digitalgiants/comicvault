@@ -152,6 +152,19 @@ MIGRATIONS = [
         END IF;
     END $$
     """,
+
+    # Add cover_letter column to comics and external_issue_cache - the short
+    # cover designation (e.g. "A", "B", "1"), distinct from `variant`'s
+    # free-text description. No lookup provider currently supplies this.
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS cover_letter VARCHAR
+    """,
+
+    """
+    ALTER TABLE external_issue_cache
+        ADD COLUMN IF NOT EXISTS cover_letter VARCHAR
+    """,
 ]
 
 
