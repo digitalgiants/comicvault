@@ -17,6 +17,7 @@ from app.schemas import (
     ExternalSeriesResult,
     ExternalSeriesSearchResult,
     ImageCandidateOut,
+    RejectImageRequest,
     UpcLookupResult,
 )
 
@@ -177,13 +178,17 @@ def _fetch_provider_issues(
 
 
 def _find_cover_images(
-    db: Session, series_name: str, issue_number: str, publisher: str | None = None, max_series: int = 8
+    db: Session, series_name: str, issue_number: str, publisher: str | None = None, max_series: int = 8,
+    exclude: set[str] | None = None,
 ) -> list[ImageCandidateOut]:
     """Searches Metron + ComicVine (never GCD - it has no images at all) for
     series matching `series_name`, then hunts `issue_number` across the top
     matches, collecting every distinct cover image found. Mirrors the
     frontend's huntForIssue, server-side, scoped to just images so both the
-    single-comic picker and the bulk backfill endpoint below can share it."""
+    single-comic picker and the bulk backfill endpoint below can share it.
+    `exclude` (previously-rejected image URLs for this comic, see
+    reject_cover_image) is filtered out so a rejected match doesn't keep
+    resurfacing."""
     series_results, _ = _search_metron_comicvine(series_name, db)
     if publisher:
         # A name like "Batman" can span multiple imprints/eras with unrelated
@@ -198,7 +203,7 @@ def _find_cover_images(
         )
     target = crud.normalize_issue_number(issue_number)
     candidates: list[ImageCandidateOut] = []
-    seen_images: set[str] = set()
+    seen_images: set[str] = set(exclude) if exclude else set()
     for series in series_results[:max_series]:
         try:
             issues = _fetch_provider_issues(series.provider, series.provider_series_id, number=issue_number)
@@ -232,7 +237,8 @@ def get_image_candidates(
             raise HTTPException(status_code=404, detail="Comic not found")
         if not comic.issue_number:
             return []
-        return _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
+        exclude = crud.get_rejected_cover_images(db, comic_id)
+        return _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher, exclude=exclude)
 
     if not series or not issue_number:
         raise HTTPException(status_code=400, detail="Provide either comic_id or series and issue_number")
@@ -276,12 +282,32 @@ def backfill_image(
     if not comic.issue_number:
         return BackfillImageResult(status="not_found")
 
-    candidates = _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher)
+    exclude = crud.get_rejected_cover_images(db, comic_id)
+    candidates = _find_cover_images(db, comic.series, comic.issue_number, publisher=comic.publisher, exclude=exclude)
     if not candidates:
         return BackfillImageResult(status="not_found")
 
     crud.update_comic_metadata(db, comic_id, {"img": candidates[0].image})
     return BackfillImageResult(status="found", image=candidates[0].image)
+
+
+@router.post("/reject-image", response_model=dict)
+def reject_cover_image(
+    payload: RejectImageRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+) -> dict:
+    """Records the rejection so future Find Image / backfill searches for
+    this comic exclude it (see _find_cover_images' exclude param), and - if
+    it's the comic's current image - clears it back to blank rather than
+    leaving a known-wrong cover in place."""
+    comic = crud.get_comic_by_id(db, payload.comic_id)
+    if comic is None:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    crud.reject_cover_image(db, payload.comic_id, payload.image)
+    if comic.img == payload.image:
+        crud.update_comic_metadata(db, payload.comic_id, {"img": None})
+    return {"status": "rejected"}
 
 
 def _current_issue_count(provider: str, provider_series_id: str) -> int | None:

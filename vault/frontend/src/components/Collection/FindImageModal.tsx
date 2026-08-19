@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, BookOpen } from 'lucide-react'
-import { getImageCandidates } from '../../api/search'
+import { getImageCandidates, rejectCoverImage } from '../../api/search'
 import { updateComicMetadata } from '../../api/collection'
 import ImageCandidateGrid from './ImageCandidateGrid'
 import type { Comic, ImageCandidate, UserComic } from '../../types'
@@ -36,6 +36,15 @@ export default function FindImageModal({ item, onClose, onSaved }: Props) {
     }
   }
 
+  const reject = async (candidate: ImageCandidate) => {
+    setCandidates(prev => prev.filter(c => c.image !== candidate.image))
+    try {
+      await rejectCoverImage(item.comic.id, candidate.image)
+    } catch {
+      setError('Failed to reject image. It may still show up in future searches.')
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -61,7 +70,7 @@ export default function FindImageModal({ item, onClose, onSaved }: Props) {
               No cover images found for this issue on Metron or ComicVine.
             </p>
           ) : (
-            <ImageCandidateGrid candidates={candidates} applying={applying} onPick={pick} />
+            <ImageCandidateGrid candidates={candidates} applying={applying} onPick={pick} onReject={reject} />
           )}
         </div>
 

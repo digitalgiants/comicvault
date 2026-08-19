@@ -150,6 +150,23 @@ class CsvImportConflict(Base):
     comic = relationship("Comic")
 
 
+class RejectedCoverImage(Base):
+    """An image URL a user explicitly rejected as the wrong cover for a
+    comic (via Find Image's picker, or the bulk backfill review screen) -
+    excluded from future Find Image / backfill searches for that same
+    comic so a rejected match doesn't keep resurfacing."""
+    __tablename__ = "rejected_cover_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    comic_id = Column(Integer, ForeignKey("comics.id"), nullable=False, index=True)
+    image_url = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    comic = relationship("Comic")
+
+    __table_args__ = (UniqueConstraint("comic_id", "image_url", name="uq_rejected_cover_images"),)
+
+
 class CollectionSnapshot(Base):
     __tablename__ = "collection_snapshots"
 

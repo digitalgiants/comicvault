@@ -228,6 +228,11 @@ class BackfillImageResult(BaseModel):
     image: Optional[str] = None
 
 
+class RejectImageRequest(BaseModel):
+    comic_id: int
+    image: str
+
+
 class UpcLookupResult(BaseModel):
     upc: Optional[str] = None
 

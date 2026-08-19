@@ -32,3 +32,6 @@ export const findUpc = (series: string, issueNumber: string, publisher?: string 
   api.get<UpcLookupResult>('/search/upc', {
     params: { series, issue_number: issueNumber, publisher: publisher || undefined },
   }).then(r => r.data)
+
+export const rejectCoverImage = (comicId: number, image: string) =>
+  api.post('/search/reject-image', { comic_id: comicId, image })

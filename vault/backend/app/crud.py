@@ -11,7 +11,8 @@ from app.auth import hash_password
 from app.models import (
     BugReport, CollectionSnapshot, Comic, CSVImport, CsvImportConflict, ExternalIssueCache,
     ExternalSeriesSearchCache, ExternalSeriesSearchLog, ExternalSeriesSync,
-    KioskFeaturedSet, KioskSettings, KioskSignup, Sale, User, UserComic, UserColumnPreference,
+    KioskFeaturedSet, KioskSettings, KioskSignup, RejectedCoverImage, Sale, User, UserComic,
+    UserColumnPreference,
 )
 from app.schemas import (
     BugReportCreate, ComicCreate, ComicUpdate, ExternalIssueSummary,
@@ -614,6 +615,25 @@ def get_pending_csv_conflicts(db: Session, user_id: int) -> list[CsvImportConfli
         .order_by(CsvImportConflict.created_at.desc())
         .all()
     )
+
+
+def reject_cover_image(db: Session, comic_id: int, image_url: str) -> None:
+    """Idempotent - rejecting the same image twice for the same comic is a
+    no-op, not a unique-constraint crash."""
+    exists = (
+        db.query(RejectedCoverImage)
+        .filter(RejectedCoverImage.comic_id == comic_id, RejectedCoverImage.image_url == image_url)
+        .first()
+    )
+    if exists:
+        return
+    db.add(RejectedCoverImage(comic_id=comic_id, image_url=image_url))
+    db.commit()
+
+
+def get_rejected_cover_images(db: Session, comic_id: int) -> set[str]:
+    rows = db.query(RejectedCoverImage.image_url).filter(RejectedCoverImage.comic_id == comic_id).all()
+    return {url for (url,) in rows}
 
 
 def resolve_csv_conflict(db: Session, user_id: int, conflict_id: int, accept: bool) -> Optional[CsvImportConflict]:

@@ -25,6 +25,12 @@ export default function FindImageByFieldsModal({ series, issueNumber, publisher,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // No comic exists yet at this point (pre-import), so there's nothing to
+  // persist a rejection against - just drop it from this session's list.
+  const reject = (candidate: ImageCandidate) => {
+    setCandidates(prev => prev.filter(c => c.image !== candidate.image))
+  }
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
       <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -48,7 +54,7 @@ export default function FindImageByFieldsModal({ series, issueNumber, publisher,
               No cover images found for this issue on Metron or ComicVine.
             </p>
           ) : (
-            <ImageCandidateGrid candidates={candidates} applying={null} onPick={onPick} />
+            <ImageCandidateGrid candidates={candidates} applying={null} onPick={onPick} onReject={reject} />
           )}
         </div>
 
