@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy } from 'lucide-react'
 import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
@@ -31,6 +31,7 @@ export default function AdminPage() {
   const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'settings'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
+  const [emailsCopied, setEmailsCopied] = useState(false)
 
   const [kioskSettings, setKioskSettings] = useState<KioskSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -92,6 +93,13 @@ export default function AdminPage() {
     a.download = `kiosk-signups-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const copySignupEmails = async () => {
+    const emails = signups.map(s => s.email).join(', ')
+    await navigator.clipboard.writeText(emails)
+    setEmailsCopied(true)
+    setTimeout(() => setEmailsCopied(false), 2000)
   }
 
   useEffect(() => {
@@ -383,14 +391,24 @@ export default function AdminPage() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-400">{signups.length} signup{signups.length !== 1 ? 's' : ''}</p>
-            <button
-              onClick={downloadSignupsCsv}
-              disabled={signups.length === 0}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
-            >
-              <Download size={14} />
-              Download CSV
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={copySignupEmails}
+                disabled={signups.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+              >
+                <Copy size={14} />
+                {emailsCopied ? 'Copied!' : 'Copy Emails'}
+              </button>
+              <button
+                onClick={downloadSignupsCsv}
+                disabled={signups.length === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+              >
+                <Download size={14} />
+                Download CSV
+              </button>
+            </div>
           </div>
 
           {signups.length === 0 ? (
