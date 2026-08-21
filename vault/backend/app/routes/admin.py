@@ -46,6 +46,16 @@ def list_kiosk_signups(
     return crud.get_kiosk_signups(db)
 
 
+@router.delete("/kiosk-signups/{signup_id}", status_code=204)
+def delete_kiosk_signup(
+    signup_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    if not crud.delete_kiosk_signup(db, signup_id):
+        raise HTTPException(status_code=404, detail="Signup not found")
+
+
 @router.get("/kiosk-settings", response_model=KioskSettingsOut)
 def get_kiosk_settings(
     db: Session = Depends(get_db),

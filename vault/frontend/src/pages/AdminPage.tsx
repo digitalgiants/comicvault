@@ -32,6 +32,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
+  const [signupSearch, setSignupSearch] = useState('')
 
   const [kioskSettings, setKioskSettings] = useState<KioskSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -96,10 +97,27 @@ export default function AdminPage() {
   }
 
   const copySignupEmails = async () => {
-    const emails = signups.map(s => s.email).join(', ')
+    const emails = filteredSignups.map(s => s.email).join(', ')
     await navigator.clipboard.writeText(emails)
     setEmailsCopied(true)
     setTimeout(() => setEmailsCopied(false), 2000)
+  }
+
+  const filteredSignups = signupSearch.trim()
+    ? signups.filter(s => {
+        const q = signupSearch.trim().toLowerCase()
+        return (
+          `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+          s.email.toLowerCase().includes(q) ||
+          (s.phone ?? '').toLowerCase().includes(q)
+        )
+      })
+    : signups
+
+  const handleDeleteSignup = async (signup: KioskSignup) => {
+    if (!confirm(`Delete signup for ${signup.first_name} ${signup.last_name} (${signup.email})?`)) return
+    await api.delete(`/admin/kiosk-signups/${signup.id}`)
+    setSignups(prev => prev.filter(s => s.id !== signup.id))
   }
 
   useEffect(() => {
@@ -389,12 +407,24 @@ export default function AdminPage() {
 
       {tab === 'signups' && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-sm text-gray-400">{signups.length} signup{signups.length !== 1 ? 's' : ''}</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-gray-400">
+                {signupSearch.trim()
+                  ? `${filteredSignups.length} of ${signups.length} signup${signups.length !== 1 ? 's' : ''}`
+                  : `${signups.length} signup${signups.length !== 1 ? 's' : ''}`}
+              </p>
+              <input
+                value={signupSearch}
+                onChange={e => setSignupSearch(e.target.value)}
+                placeholder="Search name, email, phone…"
+                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-56"
+              />
+            </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={copySignupEmails}
-                disabled={signups.length === 0}
+                disabled={filteredSignups.length === 0}
                 className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
               >
                 <Copy size={14} />
@@ -413,6 +443,8 @@ export default function AdminPage() {
 
           {signups.length === 0 ? (
             <div className="text-center text-gray-500 py-12">No kiosk signups yet.</div>
+          ) : filteredSignups.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No signups match "{signupSearch.trim()}".</div>
           ) : (
             <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
               <table className="w-full text-sm">
@@ -422,15 +454,25 @@ export default function AdminPage() {
                     <th className="px-6 py-3 text-left">Email</th>
                     <th className="px-6 py-3 text-left">Phone</th>
                     <th className="px-6 py-3 text-left">Signed Up</th>
+                    <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
-                  {signups.map(s => (
+                  {filteredSignups.map(s => (
                     <tr key={s.id} className="hover:bg-gray-800/50 transition">
                       <td className="px-6 py-4">{s.first_name} {s.last_name}</td>
                       <td className="px-6 py-4 text-gray-300">{s.email}</td>
                       <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
                       <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleDeleteSignup(s)}
+                          title="Delete"
+                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
