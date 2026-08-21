@@ -675,6 +675,17 @@ def delete_kiosk_signup(db: Session, signup_id: int) -> bool:
     return True
 
 
+def update_kiosk_signup(db: Session, signup_id: int, updates: dict) -> Optional[KioskSignup]:
+    signup = db.query(KioskSignup).filter(KioskSignup.id == signup_id).first()
+    if not signup:
+        return None
+    for field, value in updates.items():
+        setattr(signup, field, value)
+    db.commit()
+    db.refresh(signup)
+    return signup
+
+
 def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str]) -> KioskSignup:
     conditions = [KioskSignup.email == email]
     if phone:

@@ -369,6 +369,13 @@ class KioskSignupOut(BaseModel):
         from_attributes = True
 
 
+class KioskSignupUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+
 class KioskCardOut(BaseModel):
     """Customer-facing view of a pooled available comic - excludes cost/margin
     fields (paid_price, point_of_purchase, notes) that aren't the public's business."""

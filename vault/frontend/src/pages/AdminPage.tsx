@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy, Pencil } from 'lucide-react'
 import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import { getCardGames } from '../api/cards'
 import type { BugReport, CardGame, KioskSettings, KioskSignup } from '../types'
 import BugReportButton from '../components/BugReportButton'
+import EditSignupModal from '../components/Admin/EditSignupModal'
 
 // A full-catalog sync is many sequential apitcg.com calls proxied through
 // tcg-scraper, plus a DB upsert per card - at the 60/min rate limit, ~280
@@ -33,6 +34,7 @@ export default function AdminPage() {
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
   const [signupSearch, setSignupSearch] = useState('')
+  const [editingSignup, setEditingSignup] = useState<KioskSignup | null>(null)
 
   const [kioskSettings, setKioskSettings] = useState<KioskSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -465,13 +467,22 @@ export default function AdminPage() {
                       <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
                       <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => handleDeleteSignup(s)}
-                          title="Delete"
-                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingSignup(s)}
+                            title="Edit"
+                            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteSignup(s)}
+                            title="Delete"
+                            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -570,6 +581,14 @@ export default function AdminPage() {
             </>
           )}
         </div>
+      )}
+
+      {editingSignup && (
+        <EditSignupModal
+          signup={editingSignup}
+          onClose={() => setEditingSignup(null)}
+          onSaved={updated => setSignups(prev => prev.map(s => s.id === updated.id ? updated : s))}
+        />
       )}
 
       <BugReportButton />

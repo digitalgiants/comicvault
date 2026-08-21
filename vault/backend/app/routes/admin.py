@@ -11,7 +11,8 @@ from app.database import get_db
 from app.models import TradingCard, User
 from app.schemas import (
     BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSettingsOut, KioskSettingsUpdate,
-    KioskSignupOut, TradingCardCreate, TradingCardOut, TradingCardUpdate, UserOut, UserUpdate,
+    KioskSignupOut, KioskSignupUpdate, TradingCardCreate, TradingCardOut, TradingCardUpdate,
+    UserOut, UserUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -54,6 +55,19 @@ def delete_kiosk_signup(
 ):
     if not crud.delete_kiosk_signup(db, signup_id):
         raise HTTPException(status_code=404, detail="Signup not found")
+
+
+@router.patch("/kiosk-signups/{signup_id}", response_model=KioskSignupOut)
+def update_kiosk_signup(
+    signup_id: int,
+    update: KioskSignupUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    signup = crud.update_kiosk_signup(db, signup_id, update.model_dump(exclude_unset=True))
+    if signup is None:
+        raise HTTPException(status_code=404, detail="Signup not found")
+    return signup
 
 
 @router.get("/kiosk-settings", response_model=KioskSettingsOut)
