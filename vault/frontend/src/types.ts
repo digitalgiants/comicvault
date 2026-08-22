@@ -357,6 +357,13 @@ export interface KioskSignup {
   created_at: string
 }
 
+export interface KioskSearchLog {
+  id: number
+  query: string
+  section: 'comics' | 'cards'
+  created_at: string
+}
+
 export interface KioskSettings {
   comics_price_threshold: number
   cards_price_threshold: number

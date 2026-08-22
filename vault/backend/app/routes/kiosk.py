@@ -140,6 +140,7 @@ def kiosk_series_search(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    crud.log_kiosk_search(db, q, "comics")
     return [SeriesSearchResult(**r) for r in crud.search_kiosk_series(db, q)]
 
 
@@ -213,6 +214,7 @@ def kiosk_cards_search(
     db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
+    crud.log_kiosk_search(db, q, "cards")
     return [SeriesSearchResult(**r) for r in crud_cards.search_kiosk_cards(db, q)]
 
 

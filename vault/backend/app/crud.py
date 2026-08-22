@@ -11,8 +11,8 @@ from app.auth import hash_password
 from app.models import (
     BugReport, CollectionSnapshot, Comic, CSVImport, CsvImportConflict, ExternalIssueCache,
     ExternalSeriesSearchCache, ExternalSeriesSearchLog, ExternalSeriesSync,
-    KioskFeaturedSet, KioskSettings, KioskSignup, RejectedCoverImage, Sale, User, UserComic,
-    UserColumnPreference,
+    KioskFeaturedSet, KioskSearchLog, KioskSettings, KioskSignup, RejectedCoverImage, Sale, User,
+    UserComic, UserColumnPreference,
 )
 from app.schemas import (
     BugReportCreate, ComicCreate, ComicUpdate, ExternalIssueSummary,
@@ -684,6 +684,15 @@ def update_kiosk_signup(db: Session, signup_id: int, updates: dict) -> Optional[
     db.commit()
     db.refresh(signup)
     return signup
+
+
+def log_kiosk_search(db: Session, query: str, section: str) -> None:
+    db.add(KioskSearchLog(query=query, section=section))
+    db.commit()
+
+
+def get_kiosk_search_logs(db: Session, limit: int = 500) -> list[KioskSearchLog]:
+    return db.query(KioskSearchLog).order_by(KioskSearchLog.created_at.desc()).limit(limit).all()
 
 
 def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str]) -> KioskSignup:

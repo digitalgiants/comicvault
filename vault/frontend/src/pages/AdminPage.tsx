@@ -4,7 +4,7 @@ import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import { getCardGames } from '../api/cards'
-import type { BugReport, CardGame, KioskSettings, KioskSignup } from '../types'
+import type { BugReport, CardGame, KioskSearchLog, KioskSettings, KioskSignup } from '../types'
 import BugReportButton from '../components/BugReportButton'
 import EditSignupModal from '../components/Admin/EditSignupModal'
 
@@ -29,12 +29,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'settings'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
   const [signupSearch, setSignupSearch] = useState('')
   const [editingSignup, setEditingSignup] = useState<KioskSignup | null>(null)
+  const [searchLogs, setSearchLogs] = useState<KioskSearchLog[]>([])
+  const [searchLogFilter, setSearchLogFilter] = useState('')
 
   const [kioskSettings, setKioskSettings] = useState<KioskSettings | null>(null)
   const [savingSettings, setSavingSettings] = useState(false)
@@ -55,6 +57,10 @@ export default function AdminPage() {
 
   useEffect(() => {
     api.get<KioskSignup[]>('/admin/kiosk-signups').then(r => setSignups(r.data))
+  }, [])
+
+  useEffect(() => {
+    api.get<KioskSearchLog[]>('/admin/kiosk-searches').then(r => setSearchLogs(r.data))
   }, [])
 
   useEffect(() => {
@@ -115,6 +121,10 @@ export default function AdminPage() {
         )
       })
     : signups
+
+  const filteredSearchLogs = searchLogFilter.trim()
+    ? searchLogs.filter(l => l.query.toLowerCase().includes(searchLogFilter.trim().toLowerCase()))
+    : searchLogs
 
   const handleDeleteSignup = async (signup: KioskSignup) => {
     if (!confirm(`Delete signup for ${signup.first_name} ${signup.last_name} (${signup.email})?`)) return
@@ -233,13 +243,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups', 'settings'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : 'Kiosk Settings'}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : 'Kiosk Settings'}
           </button>
         ))}
       </div>
@@ -484,6 +494,51 @@ export default function AdminPage() {
                           </button>
                         </div>
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'searches' && (
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <p className="text-sm text-gray-400">
+              {searchLogFilter.trim()
+                ? `${filteredSearchLogs.length} of ${searchLogs.length} search${searchLogs.length !== 1 ? 'es' : ''}`
+                : `${searchLogs.length} search${searchLogs.length !== 1 ? 'es' : ''}`}
+            </p>
+            <input
+              value={searchLogFilter}
+              onChange={e => setSearchLogFilter(e.target.value)}
+              placeholder="Search queries…"
+              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-56"
+            />
+          </div>
+
+          {searchLogs.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No kiosk searches logged yet.</div>
+          ) : filteredSearchLogs.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No searches match "{searchLogFilter.trim()}".</div>
+          ) : (
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-6 py-3 text-left">Query</th>
+                    <th className="px-6 py-3 text-left">Section</th>
+                    <th className="px-6 py-3 text-left">Searched</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {filteredSearchLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-gray-800/50 transition">
+                      <td className="px-6 py-4">{log.query}</td>
+                      <td className="px-6 py-4 text-gray-400 capitalize">{log.section}</td>
+                      <td className="px-6 py-4 text-gray-400">{new Date(log.created_at).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

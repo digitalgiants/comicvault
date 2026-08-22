@@ -10,9 +10,9 @@ from app.config import settings
 from app.database import get_db
 from app.models import TradingCard, User
 from app.schemas import (
-    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSettingsOut, KioskSettingsUpdate,
-    KioskSignupOut, KioskSignupUpdate, TradingCardCreate, TradingCardOut, TradingCardUpdate,
-    UserOut, UserUpdate,
+    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSearchLogOut, KioskSettingsOut,
+    KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, TradingCardCreate, TradingCardOut,
+    TradingCardUpdate, UserOut, UserUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -68,6 +68,14 @@ def update_kiosk_signup(
     if signup is None:
         raise HTTPException(status_code=404, detail="Signup not found")
     return signup
+
+
+@router.get("/kiosk-searches", response_model=list[KioskSearchLogOut])
+def list_kiosk_searches(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.get_kiosk_search_logs(db)
 
 
 @router.get("/kiosk-settings", response_model=KioskSettingsOut)

@@ -221,6 +221,18 @@ class KioskSignup(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class KioskSearchLog(Base):
+    """One row per kiosk title search (comics or trading cards) - lets an
+    admin see what customers are actually looking for, including titles
+    the shop doesn't carry."""
+    __tablename__ = "kiosk_search_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    query = Column(String, nullable=False, index=True)
+    section = Column(String, nullable=False)  # "comics" | "cards"
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
 class KioskFeaturedSet(Base):
     """Cached random selection for a kiosk section, regenerated on an
     admin-configurable interval - see KioskSettings."""

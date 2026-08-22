@@ -376,6 +376,16 @@ class KioskSignupUpdate(BaseModel):
     phone: Optional[str] = None
 
 
+class KioskSearchLogOut(BaseModel):
+    id: int
+    query: str
+    section: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class KioskCardOut(BaseModel):
     """Customer-facing view of a pooled available comic - excludes cost/margin
     fields (paid_price, point_of_purchase, notes) that aren't the public's business."""
