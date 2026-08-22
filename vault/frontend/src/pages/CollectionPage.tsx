@@ -242,7 +242,12 @@ export default function CollectionPage() {
                 return (
                   <tr key={uc.id} className={`group hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
                     <td className="px-3 py-3">
-                      <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
+                      <div className="flex items-center gap-1.5">
+                        <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
+                        <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                          <Pencil size={14} />
+                        </button>
+                      </div>
                     </td>
                     {visibleCols.map(c => (
                       <td
@@ -277,9 +282,6 @@ export default function CollectionPage() {
                     ))}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
-                          <Pencil size={14} />
-                        </button>
                         <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <ImageIcon size={14} />
                         </button>
