@@ -443,6 +443,7 @@ class KioskSettingsOut(BaseModel):
     signed_refresh_minutes: int
     cards_todays_picks_refresh_minutes: int
     cards_graded_refresh_minutes: int
+    featured_limit: int
 
     class Config:
         from_attributes = True
@@ -455,6 +456,7 @@ class KioskSettingsUpdate(BaseModel):
     signed_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
     cards_todays_picks_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
     cards_graded_refresh_minutes: Optional[int] = Field(default=None, ge=10, le=1440)
+    featured_limit: Optional[int] = Field(default=None, ge=1, le=200)
 
 
 # --- Trading cards (parallel to Comics above - see app/models.py's

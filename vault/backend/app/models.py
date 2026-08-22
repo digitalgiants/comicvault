@@ -256,6 +256,7 @@ class KioskSettings(Base):
     signed_refresh_minutes = Column(Integer, nullable=False, default=1440)
     cards_todays_picks_refresh_minutes = Column(Integer, nullable=False, default=1440)
     cards_graded_refresh_minutes = Column(Integer, nullable=False, default=1440)
+    featured_limit = Column(Integer, nullable=False, default=25)
 
 
 class ExternalSeriesSync(Base):

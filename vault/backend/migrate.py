@@ -165,6 +165,14 @@ MIGRATIONS = [
     ALTER TABLE external_issue_cache
         ADD COLUMN IF NOT EXISTS cover_letter VARCHAR
     """,
+
+    # Admin-configurable count of items shown in each kiosk featured
+    # section (Today's Picks / Signed / cards Today's Picks / Graded),
+    # replacing the hardcoded FEATURED_LIMIT constant in routes/kiosk.py.
+    """
+    ALTER TABLE kiosk_settings
+        ADD COLUMN IF NOT EXISTS featured_limit INTEGER NOT NULL DEFAULT 25
+    """,
 ]
 
 

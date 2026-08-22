@@ -370,6 +370,7 @@ export interface KioskSettings {
   signed_refresh_minutes: number
   cards_todays_picks_refresh_minutes: number
   cards_graded_refresh_minutes: number
+  featured_limit: number
 }
 
 export interface CsvImportConflict {

@@ -555,6 +555,24 @@ export default function AdminPage() {
           ) : (
             <>
               <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+                <p className="text-sm text-gray-300 mb-4">General</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-1">Featured items per section</label>
+                    <input
+                      type="number" min={1} max={200} step={1}
+                      value={kioskSettings.featured_limit}
+                      onChange={e => updateSettingsField('featured_limit', Number(e.target.value))}
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  Number of books/cards shown in each featured section (Today's Picks, Signed, Graded). Shared across all four sections. Range: 1–200.
+                </p>
+              </div>
+
+              <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
                 <p className="text-sm text-gray-300 mb-4">Comics</p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
