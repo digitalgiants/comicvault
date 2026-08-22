@@ -73,15 +73,24 @@ async def upload_csv(
                 "average_price": row.get("average_price"),
             }
 
-            existing = crud.find_matching_comic(db, {
-                "series": comic_data["series"],
-                "publisher": comic_data["publisher"],
-                "volume": comic_data["volume"],
-                "issue_number": comic_data["issue_number"],
-                "variant": comic_data["variant"],
-                "print_run": comic_data["print_run"],
-                "upc": comic_data["upc"],
-            })
+            # UPC is checked independently first, same as scan.py's
+            # add_scanned_comic - find_matching_comic's own UPC handling is
+            # only a narrowing filter on top of series/publisher/volume/etc,
+            # so a row whose other fields don't line up with how the
+            # existing comic was originally entered (e.g. a differently
+            # worded variant) would fall through to create_comic and crash
+            # on the real unique constraint instead of reusing the match.
+            existing = crud.get_comic_by_upc(db, comic_data["upc"]) if comic_data["upc"] else None
+            if existing is None:
+                existing = crud.find_matching_comic(db, {
+                    "series": comic_data["series"],
+                    "publisher": comic_data["publisher"],
+                    "volume": comic_data["volume"],
+                    "issue_number": comic_data["issue_number"],
+                    "variant": comic_data["variant"],
+                    "print_run": comic_data["print_run"],
+                    "upc": comic_data["upc"],
+                })
 
             if existing:
                 comic = existing
@@ -143,8 +152,15 @@ async def upload_csv(
                     sales_recorded += 1
 
         except Exception as e:
+            # A failed flush (e.g. an unexpected unique-constraint collision)
+            # leaves the session's transaction aborted - without rolling
+            # back here, every subsequent query for the rest of this
+            # request (remaining rows, then record_snapshot/stats after the
+            # loop) cascades into PendingRollbackError instead of this row
+            # being cleanly recorded as a single failure.
+            db.rollback()
             row_errors.append({
-                "row": "?",
+                "row": row.get("_row_num", "?"),
                 "comic": row.get("series", "unknown"),
                 "error": str(e),
             })
