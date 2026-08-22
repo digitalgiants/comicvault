@@ -214,7 +214,7 @@ export default function CollectionPage() {
           <p className="text-sm mt-1">Upload a CSV to get started.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-gray-800">
+        <div className="overflow-x-auto overflow-y-visible rounded-xl border border-gray-800">
           <table className="w-full text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
