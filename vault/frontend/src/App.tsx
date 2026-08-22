@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './hooks/useAuth'
 import Navbar from './components/Layout/Navbar'
@@ -32,10 +33,21 @@ function RequireNonKiosk({ children }: { children: React.ReactNode }) {
   return user.is_kiosk ? <Navigate to="/kiosk" replace /> : <>{children}</>
 }
 
+const DEFAULT_VIEWPORT = 'width=device-width, initial-scale=1.0'
+const KIOSK_VIEWPORT = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
+
 function AppRoutes() {
   const { user } = useAuth()
+
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="viewport"]')
+    if (!meta) return
+    meta.setAttribute('content', user?.is_kiosk ? KIOSK_VIEWPORT : DEFAULT_VIEWPORT)
+    return () => meta.setAttribute('content', DEFAULT_VIEWPORT)
+  }, [user?.is_kiosk])
+
   return (
-    <div className="min-h-screen">
+    <div className={`min-h-screen ${user?.is_kiosk ? 'touch-manipulation' : ''}`}>
       {!user?.is_kiosk && <Navbar />}
       <Routes>
         <Route path="/login" element={<LoginPage />} />
