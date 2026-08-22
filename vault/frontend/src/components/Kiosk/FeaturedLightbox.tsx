@@ -54,9 +54,6 @@ export default function FeaturedLightbox({ title, items, loading, error, browseA
           {item.series} #{item.issue_number}
         </div>
       )}
-      {item.average_price != null && (
-        <div className="text-green-400 text-sm mt-1">${item.average_price.toFixed(2)}</div>
-      )}
     </button>
   )
 
@@ -150,9 +147,6 @@ export default function FeaturedLightbox({ title, items, loading, error, browseA
               </p>
               {selected.cover_date && <p className="text-gray-400 text-sm">{selected.cover_date}</p>}
               {selected.condition && <p className="text-gray-300 text-sm">Condition: {selected.condition}</p>}
-              {selected.average_price != null && (
-                <p className="text-green-400 font-medium">${selected.average_price.toFixed(2)}</p>
-              )}
               <div className="flex flex-wrap gap-2">
                 {selected.signed && (
                   <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-400">Signed</span>

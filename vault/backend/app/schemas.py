@@ -388,7 +388,10 @@ class KioskSearchLogOut(BaseModel):
 
 class KioskCardOut(BaseModel):
     """Customer-facing view of a pooled available comic - excludes cost/margin
-    fields (paid_price, point_of_purchase, notes) that aren't the public's business."""
+    fields (paid_price, point_of_purchase, notes) that aren't the public's
+    business, and no price shown to customers, same as KioskTradingCardOut -
+    Today's Picks is filtered by price threshold server-side, it just
+    doesn't display it."""
     id: int
     series: str
     volume: Optional[str] = None
@@ -405,7 +408,6 @@ class KioskCardOut(BaseModel):
     writer: Optional[str] = None
     newstand: Optional[bool] = None
     print_run: Optional[str] = None
-    average_price: Optional[float] = None
     signed: bool = False
     remarked: bool = False
     condition: Optional[str] = None

@@ -325,7 +325,6 @@ export interface KioskCard {
   writer: string | null
   newstand: boolean | null
   print_run: string | null
-  average_price: number | null
   signed: boolean
   remarked: boolean
   condition: string | null

@@ -216,9 +216,6 @@ export default function KioskPage() {
                           )}
                           <div className="px-2 py-1.5 text-center">
                             <p className="text-xs text-gray-300">#{item.issue_number}</p>
-                            {item.average_price != null && (
-                              <p className="text-xs text-green-400">${item.average_price.toFixed(2)}</p>
-                            )}
                           </div>
                         </div>
                       ))}

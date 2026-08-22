@@ -34,7 +34,6 @@ def _to_card(uc: UserComic) -> KioskCardOut:
         writer=comic.writer,
         newstand=comic.newstand,
         print_run=comic.print_run,
-        average_price=comic.average_price,
         signed=uc.signed,
         remarked=uc.remarked,
         condition=uc.condition,
