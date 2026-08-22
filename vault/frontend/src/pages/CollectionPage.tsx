@@ -77,10 +77,17 @@ export default function CollectionPage() {
   const lastFrozenKey = imgVisible ? 'img' : upcVisible ? 'upc' : null
   const frozenWidth = (key: string) => (key === 'upc' ? 'w-28' : 'w-16')
   const frozenLeft = (key: string) => (key === 'img' && upcVisible ? 'left-28' : 'left-0')
-  const frozenColClass = (key: string) =>
+  const frozenColClass = (key: string, zIndex = 'z-10') =>
     key === 'upc' || key === 'img'
-      ? `sticky z-10 ${frozenLeft(key)} ${frozenWidth(key)} ${key === lastFrozenKey ? 'border-r border-gray-700' : ''} ${key === 'upc' ? 'overflow-hidden text-ellipsis' : ''}`
+      ? `sticky ${zIndex} ${frozenLeft(key)} ${frozenWidth(key)} ${key === lastFrozenKey ? 'border-r border-gray-700' : ''} ${key === 'upc' ? 'overflow-hidden text-ellipsis' : ''}`
       : ''
+
+  // Sticky header (sm:+ only - stacked/wrapping on mobile makes a sticky
+  // version too tall). STICKY_HEADER_OFFSET is the combined rendered height
+  // of the title+buttons row and the search/filter row at the sm: layout
+  // (36px row + 24px mb-6, twice) - the column header row sticks right
+  // below them rather than snapping to the very top and hiding behind them.
+  const STICKY_HEADER_OFFSET = 'sm:top-[130px]'
 
   const toggleSelect = (id: number) => {
     setSelected(prev => {
@@ -149,42 +156,44 @@ export default function CollectionPage() {
 
   return (
     <div className="max-w-full px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">My Collection</h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {selected.size > 0 && (
-            <>
-              <button
-                onClick={() => setBulkOpen(true)}
-                className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
-              >
-                Bulk Edit ({selected.size})
-              </button>
-              <button
-                onClick={() => setBulkFindingImages(true)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
-              >
-                <ImageIcon size={14} /> Find Images ({selected.size})
-              </button>
-            </>
-          )}
-          <ColumnPicker page="collection" columns={COLLECTION_COLUMNS} visibility={visibility} onChange={setVisibility} />
+      <div className="sm:sticky sm:top-0 sm:z-30 sm:bg-gray-950">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <h1 className="text-2xl font-bold">My Collection</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            {selected.size > 0 && (
+              <>
+                <button
+                  onClick={() => setBulkOpen(true)}
+                  className="px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
+                >
+                  Bulk Edit ({selected.size})
+                </button>
+                <button
+                  onClick={() => setBulkFindingImages(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
+                >
+                  <ImageIcon size={14} /> Find Images ({selected.size})
+                </button>
+              </>
+            )}
+            <ColumnPicker page="collection" columns={COLLECTION_COLUMNS} visibility={visibility} onChange={setVisibility} />
+          </div>
         </div>
-      </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && runSearch()}
-            placeholder="Search by title…"
-            className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="relative flex-1">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search} onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && runSearch()}
+              placeholder="Search by title…"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+          <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+          <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
         </div>
-        <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-        <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-        <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
       </div>
 
       {loading ? (
@@ -209,18 +218,18 @@ export default function CollectionPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
-                <th className="px-3 py-3">
+                <th className={`px-3 py-3 bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20`}>
                   <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-brand-500" />
                 </th>
                 {visibleCols.map(c => (
                   <th
                     key={c.key}
-                    className={`px-4 py-3 text-left whitespace-nowrap ${frozenColClass(c.key)} ${c.key === 'upc' || c.key === 'img' ? 'bg-gray-800' : ''}`}
+                    className={`px-4 py-3 text-left whitespace-nowrap bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20 ${frozenColClass(c.key, 'z-10 sm:z-30')}`}
                   >
                     {c.label}
                   </th>
                 ))}
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className={`px-4 py-3 text-right bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20`}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
