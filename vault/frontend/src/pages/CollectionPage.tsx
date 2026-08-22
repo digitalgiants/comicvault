@@ -82,12 +82,16 @@ export default function CollectionPage() {
       ? `sticky ${zIndex} ${frozenLeft(key)} ${frozenWidth(key)} ${key === lastFrozenKey ? 'border-r border-gray-700' : ''} ${key === 'upc' ? 'overflow-hidden text-ellipsis' : ''}`
       : ''
 
-  // Sticky header (sm:+ only - stacked/wrapping on mobile makes a sticky
-  // version too tall). STICKY_HEADER_OFFSET is the combined rendered height
-  // of the title+buttons row and the search/filter row at the sm: layout
-  // (36px row + 24px mb-6, twice) - the column header row sticks right
-  // below them rather than snapping to the very top and hiding behind them.
-  const STICKY_HEADER_OFFSET = 'sm:top-[130px]'
+  // Sticky column header (sm:+ only - stacked/wrapping on mobile makes a
+  // sticky version too tall). The table wrapper below is given its own
+  // bounded height + overflow-auto, making it the scroll container for
+  // BOTH the frozen UPC/Cover columns (left) and this header row (top) -
+  // position: sticky resolves every inset against the same nearest
+  // scrolling ancestor, so top and left can't cleanly target two different
+  // containers (page vs. table) on the same cell. With the table owning
+  // its own scroll, top-0 here is simply "the top of that box", no pixel
+  // math against the search bar's height needed.
+  const STICKY_HEADER_OFFSET = 'sm:top-0'
 
   const toggleSelect = (id: number) => {
     setSelected(prev => {
@@ -156,7 +160,7 @@ export default function CollectionPage() {
 
   return (
     <div className="max-w-full px-4 py-8">
-      <div className="sm:sticky sm:top-0 sm:z-30 sm:bg-gray-950">
+      <div className="sm:sticky sm:top-0 sm:z-30 sm:bg-gray-950 sm:pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <h1 className="text-2xl font-bold">My Collection</h1>
           <div className="flex flex-wrap items-center gap-2">
@@ -214,7 +218,7 @@ export default function CollectionPage() {
           <p className="text-sm mt-1">Upload a CSV to get started.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto overflow-y-visible rounded-xl border border-gray-800">
+        <div className="overflow-auto rounded-xl border border-gray-800 sm:max-h-[calc(100vh-230px)]">
           <table className="w-full text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
