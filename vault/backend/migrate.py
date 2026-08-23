@@ -173,6 +173,14 @@ MIGRATIONS = [
     ALTER TABLE kiosk_settings
         ADD COLUMN IF NOT EXISTS featured_limit INTEGER NOT NULL DEFAULT 25
     """,
+
+    # Seller (default) vs. Collector user profile - Collector hides sales
+    # and pricing tools throughout the app. Existing accounts default to
+    # Seller so nothing changes for them.
+    """
+    ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS is_collector BOOLEAN NOT NULL DEFAULT FALSE
+    """,
 ]
 
 

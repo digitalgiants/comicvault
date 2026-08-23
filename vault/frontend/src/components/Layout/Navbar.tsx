@@ -23,6 +23,8 @@ export default function Navbar() {
     navigate('/login')
   }
 
+  const navLinks = NAV_LINKS.filter(({ to }) => to !== '/sold' || !user?.is_collector)
+
   return (
     <nav className="sticky top-0 z-30 bg-gray-900 border-b border-gray-800 px-4 py-3">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -41,7 +43,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-1 lg:gap-3">
               {!user.is_kiosk && (
                 <>
-                  {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+                  {navLinks.map(({ to, label, icon: Icon }) => (
                     <Link
                       key={to}
                       to={to}
@@ -87,7 +89,7 @@ export default function Navbar() {
         <div className="md:hidden max-w-7xl mx-auto mt-3 pt-3 border-t border-gray-800 flex flex-col gap-1">
           {!user.is_kiosk && (
             <>
-              {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+              {navLinks.map(({ to, label, icon: Icon }) => (
                 <Link
                   key={to}
                   to={to}

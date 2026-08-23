@@ -16,14 +16,14 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const { register, handleSubmit, formState: { isSubmitting } } = useForm<FormData>()
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: FormData, isCollector: boolean) => {
     setError('')
     if (data.password !== data.confirm) {
       setError('Passwords do not match')
       return
     }
     try {
-      await signup(data.username, data.password)
+      await signup(data.username, data.password, isCollector)
       navigate('/')
     } catch (e: unknown) {
       const msg = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -42,7 +42,7 @@ export default function SignupPage() {
           <p className="text-gray-400 mt-1">Create your collection</p>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="bg-gray-900 rounded-2xl p-8 space-y-5">
+        <form onSubmit={handleSubmit(data => onSubmit(data, false))} className="bg-gray-900 rounded-2xl p-8 space-y-5">
           {error && (
             <div className="bg-red-900/40 border border-red-700 text-red-300 rounded-lg px-4 py-3 text-sm">
               {error}
@@ -79,13 +79,28 @@ export default function SignupPage() {
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
-          >
-            {isSubmitting ? 'Creating account…' : 'Create account'}
-          </button>
+          <div>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
+              >
+                {isSubmitting ? 'Creating…' : 'Sign Up as Seller'}
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit(data => onSubmit(data, true))}
+                disabled={isSubmitting}
+                className="w-full bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg border border-gray-700 transition"
+              >
+                {isSubmitting ? 'Creating…' : 'Sign Up as Collector'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              Seller: full sales &amp; pricing tools. Collector: track your collection with sales tools hidden.
+            </p>
+          </div>
 
           <p className="text-center text-gray-400 text-sm">
             Already have an account?{' '}

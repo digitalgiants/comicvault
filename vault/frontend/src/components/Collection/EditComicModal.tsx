@@ -4,7 +4,8 @@ import { X, Trash2, Search } from 'lucide-react'
 import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto } from '../../api/collection'
 import { findUpc } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
-import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS } from '../../types'
+import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
+import { useAuth } from '../../hooks/useAuth'
 import PhotoCapture from './PhotoCapture'
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export default function EditComicModal({ item, onClose, onSaved, onItemChange }: Props) {
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -248,7 +251,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Your Details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {EDITABLE_FIELDS.map(({ key, label, type }) => (
+            {visibleEditableFields(isCollector).map(({ key, label, type }) => (
               <div key={key} className={type === 'textarea' ? 'sm:col-span-2' : ''}>
                 <label className="block text-sm text-gray-400 mb-1">{label}</label>
                 {type === 'checkbox' ? (
@@ -311,48 +314,50 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
           </div>
 
           {/* Sales History */}
-          <div className="mt-6 pt-4 border-t border-gray-800">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-gray-500 uppercase tracking-wider">Sales History</p>
-              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                {avail}/{item.count ?? 1} available
-              </span>
-            </div>
-            {localSales.length === 0 ? (
-              <p className="text-sm text-gray-600 italic">No sales recorded yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {localSales.map(sale => (
-                  <div key={sale.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
-                    <div className="flex items-center gap-4">
-                      <span className="text-gray-300">{new Date(sale.sell_date).toLocaleDateString()}</span>
-                      <span className="flex items-center gap-1 text-green-400">
-                        $
-                        <input
-                          type="number"
-                          step="0.01"
-                          defaultValue={sale.sell_price ?? ''}
-                          onBlur={e => handleSalePriceCommit(sale, e.target.value)}
-                          placeholder="0.00"
-                          className="w-20 bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-green-400 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
-                        />
-                      </span>
-                      {sale.notes && (
-                        <span className="text-gray-500 italic truncate max-w-32">{sale.notes}</span>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleDeleteSale(sale)}
-                      className="p-1 text-gray-600 hover:text-red-400 transition"
-                      title="Delete sale"
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
+          {!isCollector && (
+            <div className="mt-6 pt-4 border-t border-gray-800">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Sales History</p>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                  {avail}/{item.count ?? 1} available
+                </span>
               </div>
-            )}
-          </div>
+              {localSales.length === 0 ? (
+                <p className="text-sm text-gray-600 italic">No sales recorded yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {localSales.map(sale => (
+                    <div key={sale.id} className="flex items-center justify-between bg-gray-800 rounded-lg px-3 py-2 text-sm">
+                      <div className="flex items-center gap-4">
+                        <span className="text-gray-300">{new Date(sale.sell_date).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1 text-green-400">
+                          $
+                          <input
+                            type="number"
+                            step="0.01"
+                            defaultValue={sale.sell_price ?? ''}
+                            onBlur={e => handleSalePriceCommit(sale, e.target.value)}
+                            placeholder="0.00"
+                            className="w-20 bg-gray-900 border border-gray-700 rounded px-1.5 py-0.5 text-green-400 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+                          />
+                        </span>
+                        {sale.notes && (
+                          <span className="text-gray-500 italic truncate max-w-32">{sale.notes}</span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteSale(sale)}
+                        className="p-1 text-gray-600 hover:text-red-400 transition"
+                        title="Delete sale"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {error && <p className="px-6 text-red-400 text-sm">{error}</p>}

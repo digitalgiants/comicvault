@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
-import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, COLLECTION_COLUMNS } from '../types'
+import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
+import { useAuth } from '../hooks/useAuth'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
 import FindImageModal from '../components/Collection/FindImageModal'
@@ -14,6 +15,8 @@ import RecordSaleModal from '../components/Collection/RecordSaleModal'
 const PAGE_SIZE = 200
 
 export default function CollectionPage() {
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
   const [items, setItems] = useState<UserComic[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -66,7 +69,8 @@ export default function CollectionPage() {
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const visibleCols = COLLECTION_COLUMNS.filter(c => visibility[c.key] !== false)
+  const columns = visibleCollectionColumns(isCollector)
+  const visibleCols = columns.filter(c => visibility[c.key] !== false)
 
   // UPC and Cover stay pinned to the left edge while scrolling horizontally
   // through the rest of the (often very wide) column set. Their order is
@@ -180,7 +184,7 @@ export default function CollectionPage() {
                 </button>
               </>
             )}
-            <ColumnPicker page="collection" columns={COLLECTION_COLUMNS} visibility={visibility} onChange={setVisibility} />
+            <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
           </div>
         </div>
 
@@ -285,14 +289,16 @@ export default function CollectionPage() {
                         <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <ImageIcon size={14} />
                         </button>
-                        <button
-                          onClick={() => setSelling(uc)}
-                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
-                          disabled={avail === 0 || uc.do_not_sell}
-                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <DollarSign size={14} />
-                        </button>
+                        {!isCollector && (
+                          <button
+                            onClick={() => setSelling(uc)}
+                            title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                            disabled={avail === 0 || uc.do_not_sell}
+                            className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <DollarSign size={14} />
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
                           <Trash2 size={14} />
                         </button>

@@ -6,6 +6,7 @@ interface User {
   username: string
   is_admin: boolean
   is_kiosk: boolean
+  is_collector: boolean
   created_at: string
 }
 
@@ -13,7 +14,7 @@ interface AuthCtx {
   user: User | null
   loading: boolean
   login: (username: string, password: string) => Promise<void>
-  signup: (username: string, password: string) => Promise<void>
+  signup: (username: string, password: string, isCollector: boolean) => Promise<void>
   logout: () => void
 }
 
@@ -39,8 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(me.data)
   }
 
-  const signup = async (username: string, password: string) => {
-    await api.post('/auth/signup', { username, password })
+  const signup = async (username: string, password: string, isCollector: boolean) => {
+    await api.post('/auth/signup', { username, password, is_collector: isCollector })
     await login(username, password)
   }
 

@@ -126,6 +126,16 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'reserve_count', label: 'Reserve Count' },
 ]
 
+// Collector profile hides every sales/pricing-facing column and field -
+// see SignupPage.tsx and useAuth's User.is_collector. Seller (the default)
+// is unaffected.
+const SALES_ONLY_COLUMN_KEYS = new Set(['asking_price', 'sell_price', 'available', 'do_not_sell', 'reserve_count'])
+const SALES_ONLY_FIELD_KEYS = new Set(['asking_price', 'do_not_sell', 'reserve_count'])
+
+export function visibleCollectionColumns(isCollector: boolean) {
+  return isCollector ? COLLECTION_COLUMNS.filter(c => !SALES_ONLY_COLUMN_KEYS.has(c.key)) : COLLECTION_COLUMNS
+}
+
 export const SOLD_COLUMNS: { key: string; label: string }[] = [
   { key: 'sell_date', label: 'Sell Date' },
   { key: 'sell_price', label: 'Sell Price' },
@@ -165,6 +175,10 @@ export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: strin
   { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
   { key: 'reserve_count', label: 'Reserve Count (keep back from sale)', type: 'number' },
 ]
+
+export function visibleEditableFields(isCollector: boolean) {
+  return isCollector ? EDITABLE_FIELDS.filter(f => !SALES_ONLY_FIELD_KEYS.has(f.key as string)) : EDITABLE_FIELDS
+}
 
 // --- Barcode scanning (comic-scraper lookups) ---
 
@@ -498,6 +512,10 @@ export const CARDS_COLUMNS: { key: string; label: string }[] = [
   { key: 'reserve_count', label: 'Reserve Count' },
 ]
 
+export function visibleCardsColumns(isCollector: boolean) {
+  return isCollector ? CARDS_COLUMNS.filter(c => !SALES_ONLY_COLUMN_KEYS.has(c.key)) : CARDS_COLUMNS
+}
+
 export type UserTradingCardUpdate = {
   count?: number | null
   condition?: string | null
@@ -526,6 +544,12 @@ export const EDITABLE_CARD_FIELDS: { key: keyof UserTradingCard; label: string; 
   { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
   { key: 'reserve_count', label: 'Reserve Count (keep back from sale)', type: 'number' },
 ]
+
+const SALES_ONLY_CARD_FIELD_KEYS = new Set(['asking_price', 'do_not_sell', 'reserve_count', 'for_sale'])
+
+export function visibleEditableCardFields(isCollector: boolean) {
+  return isCollector ? EDITABLE_CARD_FIELDS.filter(f => !SALES_ONLY_CARD_FIELD_KEYS.has(f.key as string)) : EDITABLE_CARD_FIELDS
+}
 
 export interface ScanCandidate {
   card: TradingCard

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { bulkUpdateUserComics, recordSale } from '../../api/collection'
 import type { UserComic } from '../../types'
-import { EDITABLE_FIELDS, availableCopies } from '../../types'
+import { EDITABLE_FIELDS, availableCopies, visibleEditableFields } from '../../types'
+import { useAuth } from '../../hooks/useAuth'
 
 const SELL_PRICE_KEY = '__sell_price'
 
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [enabled, setEnabled] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
@@ -86,7 +89,7 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
         </div>
 
         <div className="overflow-y-auto px-6 py-4 flex-1 space-y-3">
-          {EDITABLE_FIELDS.map(({ key, label, type }) => (
+          {visibleEditableFields(isCollector).map(({ key, label, type }) => (
             <div key={key} className="flex items-start gap-3">
               <input
                 type="checkbox"
@@ -127,26 +130,28 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
             </div>
           ))}
 
-          <div className="flex items-start gap-3 pt-3 border-t border-gray-800">
-            <input
-              type="checkbox"
-              checked={Boolean(enabled[SELL_PRICE_KEY])}
-              onChange={() => toggle(SELL_PRICE_KEY)}
-              className="mt-1 w-4 h-4 rounded accent-brand-500 flex-shrink-0"
-            />
-            <div className="flex-1">
-              <label className="block text-sm text-gray-300 mb-1">Sell Price ($) — records a new sale today for each</label>
-              {enabled[SELL_PRICE_KEY] && (
-                <input
-                  type="number"
-                  step="0.01"
-                  value={String(form[SELL_PRICE_KEY] ?? '')}
-                  onChange={e => handleChange(SELL_PRICE_KEY, e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-              )}
+          {!isCollector && (
+            <div className="flex items-start gap-3 pt-3 border-t border-gray-800">
+              <input
+                type="checkbox"
+                checked={Boolean(enabled[SELL_PRICE_KEY])}
+                onChange={() => toggle(SELL_PRICE_KEY)}
+                className="mt-1 w-4 h-4 rounded accent-brand-500 flex-shrink-0"
+              />
+              <div className="flex-1">
+                <label className="block text-sm text-gray-300 mb-1">Sell Price ($) — records a new sale today for each</label>
+                {enabled[SELL_PRICE_KEY] && (
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={String(form[SELL_PRICE_KEY] ?? '')}
+                    onChange={e => handleChange(SELL_PRICE_KEY, e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {error && <p className="px-6 text-red-400 text-sm">{error}</p>}

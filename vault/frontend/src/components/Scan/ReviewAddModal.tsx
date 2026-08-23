@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { addScannedComic } from '../../api/scan'
-import { EDITABLE_FIELDS, lookupResultToComicFields, type LookupResult, type ScanComicFields, type UserComic } from '../../types'
+import { EDITABLE_FIELDS, visibleEditableFields, lookupResultToComicFields, type LookupResult, type ScanComicFields, type UserComic } from '../../types'
+import { useAuth } from '../../hooks/useAuth'
 
 interface Props {
   result: LookupResult
@@ -30,6 +31,8 @@ const COMIC_FIELDS: { key: keyof ScanComicFields; label: string; type: string }[
 ]
 
 export default function ReviewAddModal({ result, upc12, ean5, onClose, onAdded }: Props) {
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
   const initialComic = lookupResultToComicFields(result, upc12, ean5)
   const [comicForm, setComicForm] = useState<Record<string, unknown>>(
     Object.fromEntries(COMIC_FIELDS.map(({ key }) => [key, initialComic[key] ?? ''])),
@@ -127,7 +130,7 @@ export default function ReviewAddModal({ result, upc12, ean5, onClose, onAdded }
 
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Your Details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {EDITABLE_FIELDS.map(({ key, label, type }) => (
+            {visibleEditableFields(isCollector).map(({ key, label, type }) => (
               <div key={key} className={type === 'textarea' ? 'sm:col-span-2' : ''}>
                 <label className="block text-sm text-gray-400 mb-1">{label}</label>
                 {type === 'checkbox' ? (

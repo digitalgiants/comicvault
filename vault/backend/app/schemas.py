@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class UserCreate(BaseModel):
     username: str
     password: str
+    is_collector: bool = False
 
 
 class UserLogin(BaseModel):
@@ -21,6 +22,7 @@ class UserOut(BaseModel):
     username: str
     is_admin: bool
     is_kiosk: bool
+    is_collector: bool
     created_at: datetime
 
     class Config:

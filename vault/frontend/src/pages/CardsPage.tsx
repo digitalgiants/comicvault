@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Plus, ScanLine } from 'lucide-react'
 import { getCardCollection, recordCardSale, deleteUserTradingCard, getCardColumnPrefs } from '../api/cards'
 import { resolveImageUrl } from '../api/client'
-import { availableCardCopies, cardCoverImage, latestCardSalePrice, type UserTradingCard, type ColumnVisibility, CARDS_COLUMNS } from '../types'
+import { availableCardCopies, cardCoverImage, latestCardSalePrice, type UserTradingCard, type ColumnVisibility, visibleCardsColumns } from '../types'
+import { useAuth } from '../hooks/useAuth'
 import EditTradingCardModal from '../components/Cards/EditTradingCardModal'
 import RecordCardSaleModal from '../components/Cards/RecordCardSaleModal'
 import AddCardModal from '../components/Cards/AddCardModal'
@@ -12,6 +13,8 @@ import ColumnPicker from '../components/Collection/ColumnPicker'
 const PAGE_SIZE = 200
 
 export default function CardsPage() {
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
   const [items, setItems] = useState<UserTradingCard[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -56,7 +59,8 @@ export default function CardsPage() {
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const visibleCols = CARDS_COLUMNS.filter(c => visibility[c.key] !== false)
+  const columns = visibleCardsColumns(isCollector)
+  const visibleCols = columns.filter(c => visibility[c.key] !== false)
 
   const handleDelete = async (uc: UserTradingCard) => {
     if (!confirm(`Permanently delete "${uc.card.name}" from your collection?`)) return
@@ -118,7 +122,7 @@ export default function CardsPage() {
             <Plus size={15} />
             Add Card
           </button>
-          <ColumnPicker page="cards" columns={CARDS_COLUMNS} visibility={visibility} onChange={setVisibility} />
+          <ColumnPicker page="cards" columns={columns} visibility={visibility} onChange={setVisibility} />
         </div>
       </div>
 
@@ -188,14 +192,16 @@ export default function CardsPage() {
                         <button onClick={() => setEditing(uc)} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <Pencil size={14} />
                         </button>
-                        <button
-                          onClick={() => setSelling(uc)}
-                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
-                          disabled={avail === 0 || uc.do_not_sell}
-                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <DollarSign size={14} />
-                        </button>
+                        {!isCollector && (
+                          <button
+                            onClick={() => setSelling(uc)}
+                            title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                            disabled={avail === 0 || uc.do_not_sell}
+                            className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <DollarSign size={14} />
+                          </button>
+                        )}
                         <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
                           <Trash2 size={14} />
                         </button>

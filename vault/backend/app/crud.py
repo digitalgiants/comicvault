@@ -58,7 +58,7 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
 
 
 def create_user(db: Session, user_in: UserCreate) -> User:
-    user = User(username=user_in.username, password_hash=hash_password(user_in.password))
+    user = User(username=user_in.username, password_hash=hash_password(user_in.password), is_collector=user_in.is_collector)
     db.add(user)
     db.commit()
     db.refresh(user)

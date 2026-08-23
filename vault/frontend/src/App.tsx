@@ -33,6 +33,14 @@ function RequireNonKiosk({ children }: { children: React.ReactNode }) {
   return user.is_kiosk ? <Navigate to="/kiosk" replace /> : <>{children}</>
 }
 
+function RequireSeller({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth()
+  if (loading) return null
+  if (!user) return <Navigate to="/login" replace />
+  if (user.is_kiosk) return <Navigate to="/kiosk" replace />
+  return user.is_collector ? <Navigate to="/comics" replace /> : <>{children}</>
+}
+
 const DEFAULT_VIEWPORT = 'width=device-width, initial-scale=1.0'
 const KIOSK_VIEWPORT = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
 
@@ -60,7 +68,7 @@ function AppRoutes() {
         <Route path="/upload" element={<RequireNonKiosk><UploadPage /></RequireNonKiosk>} />
         <Route path="/scan" element={<RequireNonKiosk><ScanPage /></RequireNonKiosk>} />
         <Route path="/search" element={<RequireNonKiosk><SearchPage /></RequireNonKiosk>} />
-        <Route path="/sold" element={<RequireNonKiosk><SoldPage /></RequireNonKiosk>} />
+        <Route path="/sold" element={<RequireSeller><SoldPage /></RequireSeller>} />
         <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
         <Route path="*" element={user?.is_kiosk ? <Navigate to="/kiosk" replace /> : <Navigate to="/" replace />} />
       </Routes>
