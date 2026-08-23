@@ -17,7 +17,7 @@ services:
     environment:
       - VITE_API_URL=/api
       - VITE_PROXY_TARGET=http://backend:8000
-      - VITE_ALLOWED_HOST=cv.digitalgiants.net
+      - VITE_ALLOWED_HOST=comicvaults.com
     depends_on:
       - backend
 
@@ -41,7 +41,7 @@ services:
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRE_MINUTES=10080
       - WATCHFILES_FORCE_POLLING=true
-      - CORS_ORIGINS=https://cv.digitalgiants.net,http://localhost:3002
+      - CORS_ORIGINS=https://comicvaults.com,http://localhost:3002
       - COMIC_SCRAPER_URL=http://comic-scraper:9095
       - TCG_SCRAPER_URL=http://tcg-scraper:9096
     depends_on:
