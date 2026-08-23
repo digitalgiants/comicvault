@@ -254,69 +254,53 @@ export default function CollectionPage() {
               dense multi-column table is a poor fit for a phone screen
               (horizontal scroll on every row). Shares selection/edit/sell/
               delete state and handlers with the desktop table below. */}
-          <div className="sm:hidden">
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="text-xs text-gray-400 hover:text-white transition mb-2 px-1"
-            >
-              {selected.size === items.length ? 'Deselect all' : `Select all ${items.length}`}
-            </button>
-            <div className="space-y-2">
-              {items.map(uc => {
-                const avail = availableCopies(uc)
-                return (
-                  <div
-                    key={uc.id}
-                    className={`bg-gray-900 border rounded-xl p-3 flex gap-3 ${selected.has(uc.id) ? 'border-brand-500' : 'border-gray-800'}`}
+          <div className="sm:hidden grid grid-cols-2 gap-3">
+            {items.map(uc => {
+              const avail = availableCopies(uc)
+              return (
+                <div key={uc.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+                  <button
+                    type="button"
+                    onClick={() => { setEditing(uc); setActiveComic(uc) }}
+                    title="View / Edit"
+                    className="block w-full"
                   >
-                    <input
-                      type="checkbox"
-                      checked={selected.has(uc.id)}
-                      onChange={() => toggleSelect(uc.id)}
-                      className="w-4 h-4 rounded accent-brand-500 flex-shrink-0 self-start mt-1"
-                    />
                     {coverImage(uc) ? (
-                      <button type="button" onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))} className="flex-shrink-0">
-                        <img
-                          src={resolveImageUrl(coverImage(uc)) ?? undefined}
-                          alt=""
-                          className="w-12 aspect-[2/3] object-cover rounded border border-gray-700"
-                        />
-                      </button>
+                      <img
+                        src={resolveImageUrl(coverImage(uc)) ?? undefined}
+                        alt=""
+                        className="w-full aspect-[2/3] object-cover"
+                      />
                     ) : (
-                      <div className="w-12 aspect-[2/3] bg-gray-800 rounded flex-shrink-0 flex items-center justify-center text-gray-600 text-[9px] text-center px-1">
+                      <div className="w-full aspect-[2/3] bg-gray-800 flex items-center justify-center text-gray-600 text-xs text-center px-2">
                         No Cover
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-white text-sm truncate">
-                        {uc.comic.series}{uc.comic.issue_number && ` #${uc.comic.issue_number}`}
-                      </p>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">
-                        {[uc.comic.publisher, uc.comic.volume && `Vol. ${uc.comic.volume}`].filter(Boolean).join(' · ') || '—'}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                        {(uc.count ?? 1) > 1 && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">×{uc.count}</span>
-                        )}
-                        {uc.signed && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Signed</span>
-                        )}
-                        {uc.remarked && (
-                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Remarked</span>
-                        )}
-                        {!isCollector && (
-                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                            {avail}/{uc.count ?? 1}
-                          </span>
-                        )}
-                      </div>
+                  </button>
+                  <div className="p-2.5 flex-1 flex flex-col">
+                    <p className="font-medium text-white text-sm leading-snug line-clamp-2">
+                      {uc.comic.series}{uc.comic.issue_number && ` #${uc.comic.issue_number}`}
+                    </p>
+                    <p className="text-xs text-gray-400 leading-snug line-clamp-2 mt-0.5">
+                      {[uc.comic.publisher, uc.comic.volume && `Vol. ${uc.comic.volume}`].filter(Boolean).join(' · ') || '—'}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                      {(uc.count ?? 1) > 1 && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">×{uc.count}</span>
+                      )}
+                      {uc.signed && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Signed</span>
+                      )}
+                      {uc.remarked && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Remarked</span>
+                      )}
+                      {!isCollector && (
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                          {avail}/{uc.count ?? 1}
+                        </span>
+                      )}
                     </div>
-                    <div className="flex flex-col gap-0.5 flex-shrink-0">
-                      <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
-                        <Pencil size={14} />
-                      </button>
+                    <div className="flex items-center justify-end gap-0.5 mt-auto pt-2 -mr-1">
                       <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
                         <ImageIcon size={14} />
                       </button>
@@ -335,9 +319,9 @@ export default function CollectionPage() {
                       </button>
                     </div>
                   </div>
-                )
-              })}
-            </div>
+                </div>
+              )
+            })}
           </div>
 
           <div className="hidden sm:block overflow-auto rounded-xl border border-gray-800 sm:max-h-[calc(100vh-230px)]">
