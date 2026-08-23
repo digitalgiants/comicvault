@@ -83,10 +83,11 @@ export default function SignupPage() {
             <div className="grid grid-cols-2 gap-3">
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white font-semibold py-2.5 rounded-lg transition"
+                disabled
+                title="Seller signups are temporarily disabled"
+                className="w-full bg-brand-500 text-white font-semibold py-2.5 rounded-lg transition opacity-50 cursor-not-allowed"
               >
-                {isSubmitting ? 'Creating…' : 'Sign Up as Seller'}
+                Sign Up as Seller
               </button>
               <button
                 type="button"
@@ -98,7 +99,7 @@ export default function SignupPage() {
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">
-              Seller: full sales &amp; pricing tools. Collector: track your collection with sales tools hidden.
+              Seller signups are temporarily disabled. Collector: track your collection with sales tools hidden.
             </p>
           </div>
 
