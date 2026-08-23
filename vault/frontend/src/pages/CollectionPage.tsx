@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, Image as ImageIcon, X } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, X } from 'lucide-react'
 import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
 import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
@@ -23,8 +23,10 @@ export default function CollectionPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [issueFilter, setIssueFilter] = useState('')
   const [publisherFilter, setPublisherFilter] = useState('')
   const [writerFilter, setWriterFilter] = useState('')
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [editing, setEditing] = useState<UserComic | null>(null)
   const [selling, setSelling] = useState<UserComic | null>(null)
@@ -48,6 +50,7 @@ export default function CollectionPage() {
         limit: PAGE_SIZE,
       }
       if (search) params.series = search
+      if (issueFilter) params.issue_number = issueFilter
       if (publisherFilter) params.publisher = publisherFilter
       if (writerFilter) params.writer = writerFilter
       const { items, total } = await getCollection(params)
@@ -58,7 +61,7 @@ export default function CollectionPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, publisherFilter, writerFilter, page])
+  }, [search, issueFilter, publisherFilter, writerFilter, page])
 
   useEffect(() => { fetchCollection() }, [page])
 
@@ -184,11 +187,13 @@ export default function CollectionPage() {
                 </button>
               </>
             )}
-            <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
+            <div className="hidden sm:block">
+              <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 mb-3">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -198,9 +203,30 @@ export default function CollectionPage() {
               className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
+          <input
+            value={issueFilter} onChange={e => setIssueFilter(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && runSearch()}
+            placeholder="Issue #"
+            className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-28"
+          />
+          <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
+        </div>
+
+        {/* Publisher/Writer are secondary filters - always visible on
+            desktop/tablet (matches the pre-existing layout), but collapsed
+            behind a toggle on mobile so Series+Issue#+Search (the common
+            "quick lookup" path) isn't pushed below the fold. */}
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters(v => !v)}
+          className="sm:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-white transition mb-3"
+        >
+          More filters (Publisher, Writer)
+          <ChevronDown size={12} className={`transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
+        </button>
+        <div className={`${showMoreFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-3 mb-6`}>
           <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
           <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-          <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
         </div>
       </div>
 
@@ -222,7 +248,99 @@ export default function CollectionPage() {
           <p className="text-sm mt-1">Upload a CSV to get started.</p>
         </div>
       ) : (
-        <div className="overflow-auto rounded-xl border border-gray-800 sm:max-h-[calc(100vh-230px)]">
+        <>
+          {/* Mobile card list - a fixed, curated set of fields rather than
+              the desktop table's full customizable column set, since a
+              dense multi-column table is a poor fit for a phone screen
+              (horizontal scroll on every row). Shares selection/edit/sell/
+              delete state and handlers with the desktop table below. */}
+          <div className="sm:hidden">
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="text-xs text-gray-400 hover:text-white transition mb-2 px-1"
+            >
+              {selected.size === items.length ? 'Deselect all' : `Select all ${items.length}`}
+            </button>
+            <div className="space-y-2">
+              {items.map(uc => {
+                const avail = availableCopies(uc)
+                return (
+                  <div
+                    key={uc.id}
+                    className={`bg-gray-900 border rounded-xl p-3 flex gap-3 ${selected.has(uc.id) ? 'border-brand-500' : 'border-gray-800'}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected.has(uc.id)}
+                      onChange={() => toggleSelect(uc.id)}
+                      className="w-4 h-4 rounded accent-brand-500 flex-shrink-0 self-start mt-1"
+                    />
+                    {coverImage(uc) ? (
+                      <button type="button" onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))} className="flex-shrink-0">
+                        <img
+                          src={resolveImageUrl(coverImage(uc)) ?? undefined}
+                          alt=""
+                          className="w-12 aspect-[2/3] object-cover rounded border border-gray-700"
+                        />
+                      </button>
+                    ) : (
+                      <div className="w-12 aspect-[2/3] bg-gray-800 rounded flex-shrink-0 flex items-center justify-center text-gray-600 text-[9px] text-center px-1">
+                        No Cover
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-white text-sm truncate">
+                        {uc.comic.series}{uc.comic.issue_number && ` #${uc.comic.issue_number}`}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">
+                        {[uc.comic.publisher, uc.comic.volume && `Vol. ${uc.comic.volume}`].filter(Boolean).join(' · ') || '—'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                        {(uc.count ?? 1) > 1 && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400">×{uc.count}</span>
+                        )}
+                        {uc.signed && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Signed</span>
+                        )}
+                        {uc.remarked && (
+                          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-400">Remarked</span>
+                        )}
+                        {!isCollector && (
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                            {avail}/{uc.count ?? 1}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                        <ImageIcon size={14} />
+                      </button>
+                      {!isCollector && (
+                        <button
+                          onClick={() => setSelling(uc)}
+                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                          disabled={avail === 0 || uc.do_not_sell}
+                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <DollarSign size={14} />
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="hidden sm:block overflow-auto rounded-xl border border-gray-800 sm:max-h-[calc(100vh-230px)]">
           <table className="w-full text-sm">
             <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
               <tr>
@@ -309,7 +427,8 @@ export default function CollectionPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {!loading && total > 0 && (

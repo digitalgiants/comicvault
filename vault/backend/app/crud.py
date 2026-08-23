@@ -252,6 +252,7 @@ def get_user_collection(
     series: Optional[str] = None,
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
+    issue_number: Optional[str] = None,
     skip: int = 0,
     limit: int = 200,
 ) -> tuple[list[UserComic], int]:
@@ -267,6 +268,9 @@ def get_user_collection(
         q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
     if writer:
         q = q.filter(Comic.writer.ilike(f"%{writer}%"))
+    if issue_number:
+        # Exact match, not ilike - "1" shouldn't also pull "10", "11", "21"...
+        q = q.filter(Comic.issue_number == issue_number)
     total = q.count()
     items = q.order_by(*_comic_sort_order()).offset(skip).limit(limit).all()
     return items, total

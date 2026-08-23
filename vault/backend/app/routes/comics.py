@@ -71,6 +71,7 @@ def get_my_collection(
     series: str | None = Query(None),
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
+    issue_number: str | None = Query(None),
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
@@ -81,6 +82,7 @@ def get_my_collection(
     else:
         items, total = crud.get_user_collection(db, current_user.id, series=series,
                                         publisher=publisher, writer=writer,
+                                        issue_number=issue_number,
                                         skip=skip, limit=limit)
     response.headers["X-Total-Count"] = str(total)
     return items
