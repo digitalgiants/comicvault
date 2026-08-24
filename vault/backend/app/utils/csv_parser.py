@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from datetime import datetime
 from typing import Any
 
@@ -11,6 +12,11 @@ BOOLEAN_FIELDS = {"newstand", "signed", "remarked", "donotsell"}
 FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice", "askingprice"}
 INT_FIELDS = {"count", "reservecount"}
 DATE_FIELDS = {"buydate", "coverdate", "storedate", "selldate"}
+# A UPC pasted/typed with a space or dash between the 12-digit code and
+# 5-digit price add-on (as GCD sometimes displays it) needs every non-digit
+# character stripped, not just edge whitespace - see the "else" branch's
+# plain .strip(), which wouldn't touch an internal separator.
+UPC_FIELDS = {"upc"}
 
 COLUMN_MAP = {
     "upc": "upc",
@@ -171,6 +177,8 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
                     row[db_col] = _parse_int(val) or 0
                 elif csv_col in DATE_FIELDS:
                     row[db_col] = _parse_date(val)
+                elif csv_col in UPC_FIELDS:
+                    row[db_col] = None if pd.isna(val) else (re.sub(r"\D", "", str(val)) or None)
                 else:
                     # A genuinely empty cell reads back from pandas as NaN
                     # (a float), not "" - even with keep_default_na=False,

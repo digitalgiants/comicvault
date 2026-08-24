@@ -299,6 +299,42 @@ def get_distinct_publishers(db: Session) -> list[tuple[str, int]]:
     return [(publisher, count) for publisher, count in rows]
 
 
+_UPC_SEPARATOR_RE = re.compile(r"[\s-]")
+
+
+def clean_upc(upc: str) -> Optional[str]:
+    """Cleaned version of a stored UPC if it's fixable (a space/hyphen-
+    separated 12 or 17-digit value), else None - used both by the malformed-
+    UPC report and its single-comic fix action, so they can't drift out of
+    sync on what counts as "fixable"."""
+    digits = _UPC_SEPARATOR_RE.sub("", upc.strip())
+    return digits if digits.isdigit() and len(digits) in (12, 17) else None
+
+
+def get_malformed_upc_comics(db: Session) -> list[dict]:
+    """Comics whose stored UPC isn't a clean 12 or 17-digit string - e.g. a
+    value typed/pasted/imported with a space or dash between the UPC and
+    5-digit price add-on (as GCD sometimes displays it), which a clean scan
+    or lookup will never exact-match again. See the admin UPC Issues report;
+    routes/admin.py's fix action applies `suggested_upc` via
+    bulk_merge_comic_field, same merge-safe path as everywhere else."""
+    comics = db.query(Comic).filter(Comic.upc.isnot(None)).all()
+    results = []
+    for comic in comics:
+        suggested = clean_upc(comic.upc)
+        if suggested == comic.upc:
+            continue
+        results.append({
+            "comic_id": comic.id,
+            "series": comic.series,
+            "issue_number": comic.issue_number,
+            "publisher": comic.publisher,
+            "upc": comic.upc,
+            "suggested_upc": suggested,
+        })
+    return results
+
+
 def get_distinct_comic_ids_for_user_comics(db: Session, user_id: int, uc_ids: list[int]) -> list[int]:
     """Distinct Comic ids for the given UserComic ids, scoped to user_id -
     ids that don't exist or don't belong to this user are silently dropped,

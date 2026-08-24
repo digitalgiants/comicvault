@@ -34,15 +34,24 @@ _USD_PRICE_RE = re.compile(r"(\d+\.\d{2})\s*USD", re.IGNORECASE)
 _ANY_PRICE_RE = re.compile(r"(\d+\.\d{2})")
 
 
+def _clean_barcode_digits(barcode: str) -> str:
+    """GCD sometimes separates the UPC and price-supplement groups with a
+    space or hyphen instead of concatenating them directly (e.g.
+    "070989312260 21200" rather than "07098931226021200") - stripped before
+    validating/comparing, so both forms extract/match the same UPC."""
+    return re.sub(r"[\s-]", "", barcode.strip())
+
+
 def _extract_upc(barcode: str | None) -> str | None:
     """The forward direction of find_issue_by_upc's own logic: GCD's barcode
     field stores a bare 12-digit UPC, a UPC + 5-digit price supplement (17
-    digits), an ISBN-based barcode (18 digits, "978..." prefix - not a real
-    UPC, excluded), or sometimes blank/non-numeric junk. When present, the
-    UPC is always the leading 12 digits."""
+    digits, possibly space/hyphen-separated - see _clean_barcode_digits), an
+    ISBN-based barcode (18 digits, "978..." prefix - not a real UPC,
+    excluded), or sometimes blank/non-numeric junk. When present, the UPC is
+    always the leading 12 digits."""
     if not barcode:
         return None
-    digits = barcode.strip()
+    digits = _clean_barcode_digits(barcode)
     if not digits.isdigit() or len(digits) < 12:
         return None
     if digits.startswith("978") and len(digits) == 18:
@@ -54,10 +63,11 @@ def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
     """Matches gcd_issue.barcode against a scanned 12-digit UPC.
 
     GCD's barcode field stores either a bare 12-digit UPC, or UPC + 5-digit
-    price supplement concatenated (17 digits total) - either way the UPC is
-    the leading 12 digits, so a prefix match covers both. ISBN-based barcodes
-    (18 digits, "978..." prefix) are intentionally excluded - a scanned code
-    is never 13 digits, so they'd never match a 12-digit prefix anyway.
+    price supplement, concatenated or space/hyphen-separated (see
+    _clean_barcode_digits) - either way the UPC is the leading 12 digits, so
+    a prefix match covers all of these. ISBN-based barcodes (18 digits,
+    "978..." prefix) are intentionally excluded - a scanned code is never 13
+    digits, so they'd never match a 12-digit prefix anyway.
 
     Multiple matches (e.g. shared UPCs across variant printings) prefer an
     exact-length match over a prefix match, else the lowest id, rather than
@@ -67,7 +77,7 @@ def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
     if not candidates:
         return None
     for issue in candidates:
-        if issue.barcode == upc12:
+        if _clean_barcode_digits(issue.barcode) == upc12:
             return issue
     return min(candidates, key=lambda i: i.id)
 

@@ -14,7 +14,7 @@ from app.schemas import (
     BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSearchLogOut, KioskSettingsOut,
     KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, PublisherMergeRequest, PublisherMergeResult,
     PublisherMergeSkip, PublisherMismatchOut, TradingCardCreate, TradingCardOut,
-    TradingCardUpdate, UserOut, UserUpdate,
+    TradingCardUpdate, UpcIssueOut, UserOut, UserUpdate,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -450,3 +450,29 @@ def apply_publisher_mismatches(
             else:
                 merged_comics += 1
     return PublisherMergeResult(merged_comics=merged_comics, skipped=skipped)
+
+
+@router.get("/upc-issues", response_model=list[UpcIssueOut])
+def get_upc_issues(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.get_malformed_upc_comics(db)
+
+
+@router.post("/upc-issues/{comic_id}/fix", response_model=ComicOut)
+def fix_upc_issue(
+    comic_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    comic = crud.get_comic_by_id(db, comic_id)
+    if not comic or not comic.upc:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    suggested = crud.clean_upc(comic.upc)
+    if not suggested:
+        raise HTTPException(status_code=400, detail="Can't auto-clean this UPC — edit it manually instead")
+    result, error = crud.bulk_merge_comic_field(db, comic_id, {"upc": suggested})
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return result

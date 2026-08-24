@@ -41,11 +41,20 @@ interface PublisherMergeResult {
   skipped: PublisherMergeSkip[]
 }
 
+interface UpcIssue {
+  comic_id: number
+  series: string
+  issue_number: string | null
+  publisher: string | null
+  upc: string
+  suggested_upc: string | null
+}
+
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers' | 'upc'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
@@ -150,6 +159,40 @@ export default function AdminPage() {
       setApplyError(detail || 'Failed to apply publisher merges.')
     } finally {
       setApplying(false)
+    }
+  }
+
+  const [upcIssues, setUpcIssues] = useState<UpcIssue[]>([])
+  const [upcIssuesLoading, setUpcIssuesLoading] = useState(true)
+  const [upcIssuesError, setUpcIssuesError] = useState('')
+  const [fixingUpcId, setFixingUpcId] = useState<number | null>(null)
+  const [upcFixErrors, setUpcFixErrors] = useState<Record<number, string>>({})
+
+  const loadUpcIssues = () => {
+    setUpcIssuesLoading(true)
+    setUpcIssuesError('')
+    api.get<UpcIssue[]>('/admin/upc-issues')
+      .then(r => setUpcIssues(r.data))
+      .catch((e: unknown) => {
+        const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+        setUpcIssuesError(detail || 'Failed to load UPC report.')
+      })
+      .finally(() => setUpcIssuesLoading(false))
+  }
+
+  useEffect(() => { loadUpcIssues() }, [])
+
+  const fixUpcIssue = async (comicId: number) => {
+    setFixingUpcId(comicId)
+    setUpcFixErrors(prev => { const next = { ...prev }; delete next[comicId]; return next })
+    try {
+      await api.post(`/admin/upc-issues/${comicId}/fix`)
+      setUpcIssues(prev => prev.filter(i => i.comic_id !== comicId))
+    } catch (e: unknown) {
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+      setUpcFixErrors(prev => ({ ...prev, [comicId]: detail || 'Failed to fix this UPC.' }))
+    } finally {
+      setFixingUpcId(null)
     }
   }
 
@@ -330,13 +373,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}`}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}` : `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -842,6 +885,74 @@ export default function AdminPage() {
                 </div>
               )}
             </>
+          )}
+        </div>
+      )}
+
+      {tab === 'upc' && (
+        <div>
+          <p className="text-sm text-gray-400 mb-4">
+            Comics whose stored UPC isn't a clean 12 or 17-digit number — usually a space or dash typed/pasted between the UPC and 5-digit price add-on (GCD sometimes displays it that way). A malformed UPC will never match a clean scan again. Fixing merges into a matching catalog entry if one already exists, same as everywhere else.
+          </p>
+
+          {upcIssuesLoading ? (
+            <div className="text-center text-gray-500 py-12">Loading…</div>
+          ) : upcIssuesError ? (
+            <div className="text-center py-12">
+              <p className="text-red-400">{upcIssuesError}</p>
+              <button
+                onClick={loadUpcIssues}
+                className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+              >
+                Retry
+              </button>
+            </div>
+          ) : upcIssues.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No malformed UPCs found.</div>
+          ) : (
+            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Comic</th>
+                    <th className="px-4 py-3 text-left">Stored UPC</th>
+                    <th className="px-4 py-3 text-left">Cleaned</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {upcIssues.map(i => (
+                    <tr key={i.comic_id} className="hover:bg-gray-800/50 transition">
+                      <td className="px-4 py-3 text-gray-300">
+                        {i.series}{i.issue_number ? ` #${i.issue_number}` : ''}
+                        {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 font-mono">{i.upc}</td>
+                      <td className="px-4 py-3 font-mono">
+                        {i.suggested_upc ? (
+                          <span className="text-gray-300">{i.suggested_upc}</span>
+                        ) : (
+                          <span className="text-amber-400">not auto-fixable</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => fixUpcIssue(i.comic_id)}
+                          disabled={!i.suggested_upc || fixingUpcId === i.comic_id}
+                          title={i.suggested_upc ? 'Fix' : 'Edit this comic manually instead'}
+                          className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
+                        >
+                          {fixingUpcId === i.comic_id ? 'Fixing…' : 'Fix'}
+                        </button>
+                        {upcFixErrors[i.comic_id] && (
+                          <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

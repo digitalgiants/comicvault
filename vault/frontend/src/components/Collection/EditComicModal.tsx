@@ -92,7 +92,12 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
       let comic = updated.comic
       const metadataUpdates: { upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null } = {}
-      const trimmedUpc = upcValue.trim() || null
+      // Strips every non-digit character, not just leading/trailing
+      // whitespace - a UPC pasted/typed with a space or dash between the
+      // 12-digit code and 5-digit price add-on (as GCD sometimes displays
+      // it) would otherwise save as a malformed value that never matches a
+      // clean scan again.
+      const trimmedUpc = upcValue.replace(/\D/g, '') || null
       const trimmedCoverArtist = coverArtistValue.trim() || null
       const trimmedCoverLetter = coverLetterValue.trim() || null
       const trimmedVolume = volumeValue.trim() || null

@@ -230,6 +230,18 @@ class PublisherMergeResult(BaseModel):
     skipped: list[PublisherMergeSkip]
 
 
+# --- Admin: malformed-UPC report (see app.gcd_lookup._clean_barcode_digits
+# and app.crud.get_malformed_upc_comics) ---
+
+class UpcIssueOut(BaseModel):
+    comic_id: int
+    series: str
+    issue_number: Optional[str] = None
+    publisher: Optional[str] = None
+    upc: str
+    suggested_upc: Optional[str] = None
+
+
 # --- Collection: bulk-edit publisher for a user's own selected comics
 # (see CollectionPage.tsx's BulkEditModal) - scoped to one user's selection,
 # as opposed to the admin report above which sweeps the whole catalog. ---
