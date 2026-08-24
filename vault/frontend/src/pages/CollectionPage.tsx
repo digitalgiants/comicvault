@@ -32,7 +32,7 @@ export default function CollectionPage() {
   const [editing, setEditing] = useState<UserComic | null>(null)
   const [selling, setSelling] = useState<UserComic | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
-  const [findingImage, setFindingImage] = useState<UserComic | null>(null)
+  const [findingImage, setFindingImage] = useState<{ comicId: number; series: string; issueNumber: string | null } | null>(null)
   const [bulkFindingImages, setBulkFindingImages] = useState(false)
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
@@ -236,6 +236,10 @@ export default function CollectionPage() {
     // Matches on comic.id, not the row's uc.id - the catalog image is shared,
     // so every row referencing this same comic should pick up the change.
     setItems(prev => prev.map(i => i.comic.id === comic.id ? { ...i, comic } : i))
+    // Also refresh the series-card thumbnail if this comic is a group's
+    // representative cover - the grouped view never loads `items`, so it
+    // wouldn't otherwise see the new image until the next fetchGroups().
+    setSeriesGroups(prev => prev.map(g => g.cover_comic_id === comic.id ? { ...g, cover_img: comic.master_photo || comic.img } : g))
     setFindingImage(null)
   }
 
@@ -383,31 +387,43 @@ export default function CollectionPage() {
           ) : (
             <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {seriesGroups.map(g => (
-                <button
+                <div
                   key={`${g.series}|${g.publisher ?? ''}`}
-                  type="button"
-                  onClick={() => handleSeriesClick(g)}
-                  className="bg-gray-900 border border-gray-800 hover:border-brand-500 rounded-xl overflow-hidden flex flex-col text-left transition"
+                  className="group relative bg-gray-900 border border-gray-800 hover:border-brand-500 rounded-xl overflow-hidden flex flex-col transition"
                 >
-                  {g.cover_img ? (
-                    <img
-                      src={resolveImageUrl(g.cover_img) ?? undefined}
-                      alt=""
-                      className="w-full aspect-[2/3] object-cover"
-                    />
-                  ) : (
-                    <div className="w-full aspect-[2/3] bg-gray-800 flex items-center justify-center text-gray-600 text-xs text-center px-2">
-                      No Cover
+                  <button
+                    type="button"
+                    onClick={() => handleSeriesClick(g)}
+                    className="flex flex-col text-left flex-1"
+                  >
+                    {g.cover_img ? (
+                      <img
+                        src={resolveImageUrl(g.cover_img) ?? undefined}
+                        alt=""
+                        className="w-full aspect-[2/3] object-cover"
+                      />
+                    ) : (
+                      <div className="w-full aspect-[2/3] bg-gray-800 flex items-center justify-center text-gray-600 text-xs text-center px-2">
+                        No Cover
+                      </div>
+                    )}
+                    <div className="p-2.5">
+                      <p className="font-medium text-white text-sm leading-snug line-clamp-2">{g.series}</p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">{g.publisher ?? '—'}</p>
+                      <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 mt-1.5">
+                        {g.issue_count} issue{g.issue_count === 1 ? '' : 's'}
+                      </span>
                     </div>
-                  )}
-                  <div className="p-2.5">
-                    <p className="font-medium text-white text-sm leading-snug line-clamp-2">{g.series}</p>
-                    <p className="text-xs text-gray-400 truncate mt-0.5">{g.publisher ?? '—'}</p>
-                    <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 mt-1.5">
-                      {g.issue_count} issue{g.issue_count === 1 ? '' : 's'}
-                    </span>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFindingImage({ comicId: g.cover_comic_id, series: g.series, issueNumber: g.cover_issue_number })}
+                    title="Find Image"
+                    className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-gray-950/80 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-gray-900 transition"
+                  >
+                    <ImageIcon size={14} />
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -483,7 +499,7 @@ export default function CollectionPage() {
                       )}
                     </div>
                     <div className="flex items-center justify-end gap-0.5 mt-auto pt-2 -mr-1">
-                      <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                      <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
                         <ImageIcon size={14} />
                       </button>
                       {!isCollector && (
@@ -570,7 +586,7 @@ export default function CollectionPage() {
                     ))}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setFindingImage(uc)} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                        <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <ImageIcon size={14} />
                         </button>
                         {!isCollector && (
@@ -667,7 +683,9 @@ export default function CollectionPage() {
       {bulkOpen && <BulkEditModal selected={selectedItems} onClose={() => setBulkOpen(false)} onSaved={() => { setBulkOpen(false); setSelected(new Set()); fetchCollection() }} />}
       {findingImage && (
         <FindImageModal
-          item={findingImage}
+          comicId={findingImage.comicId}
+          series={findingImage.series}
+          issueNumber={findingImage.issueNumber}
           onClose={() => setFindingImage(null)}
           onSaved={handleImageSaved}
         />

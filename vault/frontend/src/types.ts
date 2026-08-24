@@ -61,6 +61,8 @@ export interface SeriesGroup {
   publisher: string | null
   issue_count: number
   cover_img: string | null
+  cover_comic_id: number
+  cover_issue_number: string | null
 }
 
 export function availableCopies(uc: UserComic): number {

@@ -3,32 +3,34 @@ import { X, BookOpen } from 'lucide-react'
 import { getImageCandidates, rejectCoverImage } from '../../api/search'
 import { updateComicMetadata } from '../../api/collection'
 import ImageCandidateGrid from './ImageCandidateGrid'
-import type { Comic, ImageCandidate, UserComic } from '../../types'
+import type { Comic, ImageCandidate } from '../../types'
 
 interface Props {
-  item: UserComic
+  comicId: number
+  series: string
+  issueNumber: string | null
   onClose: () => void
   onSaved: (comic: Comic) => void
 }
 
-export default function FindImageModal({ item, onClose, onSaved }: Props) {
+export default function FindImageModal({ comicId, series, issueNumber, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(true)
   const [candidates, setCandidates] = useState<ImageCandidate[]>([])
   const [applying, setApplying] = useState<string | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    getImageCandidates({ comicId: item.comic.id })
+    getImageCandidates({ comicId })
       .then(setCandidates)
       .catch(() => setError('Failed to search for images. Please try again.'))
       .finally(() => setLoading(false))
-  }, [item.comic.id])
+  }, [comicId])
 
   const pick = async (candidate: ImageCandidate) => {
     setApplying(candidate.image)
     setError('')
     try {
-      const updated = await updateComicMetadata(item.comic.id, { img: candidate.image })
+      const updated = await updateComicMetadata(comicId, { img: candidate.image })
       onSaved(updated)
     } catch {
       setError('Failed to set image. Please try again.')
@@ -39,7 +41,7 @@ export default function FindImageModal({ item, onClose, onSaved }: Props) {
   const reject = async (candidate: ImageCandidate) => {
     setCandidates(prev => prev.filter(c => c.image !== candidate.image))
     try {
-      await rejectCoverImage(item.comic.id, candidate.image)
+      await rejectCoverImage(comicId, candidate.image)
     } catch {
       setError('Failed to reject image. It may still show up in future searches.')
     }
@@ -52,7 +54,7 @@ export default function FindImageModal({ item, onClose, onSaved }: Props) {
           <div>
             <h2 className="font-semibold text-lg">Find Image</h2>
             <p className="text-gray-400 text-sm">
-              {item.comic.series}{item.comic.issue_number ? ` #${item.comic.issue_number}` : ''}
+              {series}{issueNumber ? ` #${issueNumber}` : ''}
             </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition">

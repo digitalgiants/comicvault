@@ -538,6 +538,8 @@ def get_user_collection_series_groups(
                 "publisher": uc.comic.publisher,
                 "issue_count": 0,
                 "cover_img": uc.comic.master_photo or uc.comic.img,
+                "cover_comic_id": uc.comic.id,
+                "cover_issue_number": uc.comic.issue_number,
             }
             groups[key] = group
         group["issue_count"] += 1

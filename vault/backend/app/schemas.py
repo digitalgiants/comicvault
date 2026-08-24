@@ -201,6 +201,8 @@ class SeriesGroupOut(BaseModel):
     publisher: Optional[str] = None
     issue_count: int
     cover_img: Optional[str] = None
+    cover_comic_id: int
+    cover_issue_number: Optional[str] = None
 
 
 # --- Admin: publisher naming-consistency report (see app.gcd_lookup) ---
