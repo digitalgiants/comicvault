@@ -137,6 +137,16 @@ export default function CollectionPage() {
     }
   }
 
+  // Clears every search filter, which flips groupedView back to true (it's
+  // derived straight off these, see above) and re-fetches series groups.
+  const backToSeries = () => {
+    setSearch('')
+    setIssueFilter('')
+    setPublisherFilter('')
+    setWriterFilter('')
+    setGroupsPage(1)
+  }
+
   // Single-issue series skip the drill-down table entirely (same shortcut
   // as tapping a mobile card) - fetch that one book and open Edit directly.
   // Falls back to a normal drill-down if the quick-fetch fails for any reason.
@@ -303,6 +313,15 @@ export default function CollectionPage() {
           </div>
         ) : (
           <>
+            {!groupedView && (
+              <button
+                type="button"
+                onClick={backToSeries}
+                className="hidden sm:flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-3"
+              >
+                <ChevronLeft size={16} /> Back to Series
+              </button>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 mb-3">
               <div className="relative flex-1">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
