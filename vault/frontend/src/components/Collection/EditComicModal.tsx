@@ -270,7 +270,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
 
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-4">Your Details</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {visibleEditableFields(isCollector).map(({ key, label, type }) => (
+            {visibleEditableFields(isCollector).map(({ key, label, type, options }) => (
               <div key={key} className={type === 'textarea' ? 'sm:col-span-2' : ''}>
                 <label className="block text-sm text-gray-400 mb-1">{label}</label>
                 {type === 'checkbox' ? (
@@ -290,6 +290,18 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                     rows={3}
                     className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
                   />
+                ) : type === 'select' ? (
+                  <select
+                    value={String(form[key] ?? '')}
+                    onChange={e => handleChange(key, e.target.value)}
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">—</option>
+                    {Boolean(form[key]) && !options?.includes(String(form[key])) && (
+                      <option value={String(form[key])}>{String(form[key])}</option>
+                    )}
+                    {options?.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
                 ) : (
                   <input
                     type={type}

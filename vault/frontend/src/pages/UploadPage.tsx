@@ -3,7 +3,7 @@ import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import BugReportButton from '../components/BugReportButton'
 import { useDropzone } from 'react-dropzone'
-import { Upload, CheckCircle, XCircle, FileText, HelpCircle, GitCompare, Search, Check, X } from 'lucide-react'
+import { Upload, CheckCircle, XCircle, FileText, HelpCircle, GitCompare, Search, Check, X, Download, ChevronDown } from 'lucide-react'
 import api from '../api/client'
 import { fetchCsvConflicts, acceptCsvConflict, rejectCsvConflict } from '../api/uploads'
 import { COLLECTION_COLUMNS, type CsvImportConflict } from '../types'
@@ -27,6 +27,57 @@ const FIELD_LABELS: Record<string, string> = Object.fromEntries(
 )
 const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key
 
+// Single source of truth for both the downloadable template's header row
+// and the on-page Column Guide below - keeps the two from drifting apart.
+// Headers are matched case-insensitively with spaces/underscores stripped
+// (see csv_parser.py's _normalize_headers), so these can be readable
+// Title Case without breaking the actual import.
+const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolean }[] = [
+  { header: 'Series', description: 'Required — every other column is optional.', required: true },
+  { header: 'Issue Number', description: '' },
+  { header: 'Volume', description: '' },
+  { header: 'Publisher', description: '' },
+  { header: 'Variant', description: '' },
+  { header: 'Cover Letter', description: 'e.g. "A", "B"' },
+  { header: 'Legacy Number', description: '' },
+  { header: 'Print Run', description: '' },
+  { header: 'UPC', description: '' },
+  { header: 'Cover Date', description: 'YYYY-MM-DD' },
+  { header: 'Store Date', description: 'YYYY-MM-DD' },
+  { header: 'Newsstand', description: 'TRUE or FALSE' },
+  { header: 'Writer', description: '' },
+  { header: 'Penciller', description: '' },
+  { header: 'Inker', description: '' },
+  { header: 'Cover Artist', description: '' },
+  { header: 'Average Price', description: '' },
+  { header: 'Cover Image URL', description: '' },
+  { header: 'Count', description: 'Defaults to 1' },
+  { header: 'Condition', description: 'Standard CGC grade, e.g. "9.4 NM" (10 Gem Mint down to 0.5 Poor)' },
+  { header: 'Paid Price', description: '' },
+  { header: 'Asking Price', description: '' },
+  { header: 'Point of Purchase', description: '' },
+  { header: 'Buy Date', description: 'YYYY-MM-DD' },
+  { header: 'Signed', description: 'TRUE or FALSE' },
+  { header: 'Remarked', description: 'TRUE or FALSE' },
+  { header: 'Notes', description: '' },
+  { header: 'Do Not Sell', description: 'TRUE or FALSE' },
+  { header: 'Reserve Count', description: 'Defaults to 0' },
+  { header: 'Sell Price', description: 'If set, immediately records the copy as sold' },
+  { header: 'Sell Date', description: 'Defaults to today if Sell Price is set but this is blank' },
+]
+
+const downloadCsvTemplate = () => {
+  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
+  const csv = TEMPLATE_COLUMNS.map(c => escape(c.header)).join(',')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'comicvault-import-template.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function UploadPage() {
   const navigate = useNavigate()
   const [result, setResult] = useState<ImportResult | null>(null)
@@ -37,6 +88,7 @@ export default function UploadPage() {
   const [conflictsLoading, setConflictsLoading] = useState(true)
   const [resolvingId, setResolvingId] = useState<number | null>(null)
   const [conflictErrors, setConflictErrors] = useState<Record<number, string>>({})
+  const [showColumnGuide, setShowColumnGuide] = useState(false)
 
   const loadConflicts = useCallback(() => {
     setConflictsLoading(true)
@@ -103,9 +155,56 @@ export default function UploadPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-2">Upload Collection</h1>
-      <p className="text-gray-400 mb-8">
+      <p className="text-gray-400 mb-6">
         Import your comics from a CSV file. Headers must match the standard column names.
       </p>
+
+      <div className="mb-8 bg-gray-900 rounded-2xl border border-gray-800 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-medium text-gray-200">Not sure what columns to use?</p>
+            <p className="text-sm text-gray-500 mt-0.5">Download a template with the correct headers, ready to fill in.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={downloadCsvTemplate}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
+            >
+              <Download size={15} /> Download CSV Template
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowColumnGuide(v => !v)}
+              className="flex items-center gap-1 px-3 py-2 text-sm text-gray-400 hover:text-white border border-gray-700 hover:border-gray-500 rounded-lg transition"
+            >
+              {showColumnGuide ? 'Hide' : 'Show'} Column Guide
+              <ChevronDown size={14} className={`transition-transform ${showColumnGuide ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+        </div>
+        {showColumnGuide && (
+          <div className="mt-4 pt-4 border-t border-gray-800 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="text-left pb-2 pr-4">Column</th>
+                  <th className="text-left pb-2">Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {TEMPLATE_COLUMNS.map(c => (
+                  <tr key={c.header}>
+                    <td className="py-1.5 pr-4 text-gray-300 whitespace-nowrap">
+                      {c.header}{c.required && <span className="text-brand-400 ml-1">*</span>}
+                    </td>
+                    <td className="py-1.5 text-gray-500">{c.description || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div
         {...getRootProps()}

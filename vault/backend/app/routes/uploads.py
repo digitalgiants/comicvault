@@ -130,6 +130,7 @@ async def upload_csv(
                 buy_date=row.get("buy_date"),
                 signed=row.get("signed") or False,
                 remarked=row.get("remarked") or False,
+                condition=row.get("condition"),
                 notes=row.get("notes"),
                 do_not_sell=row.get("do_not_sell") or False,
                 reserve_count=row.get("reserve_count") or 0,

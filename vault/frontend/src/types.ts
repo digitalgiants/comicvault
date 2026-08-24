@@ -169,7 +169,15 @@ export type UserComicUpdate = {
   reserve_count?: number | null
 }
 
-export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string }[] = [
+// Standard CGC universal comic grading scale (0.5-10.0).
+export const CONDITION_OPTIONS = [
+  '10 Gem Mint', '9.9 Mint', '9.8 NM/M', '9.6 NM+', '9.4 NM', '9.2 NM-',
+  '9.0 VF/NM', '8.5 VF+', '8.0 VF', '7.5 VF-', '7.0 FN/VF', '6.5 FN+',
+  '6.0 FN', '5.5 FN-', '5.0 VG/FN', '4.5 VG+', '4.0 VG', '3.5 VG-',
+  '3.0 G/VG', '2.5 G+', '2.0 G', '1.8 G-', '1.5 Fa/G', '1.0 Fa', '0.5 Poor',
+]
+
+export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: string; options?: string[] }[] = [
   { key: 'count', label: 'Count', type: 'number' },
   { key: 'paid_price', label: 'Paid Price ($)', type: 'number' },
   { key: 'asking_price', label: 'Asking Price ($)', type: 'number' },
@@ -177,7 +185,7 @@ export const EDITABLE_FIELDS: { key: keyof UserComic; label: string; type: strin
   { key: 'buy_date', label: 'Buy Date', type: 'date' },
   { key: 'signed', label: 'Signed', type: 'checkbox' },
   { key: 'remarked', label: 'Remarked', type: 'checkbox' },
-  { key: 'condition', label: 'Condition', type: 'text' },
+  { key: 'condition', label: 'Condition', type: 'select', options: CONDITION_OPTIONS },
   { key: 'notes', label: 'Notes', type: 'textarea' },
   { key: 'do_not_sell', label: 'Do Not Sell', type: 'checkbox' },
   { key: 'reserve_count', label: 'Reserve Count (keep back from sale)', type: 'number' },

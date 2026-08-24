@@ -40,6 +40,7 @@ COLUMN_MAP = {
     "selldate": "sell_date",
     "signed": "signed",
     "remarked": "remarked",
+    "condition": "condition",
     "notes": "notes",
     "donotsell": "do_not_sell",
     "reservecount": "reserve_count",
