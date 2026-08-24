@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-REQUIRED_COLUMNS = {"series"}
+REQUIRED_COLUMNS = {"series", "issuenumber"}
 
 BOOLEAN_FIELDS = {"newstand", "signed", "remarked", "donotsell"}
 FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice", "askingprice"}
@@ -152,7 +152,10 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
     for idx, raw_row in df.iterrows():
         row_num = idx + header_row + 2  # 1-based + header (header may not be on line 1, see _sniff_delimiter_and_header)
         row = {"_row_num": row_num}
-        comic_label = f"{raw_row.get('series', '')} #{raw_row.get('issuenumber', '')}"
+        # A blank cell reads back as NaN (float), not "" - guard so a blank
+        # series/issue number shows as "" in error labels rather than "nan".
+        series_val, issue_val = raw_row.get("series"), raw_row.get("issuenumber")
+        comic_label = f"{series_val if pd.notna(series_val) else ''} #{issue_val if pd.notna(issue_val) else ''}"
 
         try:
             for csv_col, db_col in COLUMN_MAP.items():
@@ -181,6 +184,9 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
 
             if not row.get("series"):
                 errors.append({"row": row_num, "comic": comic_label, "error": "Missing required field: series"})
+                continue
+            if not row.get("issue_number"):
+                errors.append({"row": row_num, "comic": comic_label, "error": "Missing required field: issue number"})
                 continue
 
             rows.append(row)

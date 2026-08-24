@@ -33,8 +33,8 @@ const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key
 // (see csv_parser.py's _normalize_headers), so these can be readable
 // Title Case without breaking the actual import.
 const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolean }[] = [
-  { header: 'Series', description: 'Required — every other column is optional.', required: true },
-  { header: 'Issue Number', description: '' },
+  { header: 'Series', description: 'Required.', required: true },
+  { header: 'Issue Number', description: 'Required.', required: true },
   { header: 'Volume', description: '' },
   { header: 'Publisher', description: '' },
   { header: 'Variant', description: '' },
@@ -156,7 +156,7 @@ export default function UploadPage() {
     <div className="max-w-3xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-2">Upload Collection</h1>
       <p className="text-gray-400 mb-6">
-        Import your comics from a CSV file. Headers must match the standard column names.
+        Import your comics from a CSV file. Series and Issue Number are the only required fields.
       </p>
 
       <div className="mb-8 bg-gray-900 rounded-2xl border border-gray-800 p-5">
@@ -368,24 +368,7 @@ export default function UploadPage() {
       <BugReportButton />
 
       <div className="mt-8 bg-gray-900 rounded-xl p-5 border border-gray-800">
-        <h3 className="font-medium text-gray-300 mb-3">Expected CSV Columns</h3>
-        <div className="flex flex-wrap gap-2">
-          {[
-            'upc','img','series','volume','issueNumber','legacyNumber','coverDate','storeDate','Newstand',
-            'publisher','count','printRun','variant','coverLetter','coverArtist','penciller',
-            'inker','writer','averagePrice','paidPrice','askingPrice','pointOfPurchase','buyDate',
-            'sellPrice','sellDate','signed','remarked','notes','doNotSell','reserveCount'
-          ].map((col) => (
-            <span
-              key={col}
-              className={`text-xs px-2 py-1 rounded font-mono ${col === 'series' ? 'bg-brand-500/30 text-brand-400 border border-brand-500/50' : 'bg-gray-800 text-gray-400'}`}
-            >
-              {col}
-            </span>
-          ))}
-        </div>
-        <p className="text-xs text-gray-500 mt-3">Only <span className="text-brand-400 font-mono">series</span> is required. All other columns are optional.</p>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-xs text-gray-500">
           New comics with a UPC or an exact series+issue match in GCD get blank fields filled in automatically. Fields where GCD disagrees with your CSV show up above for review, never applied automatically.
         </p>
       </div>
