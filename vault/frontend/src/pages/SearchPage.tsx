@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, BookOpen, RotateCcw, Search as SearchIcon, X } from 'lucide-react'
 import BugReportButton from '../components/BugReportButton'
 import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
-import type { ExternalIssueSummary, ExternalSeriesResult, ScanComicFields } from '../types'
+import { lookupBarcode } from '../api/scan'
+import { lookupResultToComicFields, type ExternalIssueSummary, type ExternalSeriesResult, type ScanComicFields } from '../types'
 import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
 
 const PROVIDER_LABEL: Record<string, string> = { metron: 'Metron', comicvine: 'ComicVine', gcd: 'GCD' }
@@ -38,12 +39,55 @@ export default function SearchPage() {
 
   const [fields, setFields] = useState<ScanComicFields | null>(null)
   const [detailLoading, setDetailLoading] = useState<string | null>(null)
+  const [upcNotFound, setUpcNotFound] = useState(false)
 
   const requestId = useRef(0)
+
+  // A UPC-shaped query (12 or 17 digits, an optional space/dash separator -
+  // same digit-only extraction ScanInput.tsx uses) means the user is trying
+  // to look up one specific book by barcode, not search by series title -
+  // route it through the same UPC lookup the Scan page uses instead of a
+  // fuzzy series-name search, which would never match a number against a
+  // title (see the "No results found" bug this was reported as).
+  const runUpcLookup = async (digits: string) => {
+    const upc12 = digits.slice(0, 12)
+    const ean5 = digits.length === 17 ? digits.slice(12) : null
+    const id = ++requestId.current
+    setSearching(true)
+    setHasSearched(true)
+    setSearchedWithNumber(false)
+    setIssueMatches([])
+    setNoIssueAnywhere(false)
+    setBrowseAllOverride(false)
+    setHasMore(false)
+    setResults([])
+    setWarnings([])
+    setUpcNotFound(false)
+    try {
+      const result = await lookupBarcode(upc12, ean5)
+      if (id !== requestId.current) return
+      if (result) {
+        setFields(lookupResultToComicFields(result, upc12, ean5))
+      } else {
+        setUpcNotFound(true)
+      }
+    } catch {
+      if (id !== requestId.current) return
+      setWarnings(['UPC lookup failed. Please try again.'])
+    } finally {
+      if (id === requestId.current) setSearching(false)
+    }
+  }
 
   const runSearch = (queryOverride?: string, issueOverride?: string) => {
     const trimmed = (queryOverride ?? query).trim()
     if (trimmed.length < 2) return
+
+    const digits = trimmed.replace(/\D/g, '')
+    if (digits.length === 12 || digits.length === 17) {
+      runUpcLookup(digits)
+      return
+    }
 
     const trimmedNumber = (issueOverride ?? issueNumber).trim()
     const id = ++requestId.current
@@ -54,6 +98,7 @@ export default function SearchPage() {
     setNoIssueAnywhere(false)
     setBrowseAllOverride(false)
     setHasMore(false)
+    setUpcNotFound(false)
     searchSeries(trimmed)
       .then(async (data) => {
         if (id !== requestId.current) return
@@ -226,6 +271,7 @@ export default function SearchPage() {
     setBrowseAllOverride(false)
     setFields(null)
     setDetailLoading(null)
+    setUpcNotFound(false)
   }
 
   return (
@@ -243,7 +289,8 @@ export default function SearchPage() {
       </div>
       <p className="text-gray-400 mb-8">
         Search Metron and ComicVine by series title, then drill down to find and add an issue —
-        useful for older books where UPC lookup doesn't work.
+        useful for older books where UPC lookup doesn't work. You can also paste/type a UPC
+        (12 or 17 digits) directly into the search box for a direct barcode lookup.
       </p>
 
       {selectedSeries ? (
@@ -316,7 +363,7 @@ export default function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-                placeholder="Search by series title…"
+                placeholder="Search by series title, or paste a UPC…"
                 className="w-full bg-gray-900 border border-gray-700 rounded-xl pl-11 pr-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
@@ -355,6 +402,10 @@ export default function SearchPage() {
             <p className="text-gray-400">Searching…</p>
           ) : huntingForIssue ? (
             <p className="text-gray-400">Looking for issue #{issueNumber.trim()}…</p>
+          ) : upcNotFound ? (
+            <p className="text-gray-500 italic">
+              No comic found for that UPC in GCD or Metron. It may just not be cataloged yet — try searching by series title instead.
+            </p>
           ) : searchedWithNumber && !browseAllOverride && noIssueAnywhere ? (
             <div>
               <p className="text-gray-500 italic mb-3">
