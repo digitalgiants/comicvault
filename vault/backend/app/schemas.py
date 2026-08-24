@@ -194,6 +194,13 @@ class UserComicOut(UserComicBase):
         from_attributes = True
 
 
+class SeriesGroupOut(BaseModel):
+    series: str
+    publisher: Optional[str] = None
+    issue_count: int
+    cover_img: Optional[str] = None
+
+
 # --- Scan (barcode lookup) ---
 
 class ScanAddRequest(BaseModel):

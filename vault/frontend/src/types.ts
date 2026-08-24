@@ -56,6 +56,13 @@ export interface UserComic {
   sales: Sale[]
 }
 
+export interface SeriesGroup {
+  series: string
+  publisher: string | null
+  issue_count: number
+  cover_img: string | null
+}
+
 export function availableCopies(uc: UserComic): number {
   return Math.max((uc.count ?? 1) - (uc.sales?.length ?? 0) - (uc.reserve_count ?? 0), 0)
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, X } from 'lucide-react'
-import { getCollection, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
+import { getCollection, getCollectionSeriesGroups, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
-import { availableCopies, coverImage, latestSalePrice, type Comic, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
+import { availableCopies, coverImage, latestSalePrice, type Comic, type SeriesGroup, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
@@ -13,6 +13,7 @@ import BugReportButton from '../components/BugReportButton'
 import RecordSaleModal from '../components/Collection/RecordSaleModal'
 
 const PAGE_SIZE = 200
+const GROUP_PAGE_SIZE = 60
 
 export default function CollectionPage() {
   const { user } = useAuth()
@@ -37,6 +38,39 @@ export default function CollectionPage() {
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
+  // Desktop browses the collection grouped by series (cards, drill in for a
+  // per-series table); mobile always shows the flat item-card grid built
+  // earlier, regardless of this. isDesktop tracks Tailwind's `sm` breakpoint
+  // (640px) so data-fetching only ever requests what the current viewport
+  // actually renders, instead of fetching both on every load.
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 640px)').matches)
+  const [drilledSeries, setDrilledSeries] = useState<{ series: string; publisher: string | null } | null>(null)
+  const [seriesGroups, setSeriesGroups] = useState<SeriesGroup[]>([])
+  const [groupsTotal, setGroupsTotal] = useState(0)
+  const [groupsPage, setGroupsPage] = useState(1)
+  const [groupsLoading, setGroupsLoading] = useState(true)
+  const [groupsError, setGroupsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  // Series drill-down only exists as a desktop concept (no UI sets it on
+  // mobile) - if a drilled-in desktop window gets resized down, fall back
+  // to mobile's normal unscoped browsing instead of leaving it stuck
+  // showing just that one series.
+  useEffect(() => {
+    if (!isDesktop) setDrilledSeries(null)
+  }, [isDesktop])
+
+  // No issue-number search and no series drilled into = the desktop
+  // landing view (series cards). Always false on mobile, which never
+  // shows the grouped view.
+  const groupedView = isDesktop && !issueFilter && !drilledSeries
+
   useEffect(() => {
     getColumnPrefs('collection').then(p => setVisibility(p.columns))
   }, [])
@@ -49,10 +83,16 @@ export default function CollectionPage() {
         skip: (page - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
       }
-      if (search) params.series = search
-      if (issueFilter) params.issue_number = issueFilter
-      if (publisherFilter) params.publisher = publisherFilter
-      if (writerFilter) params.writer = writerFilter
+      if (drilledSeries) {
+        params.series_exact = drilledSeries.series
+        if (drilledSeries.publisher) params.publisher_exact = drilledSeries.publisher
+        else params.no_publisher = 'true'
+      } else {
+        if (search) params.series = search
+        if (issueFilter) params.issue_number = issueFilter
+        if (publisherFilter) params.publisher = publisherFilter
+        if (writerFilter) params.writer = writerFilter
+      }
       const { items, total } = await getCollection(params)
       setItems(items)
       setTotal(total)
@@ -61,16 +101,67 @@ export default function CollectionPage() {
     } finally {
       setLoading(false)
     }
-  }, [search, issueFilter, publisherFilter, writerFilter, page])
+  }, [search, issueFilter, publisherFilter, writerFilter, page, drilledSeries])
 
-  useEffect(() => { fetchCollection() }, [page])
+  const fetchGroups = useCallback(async () => {
+    setGroupsLoading(true)
+    setGroupsError(null)
+    try {
+      const params: Record<string, string | number> = {
+        skip: (groupsPage - 1) * GROUP_PAGE_SIZE,
+        limit: GROUP_PAGE_SIZE,
+      }
+      if (search) params.series = search
+      if (publisherFilter) params.publisher = publisherFilter
+      if (writerFilter) params.writer = writerFilter
+      const { items, total } = await getCollectionSeriesGroups(params)
+      setSeriesGroups(items)
+      setGroupsTotal(total)
+    } catch {
+      setGroupsError('Failed to load your series. Your comics are safe — this is a loading error, please try again.')
+    } finally {
+      setGroupsLoading(false)
+    }
+  }, [search, publisherFilter, writerFilter, groupsPage])
+
+  useEffect(() => { if (!groupedView) fetchCollection() }, [page, drilledSeries, groupedView])
+  useEffect(() => { if (groupedView) fetchGroups() }, [groupsPage, groupedView])
 
   const runSearch = () => {
-    if (page === 1) fetchCollection()
-    else setPage(1)
+    if (groupedView) {
+      if (groupsPage === 1) fetchGroups()
+      else setGroupsPage(1)
+    } else {
+      if (page === 1) fetchCollection()
+      else setPage(1)
+    }
+  }
+
+  // Single-issue series skip the drill-down table entirely (same shortcut
+  // as tapping a mobile card) - fetch that one book and open Edit directly.
+  // Falls back to a normal drill-down if the quick-fetch fails for any reason.
+  const handleSeriesClick = async (g: SeriesGroup) => {
+    if (g.issue_count === 1) {
+      try {
+        const params: Record<string, string | number> = { series_exact: g.series, limit: 1 }
+        if (g.publisher) params.publisher_exact = g.publisher
+        else params.no_publisher = 'true'
+        const { items: single } = await getCollection(params)
+        if (single.length === 1) {
+          setEditing(single[0])
+          setActiveComic(single[0])
+          return
+        }
+      } catch {
+        // fall through to the normal drill-down below
+      }
+    }
+    setDrilledSeries({ series: g.series, publisher: g.publisher })
+    setPage(1)
   }
 
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const groupsPageCount = Math.max(1, Math.ceil(groupsTotal / GROUP_PAGE_SIZE))
 
   const columns = visibleCollectionColumns(isCollector)
   const visibleCols = columns.filter(c => visibility[c.key] !== false)
@@ -187,50 +278,122 @@ export default function CollectionPage() {
                 </button>
               </>
             )}
-            <div className="hidden sm:block">
-              <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
+            {!groupedView && (
+              <div className="hidden sm:block">
+                <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {drilledSeries ? (
+          <div className="hidden sm:flex items-center gap-3 mb-6">
+            <button
+              type="button"
+              onClick={() => { setDrilledSeries(null); setGroupsPage(1) }}
+              className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition flex-shrink-0"
+            >
+              <ChevronLeft size={16} /> Back to Series
+            </button>
+            <span className="text-gray-700">/</span>
+            <h2 className="text-lg font-semibold text-white truncate">
+              {drilledSeries.series}
+              {drilledSeries.publisher && <span className="text-gray-400 font-normal"> · {drilledSeries.publisher}</span>}
+            </h2>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row gap-3 mb-3">
+              <div className="relative flex-1">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  value={search} onChange={e => setSearch(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && runSearch()}
+                  placeholder="Search by title…"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+              </div>
+              <input
+                value={issueFilter} onChange={e => setIssueFilter(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && runSearch()}
+                placeholder="Issue #"
+                className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-28"
+              />
+              <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
             </div>
-          </div>
-        </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && runSearch()}
-              placeholder="Search by title…"
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg pl-9 pr-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-          </div>
-          <input
-            value={issueFilter} onChange={e => setIssueFilter(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && runSearch()}
-            placeholder="Issue #"
-            className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-28"
-          />
-          <button onClick={runSearch} className="bg-brand-500 hover:bg-brand-600 text-white font-medium px-5 py-2.5 rounded-lg transition">Search</button>
-        </div>
-
-        {/* Publisher/Writer are secondary filters - always visible on
-            desktop/tablet (matches the pre-existing layout), but collapsed
-            behind a toggle on mobile so Series+Issue#+Search (the common
-            "quick lookup" path) isn't pushed below the fold. */}
-        <button
-          type="button"
-          onClick={() => setShowMoreFilters(v => !v)}
-          className="sm:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-white transition mb-3"
-        >
-          More filters (Publisher, Writer)
-          <ChevronDown size={12} className={`transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
-        </button>
-        <div className={`${showMoreFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-3 mb-6`}>
-          <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-          <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
-        </div>
+            {/* Publisher/Writer are secondary filters - always visible on
+                desktop/tablet (matches the pre-existing layout), but collapsed
+                behind a toggle on mobile so Series+Issue#+Search (the common
+                "quick lookup" path) isn't pushed below the fold. */}
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters(v => !v)}
+              className="sm:hidden flex items-center gap-1 text-xs text-gray-400 hover:text-white transition mb-3"
+            >
+              More filters (Publisher, Writer)
+              <ChevronDown size={12} className={`transition-transform ${showMoreFilters ? 'rotate-180' : ''}`} />
+            </button>
+            <div className={`${showMoreFilters ? 'flex' : 'hidden'} sm:flex flex-col sm:flex-row gap-3 mb-6`}>
+              <input value={publisherFilter} onChange={e => setPublisherFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Publisher" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+              <input value={writerFilter} onChange={e => setWriterFilter(e.target.value)} onKeyDown={e => e.key === 'Enter' && runSearch()} placeholder="Writer" className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-40" />
+            </div>
+          </>
+        )}
       </div>
 
-      {loading ? (
+      {groupedView ? (
+        <div className="hidden sm:block">
+          {groupsLoading ? (
+            <div className="text-center text-gray-400 py-16">Loading…</div>
+          ) : groupsError ? (
+            <div className="text-center py-16">
+              <p className="text-lg text-red-400">{groupsError}</p>
+              <button
+                onClick={fetchGroups}
+                className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+              >
+                Retry
+              </button>
+            </div>
+          ) : seriesGroups.length === 0 ? (
+            <div className="text-center text-gray-400 py-16">
+              <p className="text-lg">No series found.</p>
+              <p className="text-sm mt-1">Upload a CSV to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {seriesGroups.map(g => (
+                <button
+                  key={`${g.series}|${g.publisher ?? ''}`}
+                  type="button"
+                  onClick={() => handleSeriesClick(g)}
+                  className="bg-gray-900 border border-gray-800 hover:border-brand-500 rounded-xl overflow-hidden flex flex-col text-left transition"
+                >
+                  {g.cover_img ? (
+                    <img
+                      src={resolveImageUrl(g.cover_img) ?? undefined}
+                      alt=""
+                      className="w-full aspect-[2/3] object-cover"
+                    />
+                  ) : (
+                    <div className="w-full aspect-[2/3] bg-gray-800 flex items-center justify-center text-gray-600 text-xs text-center px-2">
+                      No Cover
+                    </div>
+                  )}
+                  <div className="p-2.5">
+                    <p className="font-medium text-white text-sm leading-snug line-clamp-2">{g.series}</p>
+                    <p className="text-xs text-gray-400 truncate mt-0.5">{g.publisher ?? '—'}</p>
+                    <span className="inline-block text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-800 text-gray-400 mt-1.5">
+                      {g.issue_count} issue{g.issue_count === 1 ? '' : 's'}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : loading ? (
         <div className="text-center text-gray-400 py-16">Loading…</div>
       ) : error ? (
         <div className="text-center py-16">
@@ -415,29 +578,56 @@ export default function CollectionPage() {
         </>
       )}
 
-      {!loading && total > 0 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
-          <span>
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            <span>Page {page} of {pageCount}</span>
-            <button
-              onClick={() => setPage(p => Math.min(pageCount, p + 1))}
-              disabled={page === pageCount}
-              className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              <ChevronRight size={16} />
-            </button>
+      {groupedView ? (
+        !groupsLoading && groupsTotal > 0 && (
+          <div className="hidden sm:flex items-center justify-between mt-4 text-sm text-gray-400">
+            <span>
+              Showing {(groupsPage - 1) * GROUP_PAGE_SIZE + 1}–{Math.min(groupsPage * GROUP_PAGE_SIZE, groupsTotal)} of {groupsTotal} series
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setGroupsPage(p => Math.max(1, p - 1))}
+                disabled={groupsPage === 1}
+                className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span>Page {groupsPage} of {groupsPageCount}</span>
+              <button
+                onClick={() => setGroupsPage(p => Math.min(groupsPageCount, p + 1))}
+                disabled={groupsPage === groupsPageCount}
+                className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
           </div>
-        </div>
+        )
+      ) : (
+        !loading && total > 0 && (
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
+            <span>
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span>Page {page} of {pageCount}</span>
+              <button
+                onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                disabled={page === pageCount}
+                className="p-2 rounded-lg border border-gray-700 hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )
       )}
 
       {editing && (

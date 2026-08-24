@@ -253,6 +253,9 @@ def get_user_collection(
     publisher: Optional[str] = None,
     writer: Optional[str] = None,
     issue_number: Optional[str] = None,
+    series_exact: Optional[str] = None,
+    publisher_exact: Optional[str] = None,
+    no_publisher: bool = False,
     skip: int = 0,
     limit: int = 200,
 ) -> tuple[list[UserComic], int]:
@@ -271,9 +274,70 @@ def get_user_collection(
     if issue_number:
         # Exact match, not ilike - "1" shouldn't also pull "10", "11", "21"...
         q = q.filter(Comic.issue_number == issue_number)
+    if series_exact:
+        # Used by the desktop "drill into a series" view (CollectionPage.tsx) -
+        # exact, not ilike, so "Batman" doesn't also pull "Batman Beyond" etc.
+        q = q.filter(func.lower(Comic.series) == series_exact.strip().lower())
+    if no_publisher:
+        q = q.filter(Comic.publisher.is_(None))
+    elif publisher_exact:
+        q = q.filter(Comic.publisher == publisher_exact)
     total = q.count()
     items = q.order_by(*_comic_sort_order()).offset(skip).limit(limit).all()
     return items, total
+
+
+def get_user_collection_series_groups(
+    db: Session,
+    user_id: int,
+    series: Optional[str] = None,
+    publisher: Optional[str] = None,
+    writer: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 60,
+) -> tuple[list[dict], int]:
+    """Groups the user's collection by (series, publisher) for the desktop
+    "browse by series" landing view (CollectionPage.tsx) - one card per
+    series, drilling into get_user_collection(series_exact=...) for the
+    full table. Loads the full filtered set into memory and groups in
+    Python rather than a SQL GROUP BY, since picking a representative cover
+    image per group (the most recently added issue's) needs either a
+    window function or a second correlated query - for a personal
+    collection's scale, grouping a already-small filtered result set in
+    Python is simpler and equally correct."""
+    q = (
+        db.query(UserComic)
+        .join(Comic)
+        .filter(UserComic.user_id == user_id)
+    )
+    if series:
+        q = q.filter(Comic.series.ilike(f"%{series}%"))
+    if publisher:
+        q = q.filter(Comic.publisher.ilike(f"%{publisher}%"))
+    if writer:
+        q = q.filter(Comic.writer.ilike(f"%{writer}%"))
+    all_items = q.order_by(UserComic.created_at.desc()).all()
+
+    groups: dict[tuple[str, Optional[str]], dict] = {}
+    for uc in all_items:
+        key = (uc.comic.series, uc.comic.publisher)
+        group = groups.get(key)
+        if group is None:
+            # First hit per key wins the cover - all_items is already
+            # ordered newest-first, so this is the most recently added copy.
+            group = {
+                "series": uc.comic.series,
+                "publisher": uc.comic.publisher,
+                "issue_count": 0,
+                "cover_img": uc.comic.master_photo or uc.comic.img,
+            }
+            groups[key] = group
+        group["issue_count"] += 1
+
+    group_list = sorted(groups.values(), key=lambda g: g["series"].lower())
+    total = len(group_list)
+    page = group_list[skip: skip + limit]
+    return page, total
 
 
 def get_kiosk_collection(

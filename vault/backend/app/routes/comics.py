@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas import (
     BulkUpdateRequest, ComicMetadataUpdate, ComicOut, SaleCreate, SaleOut,
-    SaleUpdate, SaleWithComicOut, UserComicCreate, UserComicOut, UserComicUpdate,
+    SaleUpdate, SaleWithComicOut, SeriesGroupOut, UserComicCreate, UserComicOut, UserComicUpdate,
 )
 
 router = APIRouter(prefix="/comics", tags=["comics"])
@@ -72,6 +72,9 @@ def get_my_collection(
     publisher: str | None = Query(None),
     writer: str | None = Query(None),
     issue_number: str | None = Query(None),
+    series_exact: str | None = Query(None),
+    publisher_exact: str | None = Query(None),
+    no_publisher: bool = Query(False),
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
@@ -83,7 +86,27 @@ def get_my_collection(
         items, total = crud.get_user_collection(db, current_user.id, series=series,
                                         publisher=publisher, writer=writer,
                                         issue_number=issue_number,
+                                        series_exact=series_exact, publisher_exact=publisher_exact,
+                                        no_publisher=no_publisher,
                                         skip=skip, limit=limit)
+    response.headers["X-Total-Count"] = str(total)
+    return items
+
+
+@router.get("/collection/groups", response_model=list[SeriesGroupOut])
+def get_my_collection_series_groups(
+    response: Response,
+    series: str | None = Query(None),
+    publisher: str | None = Query(None),
+    writer: str | None = Query(None),
+    skip: int = 0,
+    limit: int = 60,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    items, total = crud.get_user_collection_series_groups(db, current_user.id, series=series,
+                                                            publisher=publisher, writer=writer,
+                                                            skip=skip, limit=limit)
     response.headers["X-Total-Count"] = str(total)
     return items
 
