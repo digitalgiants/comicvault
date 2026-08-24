@@ -942,20 +942,21 @@ def get_kiosk_search_logs(db: Session, limit: int = 500) -> list[KioskSearchLog]
     return db.query(KioskSearchLog).order_by(KioskSearchLog.created_at.desc()).limit(limit).all()
 
 
-def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str]) -> KioskSignup:
+def upsert_kiosk_signup(db: Session, first_name: str, last_name: str, email: str, phone: Optional[str], notes: Optional[str] = None) -> KioskSignup:
     conditions = [KioskSignup.email == email]
     if phone:
         conditions.append(KioskSignup.phone == phone)
     existing = db.query(KioskSignup).filter(or_(*conditions)).first()
 
     if existing is None:
-        existing = KioskSignup(first_name=first_name, last_name=last_name, email=email, phone=phone)
+        existing = KioskSignup(first_name=first_name, last_name=last_name, email=email, phone=phone, notes=notes)
         db.add(existing)
     else:
         existing.first_name = first_name
         existing.last_name = last_name
         existing.email = email
         existing.phone = phone
+        existing.notes = notes
 
     db.commit()
     db.refresh(existing)

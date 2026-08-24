@@ -181,6 +181,12 @@ MIGRATIONS = [
     ALTER TABLE users
         ADD COLUMN IF NOT EXISTS is_collector BOOLEAN NOT NULL DEFAULT FALSE
     """,
+
+    # "Anything you looking for in particular?" on the kiosk signup form.
+    """
+    ALTER TABLE kiosk_signups
+        ADD COLUMN IF NOT EXISTS notes TEXT
+    """,
 ]
 
 

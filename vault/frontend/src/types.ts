@@ -382,6 +382,7 @@ export interface KioskSignup {
   last_name: string
   email: string
   phone: string | null
+  notes: string | null
   created_at: string
 }
 
@@ -418,6 +419,7 @@ export interface KioskSignupInput {
   last_name: string
   email: string
   phone: string | null
+  notes: string | null
 }
 
 // --- Trading cards (parallel to Comics above - see

@@ -10,6 +10,7 @@ export default function SignupForm({ onSuccess }: Props) {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
+  const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -24,11 +25,13 @@ export default function SignupForm({ onSuccess }: Props) {
         last_name: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
+        notes: notes.trim() || null,
       })
       setFirstName('')
       setLastName('')
       setEmail('')
       setPhone('')
+      setNotes('')
       onSuccess()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign-up failed')
@@ -74,6 +77,15 @@ export default function SignupForm({ onSuccess }: Props) {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+      </div>
+      <div className="sm:col-span-2">
+        <label className="block text-sm text-gray-400 mb-1">Anything you looking for in particular?</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
         />
       </div>
 

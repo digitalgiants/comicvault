@@ -14,6 +14,7 @@ export default function EditSignupModal({ signup, onClose, onSaved }: Props) {
   const [lastName, setLastName] = useState(signup.last_name)
   const [email, setEmail] = useState(signup.email)
   const [phone, setPhone] = useState(signup.phone ?? '')
+  const [notes, setNotes] = useState(signup.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,6 +31,7 @@ export default function EditSignupModal({ signup, onClose, onSaved }: Props) {
         last_name: lastName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
+        notes: notes.trim() || null,
       })
       onSaved(data)
       onClose()
@@ -86,6 +88,16 @@ export default function EditSignupModal({ signup, onClose, onSaved }: Props) {
               onChange={e => setPhone(e.target.value)}
               placeholder="Optional"
               className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Anything you looking for in particular?</label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              rows={3}
+              placeholder="Optional"
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
           </div>
         </div>

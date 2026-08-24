@@ -423,6 +423,7 @@ class KioskSignupCreate(BaseModel):
     last_name: str
     email: str
     phone: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class KioskSignupOut(BaseModel):
@@ -431,6 +432,7 @@ class KioskSignupOut(BaseModel):
     last_name: str
     email: str
     phone: Optional[str] = None
+    notes: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -442,6 +444,7 @@ class KioskSignupUpdate(BaseModel):
     last_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    notes: Optional[str] = None
 
 
 class KioskSearchLogOut(BaseModel):

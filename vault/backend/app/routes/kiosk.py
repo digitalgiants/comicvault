@@ -81,6 +81,7 @@ def kiosk_signup(
         payload.last_name.strip(),
         payload.email.strip().lower(),
         payload.phone.strip() if payload.phone else None,
+        payload.notes.strip() if payload.notes else None,
     )
 
 

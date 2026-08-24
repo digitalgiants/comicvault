@@ -175,9 +175,9 @@ export default function AdminPage() {
   }
 
   const downloadSignupsCsv = () => {
-    const header = ['First Name', 'Last Name', 'Email', 'Phone', 'Signed Up']
+    const header = ['First Name', 'Last Name', 'Email', 'Phone', 'Notes', 'Signed Up']
     const rows = signups.map(s => [
-      s.first_name, s.last_name, s.email, s.phone ?? '', new Date(s.created_at).toLocaleDateString(),
+      s.first_name, s.last_name, s.email, s.phone ?? '', s.notes ?? '', new Date(s.created_at).toLocaleDateString(),
     ])
     const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
     const csv = [header, ...rows].map(row => row.map(escape).join(',')).join('\n')
@@ -203,7 +203,8 @@ export default function AdminPage() {
         return (
           `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
           s.email.toLowerCase().includes(q) ||
-          (s.phone ?? '').toLowerCase().includes(q)
+          (s.phone ?? '').toLowerCase().includes(q) ||
+          (s.notes ?? '').toLowerCase().includes(q)
         )
       })
     : signups
@@ -515,7 +516,7 @@ export default function AdminPage() {
               <input
                 value={signupSearch}
                 onChange={e => setSignupSearch(e.target.value)}
-                placeholder="Search name, email, phone…"
+                placeholder="Search name, email, phone, notes…"
                 className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-56"
               />
             </div>
@@ -551,6 +552,7 @@ export default function AdminPage() {
                     <th className="px-6 py-3 text-left">Name</th>
                     <th className="px-6 py-3 text-left">Email</th>
                     <th className="px-6 py-3 text-left">Phone</th>
+                    <th className="px-6 py-3 text-left">Notes</th>
                     <th className="px-6 py-3 text-left">Signed Up</th>
                     <th className="px-6 py-3 text-right">Actions</th>
                   </tr>
@@ -561,6 +563,7 @@ export default function AdminPage() {
                       <td className="px-6 py-4">{s.first_name} {s.last_name}</td>
                       <td className="px-6 py-4 text-gray-300">{s.email}</td>
                       <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
+                      <td className="px-6 py-4 text-gray-400 max-w-xs truncate" title={s.notes ?? undefined}>{s.notes ?? '—'}</td>
                       <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1">

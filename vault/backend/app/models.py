@@ -220,6 +220,7 @@ class KioskSignup(Base):
     last_name = Column(String, nullable=False)
     email = Column(String, nullable=False, index=True)
     phone = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)  # "Anything you looking for in particular?"
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
