@@ -155,6 +155,61 @@ def update_comic_metadata(db: Session, comic_id: int, updates: dict) -> Optional
     return comic
 
 
+# Fields find_matching_comic treats as this comic's identity (besides series,
+# which isn't editable via ComicMetadataUpdate, and upc, which already has
+# its own independent uniqueness check in the route).
+_COMIC_IDENTITY_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
+
+
+def update_comic_metadata_with_merge(db: Session, comic_id: int, user_id: int, updates: dict) -> tuple[Optional[Comic], Optional[str]]:
+    """Same as update_comic_metadata, but for edits that touch one of
+    _COMIC_IDENTITY_FIELDS (e.g. volume): if the edit would make this
+    comic's identity match a DIFFERENT existing Comic row, that's a
+    duplicate catalog entry waiting to happen (Comic is the shared catalog,
+    not per-user - see CLAUDE.md). Instead, merge into the pre-existing
+    match: re-point every UserComic/RejectedCoverImage/CsvImportConflict/
+    BugReport off the old row onto it, then delete the now-orphaned old
+    row - this is the "the old card disappears, everything moves under the
+    existing entry" behavior.
+    Blocked (not merged) if the editing user already separately owns the
+    matching comic too - price/notes/signed/condition/etc. all live on the
+    per-user UserComic, so which of the two owned copies' values should
+    "win" is ambiguous; we don't guess.
+    Returns (comic, error) - on success `error` is None; on a blocked
+    self-collision `comic` is None and `error` is a user-facing message;
+    on not-found both are None, same as update_comic_metadata."""
+    comic = db.query(Comic).filter(Comic.id == comic_id).first()
+    if not comic:
+        return None, None
+
+    if any(f in updates for f in _COMIC_IDENTITY_FIELDS):
+        candidate = {"series": comic.series, "upc": comic.upc}
+        for f in _COMIC_IDENTITY_FIELDS:
+            candidate[f] = updates.get(f, getattr(comic, f))
+        match = find_matching_comic(db, candidate)
+        if match and match.id != comic.id:
+            if user_already_owns(db, user_id, match.id):
+                return None, "You already own a copy of that comic under its existing details - delete one copy first, then retry."
+            db.query(UserComic).filter(UserComic.comic_id == comic.id).update(
+                {"comic_id": match.id}, synchronize_session=False)
+            db.query(RejectedCoverImage).filter(RejectedCoverImage.comic_id == comic.id).update(
+                {"comic_id": match.id}, synchronize_session=False)
+            db.query(CsvImportConflict).filter(CsvImportConflict.comic_id == comic.id).update(
+                {"comic_id": match.id}, synchronize_session=False)
+            db.query(BugReport).filter(BugReport.comic_id == comic.id).update(
+                {"comic_id": match.id}, synchronize_session=False)
+            db.delete(comic)
+            db.commit()
+            db.refresh(match)
+            return match, None
+
+    for field, value in updates.items():
+        setattr(comic, field, value)
+    db.commit()
+    db.refresh(comic)
+    return comic, None
+
+
 def search_comics(
     db: Session,
     series: Optional[str] = None,

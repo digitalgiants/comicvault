@@ -45,7 +45,7 @@ def update_comic_metadata(
     comic_id: int,
     update: ComicMetadataUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_non_kiosk),
+    current_user: User = Depends(get_current_non_kiosk),
 ):
     if crud.get_comic_by_id(db, comic_id) is None:
         raise HTTPException(status_code=404, detail="Comic not found")
@@ -60,8 +60,12 @@ def update_comic_metadata(
                 raise HTTPException(status_code=400, detail="That UPC is already assigned to another comic")
     if "cover_artist" in data:
         data["cover_artist"] = data["cover_artist"].strip() if data["cover_artist"] else None
+    if "volume" in data:
+        data["volume"] = data["volume"].strip() if data["volume"] else None
 
-    comic = crud.update_comic_metadata(db, comic_id, data)
+    comic, error = crud.update_comic_metadata_with_merge(db, comic_id, current_user.id, data)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     return comic
 
 

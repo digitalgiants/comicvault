@@ -88,6 +88,7 @@ class ComicMetadataUpdate(BaseModel):
     upc: Optional[str] = None
     cover_artist: Optional[str] = None
     cover_letter: Optional[str] = None
+    volume: Optional[str] = None
     img: Optional[str] = None
 
 
