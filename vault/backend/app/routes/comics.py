@@ -52,12 +52,11 @@ def update_comic_metadata(
 
     data = update.model_dump(exclude_unset=True)
     if "upc" in data:
-        normalized = data["upc"].strip() if data["upc"] else None
-        data["upc"] = normalized
-        if normalized:
-            existing = crud.get_comic_by_upc(db, normalized)
-            if existing and existing.id != comic_id:
-                raise HTTPException(status_code=400, detail="That UPC is already assigned to another comic")
+        # No standalone "UPC already taken" hard block anymore - a UPC
+        # collision now flows through update_comic_metadata_with_merge,
+        # which merges into the matching comic (or blocks with a specific
+        # error if the user already owns both).
+        data["upc"] = data["upc"].strip() if data["upc"] else None
     if "cover_artist" in data:
         data["cover_artist"] = data["cover_artist"].strip() if data["cover_artist"] else None
     if "volume" in data:

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import BugReportButton from '../components/BugReportButton'
 import { useDropzone } from 'react-dropzone'
@@ -35,6 +36,7 @@ export default function UploadPage() {
   const [conflicts, setConflicts] = useState<CsvImportConflict[]>([])
   const [conflictsLoading, setConflictsLoading] = useState(true)
   const [resolvingId, setResolvingId] = useState<number | null>(null)
+  const [conflictErrors, setConflictErrors] = useState<Record<number, string>>({})
 
   const loadConflicts = useCallback(() => {
     setConflictsLoading(true)
@@ -45,9 +47,16 @@ export default function UploadPage() {
 
   const resolveConflict = async (id: number, accept: boolean) => {
     setResolvingId(id)
+    setConflictErrors(prev => { const next = { ...prev }; delete next[id]; return next })
     try {
       await (accept ? acceptCsvConflict(id) : rejectCsvConflict(id))
       setConflicts(prev => prev.filter(c => c.id !== id))
+    } catch (e: unknown) {
+      // A blocked merge (e.g. the comic this conflict points at now
+      // matches another comic you already own) leaves the conflict
+      // pending, not silently dropped - show exactly why it failed.
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+      setConflictErrors(prev => ({ ...prev, [id]: detail || 'Failed to resolve this conflict. Please try again.' }))
     } finally {
       setResolvingId(null)
     }
@@ -248,6 +257,9 @@ export default function UploadPage() {
                     <span className="text-gray-300">{c.gcd_value ?? '—'}</span>
                   </div>
                 </div>
+                {conflictErrors[c.id] && (
+                  <p className="text-xs text-red-400 mt-2">{conflictErrors[c.id]}</p>
+                )}
               </div>
             ))}
           </div>

@@ -223,9 +223,11 @@ def accept_csv_conflict(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
-    conflict = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=True)
+    conflict, error = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=True)
     if not conflict:
         raise HTTPException(status_code=404, detail="Conflict not found")
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     return CSVImportConflictOut(
         id=conflict.id, comic_id=conflict.comic_id, comic_series=conflict.comic.series,
         comic_issue_number=conflict.comic.issue_number, field_name=conflict.field_name,
@@ -239,7 +241,7 @@ def reject_csv_conflict(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
-    conflict = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=False)
+    conflict, _ = crud.resolve_csv_conflict(db, current_user.id, conflict_id, accept=False)
     if not conflict:
         raise HTTPException(status_code=404, detail="Conflict not found")
     return CSVImportConflictOut(
