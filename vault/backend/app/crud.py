@@ -299,6 +299,34 @@ def get_distinct_publishers(db: Session) -> list[tuple[str, int]]:
     return [(publisher, count) for publisher, count in rows]
 
 
+def get_distinct_comic_ids_for_user_comics(db: Session, user_id: int, uc_ids: list[int]) -> list[int]:
+    """Distinct Comic ids for the given UserComic ids, scoped to user_id -
+    ids that don't exist or don't belong to this user are silently dropped,
+    same ownership-check convention as bulk_update_user_comics."""
+    rows = (
+        db.query(UserComic.comic_id)
+        .filter(UserComic.id.in_(uc_ids), UserComic.user_id == user_id)
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
+def get_distinct_publishers_for_user_comics(db: Session, user_id: int, uc_ids: list[int]) -> list[Optional[str]]:
+    """Distinct Comic.publisher values (including None) among the given
+    UserComic ids, scoped to user_id - used to decide whether a bulk-edit
+    selection shares one current publisher (see routes/comics.py's
+    bulk-publisher/suggest)."""
+    rows = (
+        db.query(Comic.publisher)
+        .join(UserComic, UserComic.comic_id == Comic.id)
+        .filter(UserComic.id.in_(uc_ids), UserComic.user_id == user_id)
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
 def search_comics(
     db: Session,
     series: Optional[str] = None,

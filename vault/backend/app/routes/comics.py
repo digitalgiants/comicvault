@@ -4,12 +4,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import crud, gcd_lookup
 from app.auth import get_current_non_kiosk, get_current_user
 from app.database import get_db
+from app.gcd_database import get_gcd_db
 from app.models import User
 from app.schemas import (
-    BulkUpdateRequest, ComicMetadataUpdate, ComicOut, SaleCreate, SaleOut,
+    BulkUpdateRequest, ComicMetadataUpdate, ComicOut, PublisherBulkEditRequest, PublisherBulkEditResult,
+    PublisherBulkSkip, PublisherSuggestRequest, PublisherSuggestResult, SaleCreate, SaleOut,
     SaleUpdate, SaleWithComicOut, SeriesGroupOut, UserComicCreate, UserComicOut, UserComicUpdate,
 )
 
@@ -165,6 +167,50 @@ def bulk_update(
     count = crud.bulk_update_user_comics(db, current_user.id, updates)
     crud.record_snapshot(db, current_user.id)
     return {"updated": count}
+
+
+@router.post("/collection/bulk-publisher/suggest", response_model=PublisherSuggestResult)
+def suggest_bulk_publisher(
+    payload: PublisherSuggestRequest,
+    db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    if gcd_db is None:
+        raise HTTPException(status_code=503, detail="GCD database is not configured")
+    publishers = set(crud.get_distinct_publishers_for_user_comics(db, current_user.id, payload.uc_ids))
+    if not publishers:
+        return PublisherSuggestResult(status="empty")
+    if len(publishers) > 1:
+        return PublisherSuggestResult(status="mixed")
+    current_publisher = next(iter(publishers))
+    if not current_publisher:
+        return PublisherSuggestResult(status="no_suggestion")
+    is_exact, suggestion = gcd_lookup.suggest_gcd_publisher(gcd_db, current_publisher)
+    if is_exact:
+        return PublisherSuggestResult(status="already_correct", publisher=current_publisher)
+    return PublisherSuggestResult(status="suggestion" if suggestion else "no_suggestion", publisher=suggestion)
+
+
+@router.post("/collection/bulk-publisher", response_model=PublisherBulkEditResult)
+def bulk_set_publisher(
+    payload: PublisherBulkEditRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    publisher = payload.publisher.strip()
+    if not publisher:
+        raise HTTPException(status_code=400, detail="Publisher can't be blank")
+    comic_ids = crud.get_distinct_comic_ids_for_user_comics(db, current_user.id, payload.uc_ids)
+    updated = 0
+    skipped: list[PublisherBulkSkip] = []
+    for comic_id in comic_ids:
+        _, error = crud.update_comic_metadata_with_merge(db, comic_id, current_user.id, {"publisher": publisher})
+        if error:
+            skipped.append(PublisherBulkSkip(comic_id=comic_id, reason=error))
+        else:
+            updated += 1
+    return PublisherBulkEditResult(updated_comics=updated, skipped=skipped)
 
 
 @router.delete("/collection/{uc_id}", status_code=204)

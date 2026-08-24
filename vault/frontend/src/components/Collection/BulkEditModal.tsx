@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import axios from 'axios'
 import { X } from 'lucide-react'
-import { bulkUpdateUserComics, recordSale } from '../../api/collection'
+import { bulkSetPublisher, bulkUpdateUserComics, recordSale, suggestBulkPublisher } from '../../api/collection'
 import type { UserComic } from '../../types'
 import { EDITABLE_FIELDS, availableCopies, visibleEditableFields } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 
 const SELL_PRICE_KEY = '__sell_price'
+const PUBLISHER_KEY = '__publisher'
 
 interface Props {
   selected: UserComic[]
@@ -20,6 +22,8 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
   const [enabled, setEnabled] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestMessage, setSuggestMessage] = useState('')
 
   const toggle = (key: string) => {
     setEnabled(prev => ({ ...prev, [key]: !prev[key] }))
@@ -29,6 +33,31 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
     setForm(prev => ({ ...prev, [key]: value }))
   }
 
+  const handleUseGcdName = async () => {
+    setSuggesting(true)
+    setSuggestMessage('')
+    try {
+      const result = await suggestBulkPublisher(selected.map(uc => uc.id))
+      if (result.status === 'suggestion' && result.publisher) {
+        handleChange(PUBLISHER_KEY, result.publisher)
+        setSuggestMessage(`Filled in "${result.publisher}" from GCD.`)
+      } else if (result.status === 'already_correct') {
+        setSuggestMessage(`"${result.publisher}" already matches GCD's name — nothing to fix.`)
+      } else if (result.status === 'mixed') {
+        setSuggestMessage('Selected comics have different current publishers — enter the target manually, or use the Admin Publisher report for mixed selections.')
+      } else if (result.status === 'no_suggestion') {
+        setSuggestMessage('No confident GCD match found — enter the target manually.')
+      } else {
+        setSuggestMessage('No comics selected.')
+      }
+    } catch (e: unknown) {
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+      setSuggestMessage(detail || 'Failed to look up GCD publisher.')
+    } finally {
+      setSuggesting(false)
+    }
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError('')
@@ -36,7 +65,7 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
       const activeFields = Object.entries(enabled).filter(([, v]) => v).map(([k]) => k)
       if (!activeFields.length) { onClose(); return }
 
-      const fieldKeys = activeFields.filter(k => k !== SELL_PRICE_KEY)
+      const fieldKeys = activeFields.filter(k => k !== SELL_PRICE_KEY && k !== PUBLISHER_KEY)
       const update: Record<string, unknown> = {}
       fieldKeys.forEach(key => {
         const field = EDITABLE_FIELDS.find(f => f.key === key)
@@ -52,19 +81,27 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
         await bulkUpdateUserComics(selected.map(uc => ({ id: uc.id, update })))
       }
 
-      let partialWarning = ''
+      const warnings: string[] = []
+
       if (enabled[SELL_PRICE_KEY] && form[SELL_PRICE_KEY] !== undefined && form[SELL_PRICE_KEY] !== '') {
         const price = Number(form[SELL_PRICE_KEY])
         const today = new Date().toISOString()
         const sellable = selected.filter(uc => availableCopies(uc) > 0)
         await Promise.all(sellable.map(uc => recordSale(uc.id, today, price, null)))
         if (sellable.length < selected.length) {
-          partialWarning = `Recorded sale for ${sellable.length} of ${selected.length} — the rest have no available copies left.`
+          warnings.push(`Recorded sale for ${sellable.length} of ${selected.length} — the rest have no available copies left.`)
         }
       }
 
-      if (partialWarning) {
-        setError(partialWarning)
+      if (enabled[PUBLISHER_KEY] && typeof form[PUBLISHER_KEY] === 'string' && form[PUBLISHER_KEY].trim()) {
+        const result = await bulkSetPublisher(selected.map(uc => uc.id), form[PUBLISHER_KEY].trim())
+        if (result.skipped.length > 0) {
+          warnings.push(`Publisher: updated ${result.updated_comics}, skipped ${result.skipped.length} — ${result.skipped[0].reason}${result.skipped.length > 1 ? ` (+${result.skipped.length - 1} more)` : ''}`)
+        }
+      }
+
+      if (warnings.length) {
+        setError(warnings.join(' '))
       } else {
         onSaved()
       }
@@ -161,6 +198,42 @@ export default function BulkEditModal({ selected, onClose, onSaved }: Props) {
               </div>
             </div>
           )}
+
+          <div className="flex items-start gap-3 pt-3 border-t border-gray-800">
+            <input
+              type="checkbox"
+              checked={Boolean(enabled[PUBLISHER_KEY])}
+              onChange={() => toggle(PUBLISHER_KEY)}
+              className="mt-1 w-4 h-4 rounded accent-brand-500 flex-shrink-0"
+            />
+            <div className="flex-1">
+              <label className="block text-sm text-gray-300 mb-1">Publisher — corrects/merges the catalog entry for each</label>
+              {enabled[PUBLISHER_KEY] && (
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      value={String(form[PUBLISHER_KEY] ?? '')}
+                      onChange={e => handleChange(PUBLISHER_KEY, e.target.value)}
+                      placeholder="e.g. DC Comics"
+                      className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUseGcdName}
+                      disabled={suggesting}
+                      className="flex-shrink-0 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-50"
+                    >
+                      {suggesting ? 'Looking up…' : "Use GCD's name"}
+                    </button>
+                  </div>
+                  {suggestMessage && <p className="text-xs text-gray-500 mt-1">{suggestMessage}</p>}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Changing this to match another comic already in the catalog merges into it, for each selected comic separately.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {error && <p className="px-6 text-red-400 text-sm">{error}</p>}

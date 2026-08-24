@@ -28,6 +28,23 @@ export const deleteUserComic = (id: number) =>
 export const bulkUpdateUserComics = (updates: { id: number; update: Partial<UserComicUpdate> }[]) =>
   api.post<{ updated: number }>('/comics/collection/bulk', { updates }).then(r => r.data)
 
+export interface PublisherSuggestResult {
+  // "empty" | "mixed" | "no_suggestion" | "already_correct" | "suggestion"
+  status: string
+  publisher: string | null
+}
+
+export interface PublisherBulkEditResult {
+  updated_comics: number
+  skipped: { comic_id: number; reason: string }[]
+}
+
+export const suggestBulkPublisher = (uc_ids: number[]) =>
+  api.post<PublisherSuggestResult>('/comics/collection/bulk-publisher/suggest', { uc_ids }).then(r => r.data)
+
+export const bulkSetPublisher = (uc_ids: number[], publisher: string) =>
+  api.post<PublisherBulkEditResult>('/comics/collection/bulk-publisher', { uc_ids, publisher }).then(r => r.data)
+
 export const recordSale = (ucId: number, sell_date: string, sell_price?: number | null, notes?: string | null) =>
   api.post<Sale>(`/comics/collection/${ucId}/sales`, { sell_date, sell_price, notes }).then(r => r.data)
 

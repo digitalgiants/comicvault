@@ -230,6 +230,36 @@ class PublisherMergeResult(BaseModel):
     skipped: list[PublisherMergeSkip]
 
 
+# --- Collection: bulk-edit publisher for a user's own selected comics
+# (see CollectionPage.tsx's BulkEditModal) - scoped to one user's selection,
+# as opposed to the admin report above which sweeps the whole catalog. ---
+
+class PublisherBulkEditRequest(BaseModel):
+    uc_ids: list[int]
+    publisher: str
+
+
+class PublisherBulkSkip(BaseModel):
+    comic_id: int
+    reason: str
+
+
+class PublisherBulkEditResult(BaseModel):
+    updated_comics: int
+    skipped: list[PublisherBulkSkip]
+
+
+class PublisherSuggestRequest(BaseModel):
+    uc_ids: list[int]
+
+
+class PublisherSuggestResult(BaseModel):
+    # "empty" (no valid selection) | "mixed" (selected comics don't share
+    # one current publisher) | "no_suggestion" | "already_correct" | "suggestion"
+    status: str
+    publisher: Optional[str] = None
+
+
 # --- Scan (barcode lookup) ---
 
 class ScanAddRequest(BaseModel):
