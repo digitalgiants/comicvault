@@ -89,6 +89,7 @@ class ComicMetadataUpdate(BaseModel):
     cover_artist: Optional[str] = None
     cover_letter: Optional[str] = None
     volume: Optional[str] = None
+    publisher: Optional[str] = None
     img: Optional[str] = None
 
 
@@ -200,6 +201,33 @@ class SeriesGroupOut(BaseModel):
     publisher: Optional[str] = None
     issue_count: int
     cover_img: Optional[str] = None
+
+
+# --- Admin: publisher naming-consistency report (see app.gcd_lookup) ---
+
+class PublisherMismatchOut(BaseModel):
+    local_publisher: str
+    comic_count: int
+    suggested_publisher: Optional[str] = None
+
+
+class PublisherMergeItem(BaseModel):
+    local_publisher: str
+    target_publisher: str
+
+
+class PublisherMergeRequest(BaseModel):
+    updates: list[PublisherMergeItem]
+
+
+class PublisherMergeSkip(BaseModel):
+    local_publisher: str
+    reason: str
+
+
+class PublisherMergeResult(BaseModel):
+    merged_comics: int
+    skipped: list[PublisherMergeSkip]
 
 
 # --- Scan (barcode lookup) ---

@@ -13,7 +13,7 @@ from typing import Iterable
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.crud import get_comic_by_upc, normalize_issue_number, normalize_search_query
+from app.crud import get_comic_by_upc, get_distinct_publishers, normalize_issue_number, normalize_search_query
 from app.gcd_models import Issue, Publisher, Series, Story, StoryType
 from app.schemas import ComicCreate, ExternalIssueSummary, ExternalSeriesResult
 
@@ -307,3 +307,61 @@ def _parse_gcd_price(value: str | None) -> float | None:
         return None
     match = _USD_PRICE_RE.search(value) or _ANY_PRICE_RE.search(value)
     return float(match.group(1)) if match else None
+
+
+def _escape_like(value: str) -> str:
+    """Escapes SQL LIKE/ILIKE wildcards in user-controlled text before it's
+    interpolated into a pattern - a publisher name containing a literal %
+    or _ would otherwise silently change what the pattern matches."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+def suggest_gcd_publisher(gcd_db: Session, local_publisher: str) -> tuple[bool, str | None]:
+    """Checks a locally-used publisher string against GCD's real, normalized
+    Publisher table (one canonical name per publisher - see gcd_models.py).
+    Returns (is_exact_match, suggestion):
+    - (True, None): local_publisher already matches a GCD publisher name
+      case-insensitively - nothing to fix.
+    - (False, name): no exact match, but exactly one GCD publisher name
+      confidently looks like the same publisher (starts-with, e.g. "DC" ->
+      "DC Comics"; falling back to contains if starts-with finds nothing) -
+      a real candidate to suggest.
+    - (False, None): no exact match and no single confident candidate -
+      either nothing found, or multiple equally-plausible GCD publishers.
+      Deliberately not guessing which one; the report still surfaces this
+      row so it's visible, just without an auto-fillable suggestion."""
+    stripped = local_publisher.strip()
+    exact = gcd_db.query(Publisher).filter(func.lower(Publisher.name) == stripped.lower()).first()
+    if exact:
+        return True, None
+
+    escaped = _escape_like(stripped)
+    starts_with = gcd_db.query(Publisher.name).filter(Publisher.name.ilike(f"{escaped}%", escape="\\")).limit(6).all()
+    if len(starts_with) == 1:
+        return False, starts_with[0][0]
+
+    contains = gcd_db.query(Publisher.name).filter(Publisher.name.ilike(f"%{escaped}%", escape="\\")).limit(6).all()
+    if len(contains) == 1:
+        return False, contains[0][0]
+
+    return False, None
+
+
+def get_publisher_mismatches(db: Session, gcd_db: Session) -> list[dict]:
+    """Admin data-quality report (routes/admin.py) - every locally-used
+    publisher string that doesn't exactly match GCD's canonical name for
+    that publisher, with a confident suggestion where one exists. Read-only;
+    the bulk-apply route does the actual merging via
+    crud.bulk_merge_comic_field."""
+    results = []
+    for local_publisher, comic_count in get_distinct_publishers(db):
+        is_exact, suggestion = suggest_gcd_publisher(gcd_db, local_publisher)
+        if is_exact:
+            continue
+        results.append({
+            "local_publisher": local_publisher,
+            "comic_count": comic_count,
+            "suggested_publisher": suggestion,
+        })
+    results.sort(key=lambda r: -r["comic_count"])
+    return results

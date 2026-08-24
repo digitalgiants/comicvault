@@ -175,23 +175,56 @@ def _describe_comic(comic: Comic) -> str:
     return f"{label} ({comic.publisher})" if comic.publisher else label
 
 
+def _find_identity_match(db: Session, comic: Comic, updates: dict) -> Optional[Comic]:
+    """Returns the existing DIFFERENT comic (if any) that `comic` would
+    match after applying `updates`. UPC is checked first and on its own -
+    it's the strongest identity signal (a real-world barcode identifying
+    one specific printing), so an exact UPC match wins even if some other
+    field disagrees (e.g. one row has volume filled in and the other
+    doesn't). Only falls back to find_matching_comic's series+publisher+
+    volume+variant+cover_letter+print_run matching when there's no UPC to
+    go on. Returns None if `updates` doesn't touch any identity field, or
+    no match is found."""
+    if "upc" not in updates and not any(f in updates for f in _COMIC_IDENTITY_FIELDS):
+        return None
+    effective_upc = updates["upc"] if "upc" in updates else comic.upc
+    if effective_upc:
+        candidate_by_upc = get_comic_by_upc(db, effective_upc)
+        if candidate_by_upc and candidate_by_upc.id != comic.id:
+            return candidate_by_upc
+    candidate = {"series": comic.series, "upc": effective_upc}
+    for f in _COMIC_MATCH_FIELDS:
+        candidate[f] = updates.get(f, getattr(comic, f))
+    found = find_matching_comic(db, candidate)
+    if found and found.id != comic.id:
+        return found
+    return None
+
+
+def _merge_comic_into(db: Session, comic: Comic, match: Comic) -> None:
+    """Re-points every UserComic/RejectedCoverImage/CsvImportConflict/
+    BugReport off `comic` onto `match`, then deletes `comic` - the old
+    duplicate catalog entry disappears, everything moves under the
+    pre-existing one. Caller commits."""
+    db.query(UserComic).filter(UserComic.comic_id == comic.id).update(
+        {"comic_id": match.id}, synchronize_session=False)
+    db.query(RejectedCoverImage).filter(RejectedCoverImage.comic_id == comic.id).update(
+        {"comic_id": match.id}, synchronize_session=False)
+    db.query(CsvImportConflict).filter(CsvImportConflict.comic_id == comic.id).update(
+        {"comic_id": match.id}, synchronize_session=False)
+    db.query(BugReport).filter(BugReport.comic_id == comic.id).update(
+        {"comic_id": match.id}, synchronize_session=False)
+    db.delete(comic)
+
+
 def update_comic_metadata_with_merge(db: Session, comic_id: int, user_id: int, updates: dict) -> tuple[Optional[Comic], Optional[str]]:
     """Same as update_comic_metadata, but for edits that touch UPC or one of
     _COMIC_IDENTITY_FIELDS (e.g. volume): if the edit would make this
     comic's identity match a DIFFERENT existing Comic row, that's a
     duplicate catalog entry waiting to happen (Comic is the shared catalog,
-    not per-user - see CLAUDE.md). Instead, merge into the pre-existing
-    match: re-point every UserComic/RejectedCoverImage/CsvImportConflict/
-    BugReport off the old row onto it, then delete the now-orphaned old
-    row - this is the "the old card disappears, everything moves under the
-    existing entry" behavior.
-
-    UPC is checked first and on its own - it's the strongest identity
-    signal (a real-world barcode identifying one specific printing), so an
-    exact UPC match wins even if some other field disagrees (e.g. one row
-    has volume filled in and the other doesn't). Only falls back to
-    find_matching_comic's series+publisher+volume+variant+cover_letter+
-    print_run matching when there's no UPC to go on.
+    not per-user - see CLAUDE.md). Instead, merges into the pre-existing
+    match (see _merge_comic_into) - the "old card disappears, everything
+    moves under the existing entry" behavior.
 
     Blocked (not merged) if the editing user already separately owns the
     matching comic too - price/notes/signed/condition/etc. all live on the
@@ -208,34 +241,11 @@ def update_comic_metadata_with_merge(db: Session, comic_id: int, user_id: int, u
     if not comic:
         return None, None
 
-    touches_identity = "upc" in updates or any(f in updates for f in _COMIC_IDENTITY_FIELDS)
-    match = None
-    if touches_identity:
-        effective_upc = updates["upc"] if "upc" in updates else comic.upc
-        if effective_upc:
-            candidate_by_upc = get_comic_by_upc(db, effective_upc)
-            if candidate_by_upc and candidate_by_upc.id != comic.id:
-                match = candidate_by_upc
-        if match is None:
-            candidate = {"series": comic.series, "upc": effective_upc}
-            for f in _COMIC_MATCH_FIELDS:
-                candidate[f] = updates.get(f, getattr(comic, f))
-            found = find_matching_comic(db, candidate)
-            if found and found.id != comic.id:
-                match = found
-
+    match = _find_identity_match(db, comic, updates)
     if match:
         if user_already_owns(db, user_id, match.id):
             return None, f"You already own a copy of {_describe_comic(match)} - delete one copy first, then retry."
-        db.query(UserComic).filter(UserComic.comic_id == comic.id).update(
-            {"comic_id": match.id}, synchronize_session=False)
-        db.query(RejectedCoverImage).filter(RejectedCoverImage.comic_id == comic.id).update(
-            {"comic_id": match.id}, synchronize_session=False)
-        db.query(CsvImportConflict).filter(CsvImportConflict.comic_id == comic.id).update(
-            {"comic_id": match.id}, synchronize_session=False)
-        db.query(BugReport).filter(BugReport.comic_id == comic.id).update(
-            {"comic_id": match.id}, synchronize_session=False)
-        db.delete(comic)
+        _merge_comic_into(db, comic, match)
         db.commit()
         db.refresh(match)
         return match, None
@@ -245,6 +255,48 @@ def update_comic_metadata_with_merge(db: Session, comic_id: int, user_id: int, u
     db.commit()
     db.refresh(comic)
     return comic, None
+
+
+def bulk_merge_comic_field(db: Session, comic_id: int, updates: dict) -> tuple[Optional[Comic], Optional[str]]:
+    """Admin bulk-operation counterpart to update_comic_metadata_with_merge
+    (see e.g. routes/admin.py's publisher-mismatch bulk-apply) - not scoped
+    to one acting user, so the self-collision check considers EVERY current
+    owner of `comic_id` instead of a single passed-in user, skipping (not
+    partially merging) if any of them already separately own the match.
+    Returns (comic, error) with the same shape as update_comic_metadata_with_merge."""
+    comic = db.query(Comic).filter(Comic.id == comic_id).first()
+    if not comic:
+        return None, None
+
+    match = _find_identity_match(db, comic, updates)
+    if match:
+        owners = {row[0] for row in db.query(UserComic.user_id).filter(UserComic.comic_id == comic.id).distinct()}
+        colliding = [uid for uid in owners if user_already_owns(db, uid, match.id)]
+        if colliding:
+            return None, f"{len(colliding)} owner(s) of {_describe_comic(comic)} already own {_describe_comic(match)} - skipped."
+        _merge_comic_into(db, comic, match)
+        db.commit()
+        db.refresh(match)
+        return match, None
+
+    for field, value in updates.items():
+        setattr(comic, field, value)
+    db.commit()
+    db.refresh(comic)
+    return comic, None
+
+
+def get_distinct_publishers(db: Session) -> list[tuple[str, int]]:
+    """(publisher, comic_count) for every non-null publisher string
+    currently in the catalog - the input side of the admin publisher-
+    mismatch report (see gcd_lookup.get_publisher_mismatches)."""
+    rows = (
+        db.query(Comic.publisher, func.count(Comic.id))
+        .filter(Comic.publisher.isnot(None))
+        .group_by(Comic.publisher)
+        .all()
+    )
+    return [(publisher, count) for publisher, count in rows]
 
 
 def search_comics(

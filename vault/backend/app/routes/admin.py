@@ -4,14 +4,16 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app import crud, crud_cards
+from app import crud, crud_cards, gcd_lookup
 from app.auth import get_current_admin
 from app.config import settings
 from app.database import get_db
-from app.models import TradingCard, User
+from app.gcd_database import get_gcd_db
+from app.models import Comic, TradingCard, User
 from app.schemas import (
     BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSearchLogOut, KioskSettingsOut,
-    KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, TradingCardCreate, TradingCardOut,
+    KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, PublisherMergeRequest, PublisherMergeResult,
+    PublisherMergeSkip, PublisherMismatchOut, TradingCardCreate, TradingCardOut,
     TradingCardUpdate, UserOut, UserUpdate,
 )
 
@@ -418,3 +420,33 @@ def sync_all_card_products(
         page += 1
 
     return {"synced": total_synced, "pages": page}
+
+
+@router.get("/publisher-mismatches", response_model=list[PublisherMismatchOut])
+def get_publisher_mismatches(
+    db: Session = Depends(get_db),
+    gcd_db: Session | None = Depends(get_gcd_db),
+    _: User = Depends(get_current_admin),
+):
+    if gcd_db is None:
+        raise HTTPException(status_code=503, detail="GCD database is not configured")
+    return gcd_lookup.get_publisher_mismatches(db, gcd_db)
+
+
+@router.post("/publisher-mismatches/apply", response_model=PublisherMergeResult)
+def apply_publisher_mismatches(
+    payload: PublisherMergeRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    merged_comics = 0
+    skipped: list[PublisherMergeSkip] = []
+    for item in payload.updates:
+        comics = db.query(Comic).filter(Comic.publisher == item.local_publisher).all()
+        for comic in comics:
+            _, error = crud.bulk_merge_comic_field(db, comic.id, {"publisher": item.target_publisher})
+            if error:
+                skipped.append(PublisherMergeSkip(local_publisher=item.local_publisher, reason=error))
+            else:
+                merged_comics += 1
+    return PublisherMergeResult(merged_comics=merged_comics, skipped=skipped)

@@ -27,6 +27,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
   const [coverArtistValue, setCoverArtistValue] = useState(item.comic.cover_artist ?? '')
   const [coverLetterValue, setCoverLetterValue] = useState(item.comic.cover_letter ?? '')
   const [volumeValue, setVolumeValue] = useState(item.comic.volume ?? '')
+  const [publisherValue, setPublisherValue] = useState(item.comic.publisher ?? '')
   const [findingUpc, setFindingUpc] = useState(false)
   const [upcLookupMessage, setUpcLookupMessage] = useState('')
 
@@ -47,6 +48,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     setCoverArtistValue(item.comic.cover_artist ?? '')
     setCoverLetterValue(item.comic.cover_letter ?? '')
     setVolumeValue(item.comic.volume ?? '')
+    setPublisherValue(item.comic.publisher ?? '')
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -89,25 +91,28 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
       const updated = await updateUserComic(item.id, payload)
 
       let comic = updated.comic
-      const metadataUpdates: { upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null } = {}
+      const metadataUpdates: { upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null } = {}
       const trimmedUpc = upcValue.trim() || null
       const trimmedCoverArtist = coverArtistValue.trim() || null
       const trimmedCoverLetter = coverLetterValue.trim() || null
       const trimmedVolume = volumeValue.trim() || null
+      const trimmedPublisher = publisherValue.trim() || null
       if (trimmedUpc !== (item.comic.upc ?? null)) metadataUpdates.upc = trimmedUpc
       if (trimmedCoverArtist !== (item.comic.cover_artist ?? null)) metadataUpdates.cover_artist = trimmedCoverArtist
       if (trimmedCoverLetter !== (item.comic.cover_letter ?? null)) metadataUpdates.cover_letter = trimmedCoverLetter
       if (trimmedVolume !== (item.comic.volume ?? null)) metadataUpdates.volume = trimmedVolume
+      if (trimmedPublisher !== (item.comic.publisher ?? null)) metadataUpdates.publisher = trimmedPublisher
 
       if (Object.keys(metadataUpdates).length > 0) {
         try {
-          // A volume change (or any other identity field) may merge this
-          // comic into a pre-existing catalog entry that already matches -
-          // the returned comic can be a different id than item.comic.id.
+          // A volume/publisher change (or any other identity field) may
+          // merge this comic into a pre-existing catalog entry that
+          // already matches - the returned comic can be a different id
+          // than item.comic.id.
           comic = await updateComicMetadata(item.comic.id, metadataUpdates)
         } catch (err) {
           const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
-          setError(detail || 'Failed to save UPC / Cover Artist / Cover Letter / Volume. Please try again.')
+          setError(detail || 'Failed to save UPC / Cover Artist / Cover Letter / Volume / Publisher. Please try again.')
           setSaving(false)
           onSaved({ ...updated, sales: localSales })
           return
@@ -260,6 +265,18 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Changing this to match another comic already in the catalog merges into it - the entry you're editing now disappears.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">Publisher</label>
+                <input
+                  value={publisherValue}
+                  onChange={e => setPublisherValue(e.target.value)}
+                  placeholder="e.g. DC Comics"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Same merge behavior as Volume - useful for consolidating inconsistent spellings (e.g. "DC" vs "DC Comics").
                 </p>
               </div>
             </div>

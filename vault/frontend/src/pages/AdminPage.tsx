@@ -25,11 +25,27 @@ interface AdminUser {
   created_at: string
 }
 
+interface PublisherMismatch {
+  local_publisher: string
+  comic_count: number
+  suggested_publisher: string | null
+}
+
+interface PublisherMergeSkip {
+  local_publisher: string
+  reason: string
+}
+
+interface PublisherMergeResult {
+  merged_comics: number
+  skipped: PublisherMergeSkip[]
+}
+
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
@@ -51,6 +67,15 @@ export default function AdminPage() {
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncError, setSyncError] = useState('')
 
+  const [publisherMismatches, setPublisherMismatches] = useState<PublisherMismatch[]>([])
+  const [mismatchesLoading, setMismatchesLoading] = useState(true)
+  const [mismatchesError, setMismatchesError] = useState('')
+  const [targetEdits, setTargetEdits] = useState<Record<string, string>>({})
+  const [selectedMismatches, setSelectedMismatches] = useState<Set<string>>(new Set())
+  const [applying, setApplying] = useState(false)
+  const [applyResult, setApplyResult] = useState<PublisherMergeResult | null>(null)
+  const [applyError, setApplyError] = useState('')
+
   useEffect(() => {
     api.get<AdminUser[]>('/admin/users').then(r => { setUsers(r.data); setLoading(false) })
   }, [])
@@ -66,6 +91,67 @@ export default function AdminPage() {
   useEffect(() => {
     api.get<KioskSettings>('/admin/kiosk-settings').then(r => setKioskSettings(r.data))
   }, [])
+
+  const loadPublisherMismatches = () => {
+    setMismatchesLoading(true)
+    setMismatchesError('')
+    api.get<PublisherMismatch[]>('/admin/publisher-mismatches')
+      .then(r => {
+        setPublisherMismatches(r.data)
+        // Pre-fill each row's editable target with its suggestion (if any),
+        // but only the first time we see that local_publisher - don't clobber
+        // an admin's in-progress manual edit on a refetch after applying others.
+        setTargetEdits(prev => {
+          const next = { ...prev }
+          r.data.forEach(m => {
+            if (!(m.local_publisher in next)) next[m.local_publisher] = m.suggested_publisher ?? ''
+          })
+          return next
+        })
+      })
+      .catch((e: unknown) => {
+        const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+        setMismatchesError(detail || 'Failed to load publisher report.')
+      })
+      .finally(() => setMismatchesLoading(false))
+  }
+
+  useEffect(() => { loadPublisherMismatches() }, [])
+
+  const toggleMismatchSelected = (local: string) => {
+    setSelectedMismatches(prev => {
+      const next = new Set(prev)
+      next.has(local) ? next.delete(local) : next.add(local)
+      return next
+    })
+  }
+
+  const selectAllWithTarget = () => {
+    setSelectedMismatches(new Set(
+      publisherMismatches.filter(m => targetEdits[m.local_publisher]?.trim()).map(m => m.local_publisher),
+    ))
+  }
+
+  const applyPublisherMerges = async () => {
+    const updates = Array.from(selectedMismatches)
+      .map(local => ({ local_publisher: local, target_publisher: (targetEdits[local] ?? '').trim() }))
+      .filter(u => u.target_publisher)
+    if (!updates.length) return
+    setApplying(true)
+    setApplyResult(null)
+    setApplyError('')
+    try {
+      const { data } = await api.post<PublisherMergeResult>('/admin/publisher-mismatches/apply', { updates })
+      setApplyResult(data)
+      setSelectedMismatches(new Set())
+      loadPublisherMismatches()
+    } catch (e: unknown) {
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+      setApplyError(detail || 'Failed to apply publisher merges.')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   const updateSettingsField = (key: keyof KioskSettings, value: number) => {
     setKioskSettings(prev => prev ? { ...prev, [key]: value } : prev)
@@ -243,13 +329,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : 'Kiosk Settings'}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}`}
           </button>
         ))}
       </div>
@@ -651,6 +737,107 @@ export default function AdminPage() {
                 {settingsMessage && <p className="text-green-400 text-sm">{settingsMessage}</p>}
                 {settingsError && <p className="text-red-400 text-sm">{settingsError}</p>}
               </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {tab === 'publishers' && (
+        <div>
+          <p className="text-sm text-gray-400 mb-4">
+            Locally-used publisher names that don't exactly match GCD's canonical spelling for that publisher — e.g. "DC" vs "DC Comics". Applying a fix merges those comics into the correctly-named catalog entry (same merge-safe behavior as editing a comic's publisher directly).
+          </p>
+
+          {mismatchesLoading ? (
+            <div className="text-center text-gray-500 py-12">Loading…</div>
+          ) : mismatchesError ? (
+            <div className="text-center py-12">
+              <p className="text-red-400">{mismatchesError}</p>
+              <button
+                onClick={loadPublisherMismatches}
+                className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+              >
+                Retry
+              </button>
+            </div>
+          ) : publisherMismatches.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">No publisher naming mismatches found.</div>
+          ) : (
+            <>
+              <div className="flex items-center gap-4 mb-3">
+                <button type="button" onClick={selectAllWithTarget} className="text-sm text-brand-400 hover:text-brand-300 transition">
+                  Select all with a target ({publisherMismatches.filter(m => targetEdits[m.local_publisher]?.trim()).length})
+                </button>
+                <button type="button" onClick={() => setSelectedMismatches(new Set())} className="text-sm text-gray-400 hover:text-white transition">
+                  Clear selection
+                </button>
+              </div>
+
+              <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3"></th>
+                      <th className="px-4 py-3 text-left">Local Publisher</th>
+                      <th className="px-4 py-3 text-left">Comics</th>
+                      <th className="px-4 py-3 text-left">Target (GCD)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {publisherMismatches.map(m => (
+                      <tr key={m.local_publisher} className="hover:bg-gray-800/50 transition">
+                        <td className="px-4 py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedMismatches.has(m.local_publisher)}
+                            onChange={() => toggleMismatchSelected(m.local_publisher)}
+                            className="w-3.5 h-3.5 rounded accent-brand-500"
+                          />
+                        </td>
+                        <td className="px-4 py-3 text-gray-300 font-mono">{m.local_publisher}</td>
+                        <td className="px-4 py-3 text-gray-400">{m.comic_count}</td>
+                        <td className="px-4 py-3">
+                          <input
+                            value={targetEdits[m.local_publisher] ?? ''}
+                            onChange={e => setTargetEdits(prev => ({ ...prev, [m.local_publisher]: e.target.value }))}
+                            placeholder={m.suggested_publisher ? undefined : 'No confident match — type one'}
+                            className={`w-full bg-gray-800 border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 ${m.suggested_publisher ? 'border-gray-700' : 'border-amber-700/50'}`}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center gap-3 mt-4">
+                <button
+                  onClick={applyPublisherMerges}
+                  disabled={applying || selectedMismatches.size === 0}
+                  className="px-5 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+                >
+                  {applying ? 'Applying…' : `Apply Selected (${selectedMismatches.size})`}
+                </button>
+                {applyError && <p className="text-red-400 text-sm">{applyError}</p>}
+              </div>
+
+              {applyResult && (
+                <div className="mt-4 bg-gray-900 rounded-xl border border-gray-800 p-4 text-sm">
+                  <p className="text-green-400">
+                    Merged {applyResult.merged_comics} comic{applyResult.merged_comics === 1 ? '' : 's'}.
+                  </p>
+                  {applyResult.skipped.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-amber-400">{applyResult.skipped.length} skipped:</p>
+                      <ul className="mt-1 space-y-1 text-gray-400">
+                        {applyResult.skipped.map((s, i) => (
+                          <li key={i}>{s.local_publisher}: {s.reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

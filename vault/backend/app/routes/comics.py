@@ -61,6 +61,8 @@ def update_comic_metadata(
         data["cover_artist"] = data["cover_artist"].strip() if data["cover_artist"] else None
     if "volume" in data:
         data["volume"] = data["volume"].strip() if data["volume"] else None
+    if "publisher" in data:
+        data["publisher"] = data["publisher"].strip() if data["publisher"] else None
 
     comic, error = crud.update_comic_metadata_with_merge(db, comic_id, current_user.id, data)
     if error:
