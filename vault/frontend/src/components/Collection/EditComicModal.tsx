@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { X, Trash2, Search } from 'lucide-react'
-import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto } from '../../api/collection'
+import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto, deleteUserComic } from '../../api/collection'
 import { findUpc } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
@@ -13,13 +13,15 @@ interface Props {
   onClose: () => void
   onSaved: (updated: UserComic) => void
   onItemChange?: (updated: UserComic) => void
+  onDeleted: () => void
 }
 
-export default function EditComicModal({ item, onClose, onSaved, onItemChange }: Props) {
+export default function EditComicModal({ item, onClose, onSaved, onItemChange, onDeleted }: Props) {
   const { user } = useAuth()
   const isCollector = !!user?.is_collector
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
@@ -165,6 +167,19 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
     onItemChange?.({ ...item, sales: updated })
   }
 
+  const handleDeleteComic = async () => {
+    if (!confirm(`Permanently delete "${item.comic.series}" from your collection?`)) return
+    setDeleting(true)
+    setError('')
+    try {
+      await deleteUserComic(item.id)
+      onDeleted()
+    } catch {
+      setError('Failed to delete. Please try again.')
+      setDeleting(false)
+    }
+  }
+
   const avail = availableCopies({ ...item, sales: localSales })
 
   return (
@@ -178,9 +193,19 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange }:
                 .filter(Boolean).join(' · ')}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleDeleteComic}
+              disabled={deleting}
+              title="Delete"
+              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-50"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">

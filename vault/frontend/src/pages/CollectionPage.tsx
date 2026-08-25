@@ -226,6 +226,14 @@ export default function CollectionPage() {
     setEditing(null)
   }
 
+  const handleDeletedFromModal = () => {
+    if (!editing) return
+    setItems(prev => prev.filter(i => i.id !== editing.id))
+    setSelected(prev => { const n = new Set(prev); n.delete(editing.id); return n })
+    setTotal(t => t - 1)
+    setEditing(null)
+  }
+
   const handleSaleSaved = async (ucId: number, sell_date: string, sell_price?: number | null, notes?: string | null) => {
     const sale = await recordSale(ucId, sell_date, sell_price, notes)
     setItems(prev => prev.map(i => i.id === ucId ? { ...i, sales: [...i.sales, sale] } : i))
@@ -671,6 +679,7 @@ export default function CollectionPage() {
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
           onItemChange={updated => setItems(prev => prev.map(i => i.id === updated.id ? updated : i))}
+          onDeleted={handleDeletedFromModal}
         />
       )}
       {selling && (
