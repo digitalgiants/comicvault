@@ -406,10 +406,10 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-8">
-        <Shield size={24} className="text-yellow-400" />
-        <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
+        <Shield size={24} className="text-yellow-400 flex-shrink-0" />
+        <h1 className="text-xl sm:text-2xl font-bold">Admin Dashboard</h1>
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
@@ -417,7 +417,7 @@ export default function AdminPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
             {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}` : t === 'upc' ? `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}` : 'ComicVine Images'}
           </button>
@@ -425,57 +425,97 @@ export default function AdminPage() {
       </div>
 
       {tab === 'users' && (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+        <div>
           {loading ? (
             <div className="text-center text-gray-400 py-12">Loading…</div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                <tr>
-                  <th className="px-6 py-3 text-left">Username</th>
-                  <th className="px-6 py-3 text-left">Role</th>
-                  <th className="px-6 py-3 text-left">Joined</th>
-                  <th className="px-6 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
+            <>
+              <div className="sm:hidden space-y-3">
                 {users.map(user => {
                   const role = roleLabel(user)
                   return (
-                    <tr key={user.id} className="hover:bg-gray-800/50 transition">
-                      <td className="px-6 py-4">{user.username}</td>
-                      <td className="px-6 py-4">
-                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
+                    <div key={user.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-medium text-white truncate">{user.username}</p>
+                        <span className={`flex-shrink-0 text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
                           {role.label}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => toggleAdmin(user)}
-                            title={user.is_admin ? 'Revoke admin' : 'Make admin'}
-                            className="p-2 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-gray-700 transition"
-                          >
-                            <UserCog size={16} />
-                          </button>
-                          <button
-                            onClick={() => toggleKiosk(user)}
-                            title={user.is_kiosk ? 'Disable kiosk' : 'Enable kiosk'}
-                            className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
-                          >
-                            <Monitor size={16} />
-                          </button>
-                          <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 mb-3">Joined {new Date(user.created_at).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-1 -ml-2">
+                        <button
+                          onClick={() => toggleAdmin(user)}
+                          title={user.is_admin ? 'Revoke admin' : 'Make admin'}
+                          className="p-2 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-gray-800 transition"
+                        >
+                          <UserCog size={16} />
+                        </button>
+                        <button
+                          onClick={() => toggleKiosk(user)}
+                          title={user.is_kiosk ? 'Disable kiosk' : 'Enable kiosk'}
+                          className={`p-2 rounded-lg hover:bg-gray-800 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
+                        >
+                          <Monitor size={16} />
+                        </button>
+                        <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
                   )
                 })}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-6 py-3 text-left">Username</th>
+                      <th className="px-6 py-3 text-left">Role</th>
+                      <th className="px-6 py-3 text-left">Joined</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {users.map(user => {
+                      const role = roleLabel(user)
+                      return (
+                        <tr key={user.id} className="hover:bg-gray-800/50 transition">
+                          <td className="px-6 py-4">{user.username}</td>
+                          <td className="px-6 py-4">
+                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
+                              {role.label}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => toggleAdmin(user)}
+                                title={user.is_admin ? 'Revoke admin' : 'Make admin'}
+                                className="p-2 rounded-lg text-gray-400 hover:text-yellow-400 hover:bg-gray-700 transition"
+                              >
+                                <UserCog size={16} />
+                              </button>
+                              <button
+                                onClick={() => toggleKiosk(user)}
+                                title={user.is_kiosk ? 'Disable kiosk' : 'Enable kiosk'}
+                                className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
+                              >
+                                <Monitor size={16} />
+                              </button>
+                              <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -589,9 +629,9 @@ export default function AdminPage() {
 
       {tab === 'signups' && (
         <div>
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-gray-400">
+          <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <p className="text-sm text-gray-400 whitespace-nowrap">
                 {signupSearch.trim()
                   ? `${filteredSignups.length} of ${signups.length} signup${signups.length !== 1 ? 's' : ''}`
                   : `${signups.length} signup${signups.length !== 1 ? 's' : ''}`}
@@ -600,14 +640,14 @@ export default function AdminPage() {
                 value={signupSearch}
                 onChange={e => setSignupSearch(e.target.value)}
                 placeholder="Search name, email, phone, notes…"
-                className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-56"
+                className="w-full sm:w-56 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={copySignupEmails}
                 disabled={filteredSignups.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
               >
                 <Copy size={14} />
                 {emailsCopied ? 'Copied!' : 'Copy Emails'}
@@ -615,7 +655,7 @@ export default function AdminPage() {
               <button
                 onClick={downloadSignupsCsv}
                 disabled={signups.length === 0}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
+                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm font-medium rounded-lg transition disabled:opacity-50"
               >
                 <Download size={14} />
                 Download CSV
@@ -628,57 +668,92 @@ export default function AdminPage() {
           ) : filteredSignups.length === 0 ? (
             <div className="text-center text-gray-500 py-12">No signups match "{signupSearch.trim()}".</div>
           ) : (
-            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                  <tr>
-                    <th className="px-6 py-3 text-left">Name</th>
-                    <th className="px-6 py-3 text-left">Email</th>
-                    <th className="px-6 py-3 text-left">Phone</th>
-                    <th className="px-6 py-3 text-left">Notes</th>
-                    <th className="px-6 py-3 text-left">Signed Up</th>
-                    <th className="px-6 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {filteredSignups.map(s => (
-                    <tr key={s.id} className="hover:bg-gray-800/50 transition">
-                      <td className="px-6 py-4">{s.first_name} {s.last_name}</td>
-                      <td className="px-6 py-4 text-gray-300">{s.email}</td>
-                      <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
-                      <td className="px-6 py-4 text-gray-400 max-w-xs truncate" title={s.notes ?? undefined}>{s.notes ?? '—'}</td>
-                      <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => setEditingSignup(s)}
-                            title="Edit"
-                            className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSignup(s)}
-                            title="Delete"
-                            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
+            <>
+              <div className="sm:hidden space-y-3">
+                {filteredSignups.map(s => (
+                  <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-white truncate">{s.first_name} {s.last_name}</p>
+                        <p className="text-sm text-gray-300 truncate">{s.email}</p>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-1 -mr-1.5">
+                        <button
+                          onClick={() => setEditingSignup(s)}
+                          title="Edit"
+                          className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSignup(s)}
+                          title="Delete"
+                          className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-2 space-y-0.5">
+                      <p>{s.phone ?? 'No phone'} · {new Date(s.created_at).toLocaleDateString()}</p>
+                      {s.notes && <p className="text-gray-500">{s.notes}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-6 py-3 text-left">Name</th>
+                      <th className="px-6 py-3 text-left">Email</th>
+                      <th className="px-6 py-3 text-left">Phone</th>
+                      <th className="px-6 py-3 text-left">Notes</th>
+                      <th className="px-6 py-3 text-left">Signed Up</th>
+                      <th className="px-6 py-3 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {filteredSignups.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-800/50 transition">
+                        <td className="px-6 py-4">{s.first_name} {s.last_name}</td>
+                        <td className="px-6 py-4 text-gray-300">{s.email}</td>
+                        <td className="px-6 py-4 text-gray-400">{s.phone ?? '—'}</td>
+                        <td className="px-6 py-4 text-gray-400 max-w-xs truncate" title={s.notes ?? undefined}>{s.notes ?? '—'}</td>
+                        <td className="px-6 py-4 text-gray-400">{new Date(s.created_at).toLocaleDateString()}</td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => setEditingSignup(s)}
+                              title="Edit"
+                              className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSignup(s)}
+                              title="Delete"
+                              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
 
       {tab === 'searches' && (
         <div>
-          <div className="flex items-center gap-3 mb-4">
-            <p className="text-sm text-gray-400">
+          <div className="flex flex-col gap-2 mb-4 sm:flex-row sm:items-center sm:gap-3">
+            <p className="text-sm text-gray-400 whitespace-nowrap">
               {searchLogFilter.trim()
                 ? `${filteredSearchLogs.length} of ${searchLogs.length} search${searchLogs.length !== 1 ? 'es' : ''}`
                 : `${searchLogs.length} search${searchLogs.length !== 1 ? 'es' : ''}`}
@@ -687,7 +762,7 @@ export default function AdminPage() {
               value={searchLogFilter}
               onChange={e => setSearchLogFilter(e.target.value)}
               placeholder="Search queries…"
-              className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 w-56"
+              className="w-full sm:w-56 bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
 
@@ -696,26 +771,37 @@ export default function AdminPage() {
           ) : filteredSearchLogs.length === 0 ? (
             <div className="text-center text-gray-500 py-12">No searches match "{searchLogFilter.trim()}".</div>
           ) : (
-            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                  <tr>
-                    <th className="px-6 py-3 text-left">Query</th>
-                    <th className="px-6 py-3 text-left">Section</th>
-                    <th className="px-6 py-3 text-left">Searched</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {filteredSearchLogs.map(log => (
-                    <tr key={log.id} className="hover:bg-gray-800/50 transition">
-                      <td className="px-6 py-4">{log.query}</td>
-                      <td className="px-6 py-4 text-gray-400 capitalize">{log.section}</td>
-                      <td className="px-6 py-4 text-gray-400">{new Date(log.created_at).toLocaleString()}</td>
+            <>
+              <div className="sm:hidden space-y-2">
+                {filteredSearchLogs.map(log => (
+                  <div key={log.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
+                    <p className="text-white break-words">{log.query}</p>
+                    <p className="text-xs text-gray-500 mt-1 capitalize">{log.section} · {new Date(log.created_at).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-6 py-3 text-left">Query</th>
+                      <th className="px-6 py-3 text-left">Section</th>
+                      <th className="px-6 py-3 text-left">Searched</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {filteredSearchLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-gray-800/50 transition">
+                        <td className="px-6 py-4">{log.query}</td>
+                        <td className="px-6 py-4 text-gray-400 capitalize">{log.section}</td>
+                        <td className="px-6 py-4 text-gray-400">{new Date(log.created_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -859,7 +945,30 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="sm:hidden space-y-3">
+                {publisherMismatches.map(m => (
+                  <div key={m.local_publisher} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <label className="flex items-center gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedMismatches.has(m.local_publisher)}
+                        onChange={() => toggleMismatchSelected(m.local_publisher)}
+                        className="w-3.5 h-3.5 rounded accent-brand-500 flex-shrink-0"
+                      />
+                      <span className="text-gray-300 font-mono truncate">{m.local_publisher}</span>
+                      <span className="flex-shrink-0 text-xs text-gray-500 ml-auto">{m.comic_count} comic{m.comic_count === 1 ? '' : 's'}</span>
+                    </label>
+                    <input
+                      value={targetEdits[m.local_publisher] ?? ''}
+                      onChange={e => setTargetEdits(prev => ({ ...prev, [m.local_publisher]: e.target.value }))}
+                      placeholder={m.suggested_publisher ? undefined : 'No confident match — type one'}
+                      className={`mt-2.5 w-full bg-gray-800 border rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-500 ${m.suggested_publisher ? 'border-gray-700' : 'border-amber-700/50'}`}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -950,55 +1059,89 @@ export default function AdminPage() {
           ) : upcIssues.length === 0 ? (
             <div className="text-center text-gray-500 py-12">No malformed UPCs found.</div>
           ) : (
-            <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Comic</th>
-                    <th className="px-4 py-3 text-left">Stored UPC</th>
-                    <th className="px-4 py-3 text-left">Cleaned</th>
-                    <th className="px-4 py-3 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {upcIssues.map(i => (
-                    <tr key={i.comic_id} className="hover:bg-gray-800/50 transition">
-                      <td className="px-4 py-3 text-gray-300">
-                        {i.series}{i.issue_number ? ` #${i.issue_number}` : ''}
-                        {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
-                      </td>
-                      <td className="px-4 py-3 text-gray-400 font-mono">{i.upc}</td>
-                      <td className="px-4 py-3 font-mono">
+            <>
+              <div className="sm:hidden space-y-3">
+                {upcIssues.map(i => (
+                  <div key={i.comic_id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                    <p className="text-gray-300">
+                      {i.series}{i.issue_number ? ` #${i.issue_number}` : ''}
+                      {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
+                    </p>
+                    <p className="text-xs font-mono text-gray-500 mt-1">{i.upc}</p>
+                    <div className="flex items-center justify-between gap-3 mt-3">
+                      <div className="font-mono text-sm">
                         {i.suggested_upc ? (
-                          <span className="text-gray-300">{i.suggested_upc}</span>
+                          <span className="text-gray-300">→ {i.suggested_upc}</span>
                         ) : (
-                          <span className="text-amber-400">not auto-fixable</span>
+                          <span className="text-amber-400 text-xs">not auto-fixable</span>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => fixUpcIssue(i.comic_id)}
-                          disabled={!i.suggested_upc || fixingUpcId === i.comic_id}
-                          title={i.suggested_upc ? 'Fix' : 'Edit this comic manually instead'}
-                          className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
-                        >
-                          {fixingUpcId === i.comic_id ? 'Fixing…' : 'Fix'}
-                        </button>
-                        {upcFixErrors[i.comic_id] && (
-                          <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
-                        )}
-                      </td>
+                      </div>
+                      <button
+                        onClick={() => fixUpcIssue(i.comic_id)}
+                        disabled={!i.suggested_upc || fixingUpcId === i.comic_id}
+                        title={i.suggested_upc ? 'Fix' : 'Edit this comic manually instead'}
+                        className="flex-shrink-0 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
+                      >
+                        {fixingUpcId === i.comic_id ? 'Fixing…' : 'Fix'}
+                      </button>
+                    </div>
+                    {upcFixErrors[i.comic_id] && (
+                      <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Comic</th>
+                      <th className="px-4 py-3 text-left">Stored UPC</th>
+                      <th className="px-4 py-3 text-left">Cleaned</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {upcIssues.map(i => (
+                      <tr key={i.comic_id} className="hover:bg-gray-800/50 transition">
+                        <td className="px-4 py-3 text-gray-300">
+                          {i.series}{i.issue_number ? ` #${i.issue_number}` : ''}
+                          {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 font-mono">{i.upc}</td>
+                        <td className="px-4 py-3 font-mono">
+                          {i.suggested_upc ? (
+                            <span className="text-gray-300">{i.suggested_upc}</span>
+                          ) : (
+                            <span className="text-amber-400">not auto-fixable</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => fixUpcIssue(i.comic_id)}
+                            disabled={!i.suggested_upc || fixingUpcId === i.comic_id}
+                            title={i.suggested_upc ? 'Fix' : 'Edit this comic manually instead'}
+                            className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
+                          >
+                            {fixingUpcId === i.comic_id ? 'Fixing…' : 'Fix'}
+                          </button>
+                          {upcFixErrors[i.comic_id] && (
+                            <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
 
       {tab === 'comicvine' && (
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-4">
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-4 sm:p-6 space-y-4">
           <div>
             <p className="text-sm text-gray-300 mb-1">Pull cover images from ComicVine</p>
             <p className="text-xs text-gray-500 mb-3">
@@ -1033,40 +1176,65 @@ export default function AdminPage() {
           )}
 
           {comicvineResults.length > 0 && (
-            <div className="rounded-xl border border-gray-800 overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-                  <tr>
-                    <th className="px-4 py-3 text-left">Searched</th>
-                    <th className="px-4 py-3 text-left">Matched Series</th>
-                    <th className="px-4 py-3 text-right">Issues w/ Image</th>
-                    <th className="px-4 py-3 text-right">Created</th>
-                    <th className="px-4 py-3 text-right">Filled</th>
-                    <th className="px-4 py-3 text-right">Skipped</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {comicvineResults.map((r, idx) => (
-                    <tr key={idx} className="hover:bg-gray-800/50 transition">
-                      <td className="px-4 py-3 text-gray-300">{r.query}</td>
-                      {r.status === 'not_found' ? (
-                        <td className="px-4 py-3 text-amber-400" colSpan={5}>No match found on ComicVine</td>
-                      ) : (
-                        <>
-                          <td className="px-4 py-3 text-gray-300">
-                            {r.matched_series}{r.publisher && <span className="text-gray-500"> ({r.publisher})</span>}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-400">{r.issues_with_image} / {r.total_issues}</td>
-                          <td className="px-4 py-3 text-right text-green-400">{r.created}</td>
-                          <td className="px-4 py-3 text-right text-blue-400">{r.images_filled}</td>
-                          <td className="px-4 py-3 text-right text-gray-500">{r.skipped}</td>
-                        </>
-                      )}
+            <>
+              <div className="sm:hidden space-y-3">
+                {comicvineResults.map((r, idx) => (
+                  <div key={idx} className="bg-gray-950 border border-gray-800 rounded-xl p-3.5">
+                    <p className="text-gray-300 truncate">{r.query}</p>
+                    {r.status === 'not_found' ? (
+                      <p className="text-amber-400 text-sm mt-1">No match found on ComicVine</p>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          → {r.matched_series}{r.publisher && ` (${r.publisher})`}
+                        </p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs mt-2">
+                          <span className="text-gray-400">{r.issues_with_image} / {r.total_issues} w/ image</span>
+                          <span className="text-green-400">{r.created} created</span>
+                          <span className="text-blue-400">{r.images_filled} filled</span>
+                          <span className="text-gray-500">{r.skipped} skipped</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden sm:block rounded-xl border border-gray-800 overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Searched</th>
+                      <th className="px-4 py-3 text-left">Matched Series</th>
+                      <th className="px-4 py-3 text-right">Issues w/ Image</th>
+                      <th className="px-4 py-3 text-right">Created</th>
+                      <th className="px-4 py-3 text-right">Filled</th>
+                      <th className="px-4 py-3 text-right">Skipped</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {comicvineResults.map((r, idx) => (
+                      <tr key={idx} className="hover:bg-gray-800/50 transition">
+                        <td className="px-4 py-3 text-gray-300">{r.query}</td>
+                        {r.status === 'not_found' ? (
+                          <td className="px-4 py-3 text-amber-400" colSpan={5}>No match found on ComicVine</td>
+                        ) : (
+                          <>
+                            <td className="px-4 py-3 text-gray-300">
+                              {r.matched_series}{r.publisher && <span className="text-gray-500"> ({r.publisher})</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-400">{r.issues_with_image} / {r.total_issues}</td>
+                            <td className="px-4 py-3 text-right text-green-400">{r.created}</td>
+                            <td className="px-4 py-3 text-right text-blue-400">{r.images_filled}</td>
+                            <td className="px-4 py-3 text-right text-gray-500">{r.skipped}</td>
+                          </>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}
