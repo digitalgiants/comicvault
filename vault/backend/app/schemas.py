@@ -244,6 +244,15 @@ class UpcIssueOut(BaseModel):
     suggested_upc: Optional[str] = None
 
 
+class LegacyNumberIssueOut(BaseModel):
+    comic_id: int
+    series: str
+    issue_number: str
+    publisher: Optional[str] = None
+    suggested_issue_number: str
+    suggested_legacy_number: str
+
+
 # --- Admin: ComicVine cover-image sync (see app.external.comicvine) ---
 
 class ComicVineSyncRequest(BaseModel):
@@ -346,6 +355,7 @@ class ExternalIssueSummary(BaseModel):
     provider: str
     provider_issue_id: str
     number: Optional[str] = None
+    legacy_number: Optional[str] = None
     cover_date: Optional[str] = None
     image: Optional[str] = None
 

@@ -71,6 +71,7 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
     result = {
         "series_name": fields.series,
         "issue_number": fields.issue_number or "",
+        "legacy_number": fields.legacy_number,
         "cover_date": fields.cover_date.isoformat() if fields.cover_date else "",
         "variant_name": fields.variant,
         "cover_artists": [],

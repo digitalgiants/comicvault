@@ -14,8 +14,8 @@ from app.models import Comic, TradingCard, User
 from app.schemas import (
     BugReportOut, ComicCreate, ComicOut, ComicUpdate, ComicVineSeriesSyncResult, ComicVineSyncRequest,
     ComicVineSyncResponse, KioskSearchLogOut, KioskSettingsOut,
-    KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, PublisherMergeRequest, PublisherMergeResult,
-    PublisherMergeSkip, PublisherMismatchOut, TradingCardCreate, TradingCardOut,
+    KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, LegacyNumberIssueOut, PublisherMergeRequest,
+    PublisherMergeResult, PublisherMergeSkip, PublisherMismatchOut, TradingCardCreate, TradingCardOut,
     TradingCardUpdate, UpcIssueOut, UserOut, UserUpdate,
 )
 
@@ -529,6 +529,35 @@ def fix_upc_issue(
     if not suggested:
         raise HTTPException(status_code=400, detail="Can't auto-clean this UPC — edit it manually instead")
     result, error = crud.bulk_merge_comic_field(db, comic_id, {"upc": suggested})
+    if error:
+        raise HTTPException(status_code=400, detail=error)
+    return result
+
+
+@router.get("/legacy-numbers", response_model=list[LegacyNumberIssueOut])
+def get_legacy_number_issues(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    return crud.get_legacy_number_issues(db)
+
+
+@router.post("/legacy-numbers/{comic_id}/fix", response_model=ComicOut)
+def fix_legacy_number_issue(
+    comic_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    comic = crud.get_comic_by_id(db, comic_id)
+    if not comic or not comic.issue_number:
+        raise HTTPException(status_code=404, detail="Comic not found")
+    issue_part, legacy_part = crud.split_legacy_number(comic.issue_number)
+    if legacy_part is None:
+        raise HTTPException(status_code=400, detail="This issue number doesn't have a legacy number embedded — edit it manually instead")
+    updates = {"issue_number": issue_part}
+    if not comic.legacy_number:
+        updates["legacy_number"] = legacy_part
+    result, error = crud.bulk_merge_comic_field(db, comic_id, updates)
     if error:
         raise HTTPException(status_code=400, detail=error)
     return result

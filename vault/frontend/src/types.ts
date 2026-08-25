@@ -209,6 +209,11 @@ export interface LookupResult {
   series_volume: number | null
   publisher_name: string | null
   issue_number: string
+  // Only ever set on a GCD-sourced result (see routes/scan.py's
+  // _lookup_gcd) - comic-scraper's own Metron-backed response never
+  // includes this key at all, since Metron doesn't have GCD's
+  // "1 (685)" combined legacy-numbering convention.
+  legacy_number?: string | null
   cover_date: string
   store_date: string | null
   variant_name: string | null
@@ -333,6 +338,7 @@ export interface ExternalIssueSummary {
   provider: Provider
   provider_issue_id: string
   number: string | null
+  legacy_number: string | null
   cover_date: string | null
   image: string | null
 }
@@ -594,7 +600,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     series: result.series_name,
     volume: result.series_volume != null ? String(result.series_volume) : null,
     issue_number: result.issue_number,
-    legacy_number: null,
+    legacy_number: result.legacy_number ?? null,
     cover_date: result.cover_date || null,
     store_date: result.store_date,
     newstand: null,

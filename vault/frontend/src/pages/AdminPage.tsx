@@ -50,6 +50,15 @@ interface UpcIssue {
   suggested_upc: string | null
 }
 
+interface LegacyNumberIssue {
+  comic_id: number
+  series: string
+  issue_number: string
+  publisher: string | null
+  suggested_issue_number: string
+  suggested_legacy_number: string
+}
+
 interface ComicVineSeriesSyncResult {
   query: string
   status: 'synced' | 'not_found'
@@ -66,7 +75,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers' | 'upc' | 'comicvine'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers' | 'upc' | 'legacy' | 'comicvine'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
@@ -211,6 +220,40 @@ export default function AdminPage() {
       setUpcFixErrors(prev => ({ ...prev, [comicId]: detail || 'Failed to fix this UPC.' }))
     } finally {
       setFixingUpcId(null)
+    }
+  }
+
+  const [legacyIssues, setLegacyIssues] = useState<LegacyNumberIssue[]>([])
+  const [legacyIssuesLoading, setLegacyIssuesLoading] = useState(true)
+  const [legacyIssuesError, setLegacyIssuesError] = useState('')
+  const [fixingLegacyId, setFixingLegacyId] = useState<number | null>(null)
+  const [legacyFixErrors, setLegacyFixErrors] = useState<Record<number, string>>({})
+
+  const loadLegacyIssues = () => {
+    setLegacyIssuesLoading(true)
+    setLegacyIssuesError('')
+    api.get<LegacyNumberIssue[]>('/admin/legacy-numbers')
+      .then(r => setLegacyIssues(r.data))
+      .catch((e: unknown) => {
+        const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+        setLegacyIssuesError(detail || 'Failed to load legacy number report.')
+      })
+      .finally(() => setLegacyIssuesLoading(false))
+  }
+
+  useEffect(() => { loadLegacyIssues() }, [])
+
+  const fixLegacyIssue = async (comicId: number) => {
+    setFixingLegacyId(comicId)
+    setLegacyFixErrors(prev => { const next = { ...prev }; delete next[comicId]; return next })
+    try {
+      await api.post(`/admin/legacy-numbers/${comicId}/fix`)
+      setLegacyIssues(prev => prev.filter(i => i.comic_id !== comicId))
+    } catch (e: unknown) {
+      const detail = axios.isAxiosError(e) ? e.response?.data?.detail : null
+      setLegacyFixErrors(prev => ({ ...prev, [comicId]: detail || 'Failed to fix this issue number.' }))
+    } finally {
+      setFixingLegacyId(null)
     }
   }
 
@@ -405,7 +448,7 @@ export default function AdminPage() {
     return { label: 'User', cls: 'bg-gray-700 text-gray-400' }
   }
 
-  const TABS = ['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc', 'comicvine'] as const
+  const TABS = ['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc', 'legacy', 'comicvine'] as const
 
   const tabLabel = (t: typeof TABS[number]) => (
     t === 'users' ? `Users (${users.length})`
@@ -416,6 +459,7 @@ export default function AdminPage() {
     : t === 'settings' ? 'Kiosk Settings'
     : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}`
     : t === 'upc' ? `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}`
+    : t === 'legacy' ? `Legacy Numbers${legacyIssues.length ? ` (${legacyIssues.length})` : ''}`
     : 'ComicVine Images'
   )
 
@@ -1154,6 +1198,99 @@ export default function AdminPage() {
                             </button>
                             {upcFixErrors[i.comic_id] && (
                               <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {tab === 'legacy' && (
+          <div>
+            <p className="text-sm text-gray-400 mb-4">
+              Comics whose issue number still has GCD's "1 (685)" format embedded — a relaunched series' new issue number plus its old "legacy" continuous number, in parentheses — instead of being split into separate Issue Number and Legacy Number fields. Fixing merges into a matching catalog entry if one already exists, same as everywhere else.
+            </p>
+
+            {legacyIssuesLoading ? (
+              <div className="text-center text-gray-500 py-12">Loading…</div>
+            ) : legacyIssuesError ? (
+              <div className="text-center py-12">
+                <p className="text-red-400">{legacyIssuesError}</p>
+                <button
+                  onClick={loadLegacyIssues}
+                  className="mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-sm rounded-lg transition"
+                >
+                  Retry
+                </button>
+              </div>
+            ) : legacyIssues.length === 0 ? (
+              <div className="text-center text-gray-500 py-12">No embedded legacy numbers found.</div>
+            ) : (
+              <>
+                <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {legacyIssues.map(i => (
+                    <div key={i.comic_id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+                      <p className="text-gray-300">
+                        {i.series} #{i.issue_number}
+                        {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
+                      </p>
+                      <p className="text-sm text-gray-300 mt-2">
+                        → #{i.suggested_issue_number} <span className="text-gray-500">(Legacy #{i.suggested_legacy_number})</span>
+                      </p>
+                      <div className="flex justify-end mt-3">
+                        <button
+                          onClick={() => fixLegacyIssue(i.comic_id)}
+                          disabled={fixingLegacyId === i.comic_id}
+                          title="Fix"
+                          className="flex-shrink-0 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
+                        >
+                          {fixingLegacyId === i.comic_id ? 'Fixing…' : 'Fix'}
+                        </button>
+                      </div>
+                      {legacyFixErrors[i.comic_id] && (
+                        <p className="text-xs text-red-400 mt-1">{legacyFixErrors[i.comic_id]}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Comic</th>
+                        <th className="px-4 py-3 text-left">Current Issue Number</th>
+                        <th className="px-4 py-3 text-left">Split Result</th>
+                        <th className="px-4 py-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {legacyIssues.map(i => (
+                        <tr key={i.comic_id} className="hover:bg-gray-800/50 transition">
+                          <td className="px-4 py-3 text-gray-300">
+                            {i.series}
+                            {i.publisher && <span className="text-gray-500"> ({i.publisher})</span>}
+                          </td>
+                          <td className="px-4 py-3 text-gray-400 font-mono">{i.issue_number}</td>
+                          <td className="px-4 py-3 text-gray-300">
+                            #{i.suggested_issue_number} <span className="text-gray-500">(Legacy #{i.suggested_legacy_number})</span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => fixLegacyIssue(i.comic_id)}
+                              disabled={fixingLegacyId === i.comic_id}
+                              title="Fix"
+                              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition disabled:opacity-40"
+                            >
+                              {fixingLegacyId === i.comic_id ? 'Fixing…' : 'Fix'}
+                            </button>
+                            {legacyFixErrors[i.comic_id] && (
+                              <p className="text-xs text-red-400 mt-1">{legacyFixErrors[i.comic_id]}</p>
                             )}
                           </td>
                         </tr>

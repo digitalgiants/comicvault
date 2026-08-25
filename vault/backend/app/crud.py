@@ -197,14 +197,13 @@ def update_comic_metadata(db: Session, comic_id: int, updates: dict) -> Optional
     return comic
 
 
-# Every field find_matching_comic requires to build an accurate candidate,
-# including issue_number - which is never itself edited via this path, but
-# still has to be carried through at its current value or the match query
-# would wrongly require issue_number IS NULL. _COMIC_IDENTITY_FIELDS is the
-# narrower, actually-editable subset used to decide whether an edit needs a
-# merge-check at all.
+# Every field find_matching_comic requires to build an accurate candidate.
+# _COMIC_IDENTITY_FIELDS is the subset used to decide whether an edit needs
+# a merge-check at all - issue_number is included because the admin
+# legacy-number-split fix (see get_legacy_number_issues) edits it directly;
+# nothing else currently does, but it's a real identity field like the rest.
 _COMIC_MATCH_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
-_COMIC_IDENTITY_FIELDS = ["publisher", "volume", "variant", "cover_letter", "print_run"]
+_COMIC_IDENTITY_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
 
 
 def _describe_comic(comic: Comic) -> str:
@@ -373,6 +372,51 @@ def get_malformed_upc_comics(db: Session) -> list[dict]:
             "publisher": comic.publisher,
             "upc": comic.upc,
             "suggested_upc": suggested,
+        })
+    return results
+
+
+_LEGACY_NUMBER_RE = re.compile(r"^(.*?)\s*\(([^()]+)\)\s*$")
+
+
+def split_legacy_number(raw: Optional[str]) -> tuple[Optional[str], Optional[str]]:
+    """Splits GCD's combined "1 (685)" issue-number format - a relaunched
+    series' new issue number plus its old "legacy" continuous number in
+    parentheses - into (issue_number, legacy_number). Returns the value
+    unchanged with legacy_number=None if there's no trailing parenthetical
+    (the vast majority of issues), so callers can apply this unconditionally
+    to any GCD issue.number without a separate has-legacy check."""
+    if not raw:
+        return raw, None
+    match = _LEGACY_NUMBER_RE.match(raw.strip())
+    if not match:
+        return raw, None
+    issue_part, legacy_part = match.group(1).strip(), match.group(2).strip()
+    if not issue_part or not legacy_part:
+        return raw, None
+    return issue_part, legacy_part
+
+
+def get_legacy_number_issues(db: Session) -> list[dict]:
+    """Comics whose issue_number still has GCD's combined "1 (685)" format
+    embedded instead of being split into issue_number + legacy_number - e.g.
+    from before this split existed, or a CSV import that carried the raw
+    GCD string through as-is. See the admin Legacy Numbers report;
+    routes/admin.py's fix action applies the split via
+    bulk_merge_comic_field, same merge-safe path as everywhere else."""
+    comics = db.query(Comic).filter(Comic.issue_number.isnot(None)).all()
+    results = []
+    for comic in comics:
+        issue_part, legacy_part = split_legacy_number(comic.issue_number)
+        if legacy_part is None:
+            continue
+        results.append({
+            "comic_id": comic.id,
+            "series": comic.series,
+            "issue_number": comic.issue_number,
+            "publisher": comic.publisher,
+            "suggested_issue_number": issue_part,
+            "suggested_legacy_number": legacy_part,
         })
     return results
 

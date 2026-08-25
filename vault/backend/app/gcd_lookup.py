@@ -13,7 +13,10 @@ from typing import Iterable
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
-from app.crud import get_comic_by_upc, get_distinct_publishers, normalize_issue_number, normalize_search_query
+from app.crud import (
+    get_comic_by_upc, get_distinct_publishers, normalize_issue_number, normalize_search_query,
+    split_legacy_number,
+)
 from app.gcd_models import Issue, Publisher, Series, Story, StoryType
 from app.schemas import ComicCreate, ExternalIssueSummary, ExternalSeriesResult
 
@@ -23,10 +26,12 @@ COMIC_STORY_TYPE = "comic story"
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (legacy_number, print_run, newstand, cover_artist, img).
+# supplies (print_run, newstand, cover_artist, img). legacy_number is
+# derived from issue_number itself (see split_legacy_number), not a
+# separate GCD field, but is still fair game to blank-fill.
 ENRICHABLE_FIELDS = [
     "publisher", "volume", "cover_date", "store_date",
-    "variant", "writer", "penciller", "inker", "average_price", "upc",
+    "variant", "writer", "penciller", "inker", "average_price", "upc", "legacy_number",
 ]
 
 _DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
@@ -113,7 +118,10 @@ def find_issue_by_series_issue(
             func.lower(Publisher.name) == publisher.strip().lower()
         )
     target = normalize_issue_number(issue_number)
-    matches = [issue for issue in q.all() if normalize_issue_number(issue.number) == target]
+    matches = [
+        issue for issue in q.all()
+        if normalize_issue_number(split_legacy_number(issue.number)[0]) == target
+    ]
     if not matches:
         return None
 
@@ -230,18 +238,24 @@ def search_series(
 
 def get_series_issues(gcd_db: Session, series_id: int, number: str | None = None) -> list[ExternalIssueSummary]:
     issues = gcd_db.query(Issue).filter(Issue.series_id == series_id).all()
+    # Split before matching/returning - GCD's raw issue.number sometimes has
+    # a "legacy" continuous number embedded (e.g. "1 (685)" for a relaunched
+    # series), which would never match a plain "1" typed by the user or
+    # carried in from a CSV row (see split_legacy_number).
+    split = [(issue, *split_legacy_number(issue.number)) for issue in issues]
     if number:
         target = normalize_issue_number(number)
-        issues = [i for i in issues if normalize_issue_number(i.number) == target]
+        split = [(issue, num, legacy) for issue, num, legacy in split if normalize_issue_number(num) == target]
     return [
         ExternalIssueSummary(
             provider="gcd",
             provider_issue_id=str(issue.id),
-            number=issue.number or None,
+            number=num or None,
+            legacy_number=legacy,
             cover_date=issue.key_date or None,
             image=None,
         )
-        for issue in issues
+        for issue, num, legacy in split
     ]
 
 
@@ -267,13 +281,14 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
     writer = _join_credits(s.script for s in stories)
     penciller = _join_credits(s.pencils for s in stories)
     inker = _join_credits(s.inks for s in stories)
+    issue_number, legacy_number = split_legacy_number(issue.number)
 
     return ComicCreate(
         publisher=publisher.name,
         series=series.name,
         volume=issue.volume or None,
-        issue_number=issue.number or None,
-        legacy_number=None,
+        issue_number=issue_number,
+        legacy_number=legacy_number,
         cover_date=_parse_gcd_date(issue.key_date),
         store_date=_parse_gcd_date(issue.on_sale_date),
         print_run=None,

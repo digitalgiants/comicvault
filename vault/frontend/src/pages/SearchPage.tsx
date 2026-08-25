@@ -346,6 +346,7 @@ export default function SearchPage() {
                   <div className="p-3">
                     <p className="font-medium truncate">
                       {issue.number ? `#${issue.number}` : 'Untitled'}
+                      {issue.legacy_number && <span className="text-gray-500"> (Legacy #{issue.legacy_number})</span>}
                     </p>
                     {issue.cover_date && <p className="text-xs text-gray-500">{issue.cover_date}</p>}
                   </div>
@@ -445,7 +446,10 @@ export default function SearchPage() {
                       <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-1 ${PROVIDER_BADGE[series.provider]}`}>
                         {PROVIDER_LABEL[series.provider]}
                       </span>
-                      <p className="text-xs text-gray-500 mt-1">#{issue.number}</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        #{issue.number}
+                        {issue.legacy_number && ` (Legacy #${issue.legacy_number})`}
+                      </p>
                     </div>
                   </button>
                 ))}
