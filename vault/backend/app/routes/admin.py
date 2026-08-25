@@ -8,10 +8,12 @@ from app import crud, crud_cards, gcd_lookup
 from app.auth import get_current_admin
 from app.config import settings
 from app.database import get_db
+from app.external import comicvine
 from app.gcd_database import get_gcd_db
 from app.models import Comic, TradingCard, User
 from app.schemas import (
-    BugReportOut, ComicCreate, ComicOut, ComicUpdate, KioskSearchLogOut, KioskSettingsOut,
+    BugReportOut, ComicCreate, ComicOut, ComicUpdate, ComicVineSeriesSyncResult, ComicVineSyncRequest,
+    ComicVineSyncResponse, KioskSearchLogOut, KioskSettingsOut,
     KioskSettingsUpdate, KioskSignupOut, KioskSignupUpdate, PublisherMergeRequest, PublisherMergeResult,
     PublisherMergeSkip, PublisherMismatchOut, TradingCardCreate, TradingCardOut,
     TradingCardUpdate, UpcIssueOut, UserOut, UserUpdate,
@@ -420,6 +422,60 @@ def sync_all_card_products(
         page += 1
 
     return {"synced": total_synced, "pages": page}
+
+
+# ComicVine has no UPC/barcode field at all, so this only ever fills
+# series/publisher/issue_number/img - never touches UPC. Each name is
+# matched to ComicVine's top (most relevant) search result rather than
+# prompting for disambiguation, since this runs as an unattended batch -
+# the response reports which series each name actually matched so a wrong
+# guess is easy to spot and re-run individually. Runs synchronously within
+# the request (same as /cards/sync/*) and stops early if ComicVine's
+# 180-requests/hour cap is hit mid-batch, returning whatever completed.
+@router.post("/comicvine/sync-series", response_model=ComicVineSyncResponse)
+def sync_comicvine_series(
+    payload: ComicVineSyncRequest,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_admin),
+):
+    results: list[ComicVineSeriesSyncResult] = []
+    rate_limited = False
+    for raw_name in payload.names:
+        name = raw_name.strip()
+        if not name:
+            continue
+        try:
+            matches = comicvine.search_series(name)
+        except comicvine.ComicVineNotConfigured:
+            raise HTTPException(status_code=400, detail="ComicVine API key is not configured")
+        except comicvine.ComicVineRateLimitError:
+            rate_limited = True
+            break
+
+        if not matches:
+            results.append(ComicVineSeriesSyncResult(query=name, status="not_found"))
+            continue
+
+        top = matches[0]
+        try:
+            issues = comicvine.get_series_issues(top.provider_series_id)
+        except comicvine.ComicVineRateLimitError:
+            rate_limited = True
+            break
+
+        with_image = [{"issue_number": i.number, "image": i.image} for i in issues if i.image]
+        stats = crud.sync_comicvine_series_issues(db, top.name, top.publisher, with_image)
+        results.append(ComicVineSeriesSyncResult(
+            query=name,
+            status="synced",
+            matched_series=top.name,
+            publisher=top.publisher,
+            total_issues=len(issues),
+            issues_with_image=len(with_image),
+            **stats,
+        ))
+
+    return ComicVineSyncResponse(results=results, rate_limited=rate_limited)
 
 
 @router.get("/publisher-mismatches", response_model=list[PublisherMismatchOut])

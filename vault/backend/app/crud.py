@@ -129,6 +129,48 @@ def create_comic(db: Session, comic_in: ComicCreate, user_id: Optional[int] = No
     return comic
 
 
+def sync_comicvine_series_issues(
+    db: Session, series: str, publisher: Optional[str], issues: list[dict]
+) -> dict:
+    """Applies a batch of ComicVine issues (each {"issue_number", "image"} -
+    callers should only pass issues that actually have an image) into the
+    shared catalog: fills a blank img on an existing series+issue_number+
+    publisher match, or creates a new comic if none exists. Never overwrites
+    an img that's already set, matching this app's merge-safe convention
+    elsewhere (publisher fixes, UPC fixes, CSV enrichment)."""
+    created = 0
+    images_filled = 0
+    skipped = 0
+    for issue in issues:
+        candidate = {
+            "series": series,
+            "publisher": publisher,
+            "issue_number": issue.get("issue_number"),
+            "volume": None,
+            "variant": None,
+            "cover_letter": None,
+            "print_run": None,
+        }
+        match = find_matching_comic(db, candidate)
+        if match:
+            if match.img:
+                skipped += 1
+            else:
+                match.img = issue.get("image")
+                images_filled += 1
+        else:
+            comic = Comic(
+                series=series,
+                publisher=publisher,
+                issue_number=issue.get("issue_number"),
+                img=issue.get("image"),
+            )
+            db.add(comic)
+            created += 1
+    db.commit()
+    return {"created": created, "images_filled": images_filled, "skipped": skipped}
+
+
 def get_comic_by_id(db: Session, comic_id: int) -> Optional[Comic]:
     return db.query(Comic).filter(Comic.id == comic_id).first()
 

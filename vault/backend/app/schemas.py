@@ -244,6 +244,29 @@ class UpcIssueOut(BaseModel):
     suggested_upc: Optional[str] = None
 
 
+# --- Admin: ComicVine cover-image sync (see app.external.comicvine) ---
+
+class ComicVineSyncRequest(BaseModel):
+    names: list[str]
+
+
+class ComicVineSeriesSyncResult(BaseModel):
+    query: str
+    status: str  # "synced" | "not_found"
+    matched_series: Optional[str] = None
+    publisher: Optional[str] = None
+    total_issues: Optional[int] = None
+    issues_with_image: Optional[int] = None
+    created: Optional[int] = None
+    images_filled: Optional[int] = None
+    skipped: Optional[int] = None
+
+
+class ComicVineSyncResponse(BaseModel):
+    results: list[ComicVineSeriesSyncResult]
+    rate_limited: bool = False
+
+
 # --- Collection: bulk-edit publisher for a user's own selected comics
 # (see CollectionPage.tsx's BulkEditModal) - scoped to one user's selection,
 # as opposed to the admin report above which sweeps the whole catalog. ---

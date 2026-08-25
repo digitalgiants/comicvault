@@ -50,11 +50,23 @@ interface UpcIssue {
   suggested_upc: string | null
 }
 
+interface ComicVineSeriesSyncResult {
+  query: string
+  status: 'synced' | 'not_found'
+  matched_series: string | null
+  publisher: string | null
+  total_issues: number | null
+  issues_with_image: number | null
+  created: number | null
+  images_filled: number | null
+  skipped: number | null
+}
+
 export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([])
   const [reports, setReports] = useState<BugReport[]>([])
   const [showResolved, setShowResolved] = useState(false)
-  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers' | 'upc'>('users')
+  const [tab, setTab] = useState<'users' | 'bugs' | 'cards' | 'signups' | 'searches' | 'settings' | 'publishers' | 'upc' | 'comicvine'>('users')
   const [loading, setLoading] = useState(true)
   const [signups, setSignups] = useState<KioskSignup[]>([])
   const [emailsCopied, setEmailsCopied] = useState(false)
@@ -75,6 +87,12 @@ export default function AdminPage() {
   const [syncingProducts, setSyncingProducts] = useState(false)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [syncError, setSyncError] = useState('')
+
+  const [comicvineNames, setComicvineNames] = useState('')
+  const [syncingComicvine, setSyncingComicvine] = useState(false)
+  const [comicvineResults, setComicvineResults] = useState<ComicVineSeriesSyncResult[]>([])
+  const [comicvineRateLimited, setComicvineRateLimited] = useState(false)
+  const [comicvineError, setComicvineError] = useState('')
 
   const [publisherMismatches, setPublisherMismatches] = useState<PublisherMismatch[]>([])
   const [mismatchesLoading, setMismatchesLoading] = useState(true)
@@ -332,6 +350,28 @@ export default function AdminPage() {
     }
   }
 
+  const handleSyncComicvine = async () => {
+    const names = comicvineNames.split('\n').map(n => n.trim()).filter(Boolean)
+    if (names.length === 0) return
+    setSyncingComicvine(true)
+    setComicvineError('')
+    setComicvineResults([])
+    setComicvineRateLimited(false)
+    try {
+      const { data } = await api.post<{ results: ComicVineSeriesSyncResult[]; rate_limited: boolean }>(
+        '/admin/comicvine/sync-series',
+        { names },
+        { timeout: FULL_SYNC_TIMEOUT_MS },
+      )
+      setComicvineResults(data.results)
+      setComicvineRateLimited(data.rate_limited)
+    } catch (err) {
+      setComicvineError(syncErrorDetail(err, 'Failed to sync from ComicVine.'))
+    } finally {
+      setSyncingComicvine(false)
+    }
+  }
+
   const toggleAdmin = async (user: AdminUser) => {
     await api.patch(`/admin/users/${user.id}`, { is_admin: !user.is_admin })
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_admin: !u.is_admin } : u))
@@ -373,13 +413,13 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc'] as const).map(t => (
+        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc', 'comicvine'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}` : `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}`}
+            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}` : t === 'upc' ? `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}` : 'ComicVine Images'}
           </button>
         ))}
       </div>
@@ -948,6 +988,80 @@ export default function AdminPage() {
                           <p className="text-xs text-red-400 mt-1">{upcFixErrors[i.comic_id]}</p>
                         )}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'comicvine' && (
+        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 space-y-4">
+          <div>
+            <p className="text-sm text-gray-300 mb-1">Pull cover images from ComicVine</p>
+            <p className="text-xs text-gray-500 mb-3">
+              One series name per line. Each name is matched to ComicVine's top search result, then every
+              issue with a cover image is added to the shared catalog — filling in a missing image on a
+              comic you already have, or creating a new catalog entry if no one has logged that issue yet.
+              Existing images are never overwritten, and ComicVine has no UPC data so that field is left
+              untouched. Runs synchronously and can take a while for series with many issues.
+            </p>
+            <textarea
+              value={comicvineNames}
+              onChange={e => setComicvineNames(e.target.value)}
+              placeholder={'Amazing Spider-Man\nSaga\nThe Walking Dead'}
+              rows={5}
+              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <button
+              onClick={handleSyncComicvine}
+              disabled={syncingComicvine || comicvineNames.trim().length === 0}
+              className="mt-3 flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={syncingComicvine ? 'animate-spin' : ''} />
+              {syncingComicvine ? 'Syncing…' : 'Sync'}
+            </button>
+          </div>
+
+          {comicvineError && <p className="text-red-400 text-sm">{comicvineError}</p>}
+          {comicvineRateLimited && (
+            <p className="text-amber-400 text-sm">
+              Stopped early — ComicVine's hourly rate limit was reached. Re-run with the remaining series in an hour.
+            </p>
+          )}
+
+          {comicvineResults.length > 0 && (
+            <div className="rounded-xl border border-gray-800 overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Searched</th>
+                    <th className="px-4 py-3 text-left">Matched Series</th>
+                    <th className="px-4 py-3 text-right">Issues w/ Image</th>
+                    <th className="px-4 py-3 text-right">Created</th>
+                    <th className="px-4 py-3 text-right">Filled</th>
+                    <th className="px-4 py-3 text-right">Skipped</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {comicvineResults.map((r, idx) => (
+                    <tr key={idx} className="hover:bg-gray-800/50 transition">
+                      <td className="px-4 py-3 text-gray-300">{r.query}</td>
+                      {r.status === 'not_found' ? (
+                        <td className="px-4 py-3 text-amber-400" colSpan={5}>No match found on ComicVine</td>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 text-gray-300">
+                            {r.matched_series}{r.publisher && <span className="text-gray-500"> ({r.publisher})</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">{r.issues_with_image} / {r.total_issues}</td>
+                          <td className="px-4 py-3 text-right text-green-400">{r.created}</td>
+                          <td className="px-4 py-3 text-right text-blue-400">{r.images_filled}</td>
+                          <td className="px-4 py-3 text-right text-gray-500">{r.skipped}</td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
