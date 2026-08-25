@@ -4,11 +4,12 @@ app actually queries (lookup only - nothing here is ever written to).
 Deliberately duplicated from gcd-modifier/src/gcd_modifier/models.py rather
 than shared, matching this repo's existing convention of keeping services'
 models independent (see Comics vs. Cards in this same backend). Only the
-tables lookups actually need are modeled - gcd-modifier's own models.py has
-the full curated set (credits, creators, brands, etc.) for loading purposes.
+tables/columns lookups actually need are modeled - gcd-modifier's own
+models.py has the full curated set (brands, indicia publishers, etc.) for
+loading purposes.
 """
 
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 GcdBase = declarative_base()
@@ -64,3 +65,37 @@ class Story(GcdBase):
     script = Column(Text, nullable=False, default="")
     pencils = Column(Text, nullable=False, default="")
     inks = Column(Text, nullable=False, default="")
+
+
+class CreditType(GcdBase):
+    __tablename__ = "gcd_credit_type"
+
+    id = Column(Integer, primary_key=True, autoincrement=False)
+    name = Column(String(50), nullable=False, unique=True)
+
+
+class Creator(GcdBase):
+    __tablename__ = "gcd_creator"
+
+    id = Column(Integer, primary_key=True, autoincrement=False)
+    gcd_official_name = Column(String(255), nullable=False)
+
+
+class CreatorNameDetail(GcdBase):
+    __tablename__ = "gcd_creator_name_detail"
+
+    id = Column(Integer, primary_key=True, autoincrement=False)
+    name = Column(String(255), nullable=False)
+    creator_id = Column(Integer, ForeignKey("gcd_creator.id"), nullable=False)
+
+
+class StoryCredit(GcdBase):
+    __tablename__ = "gcd_story_credit"
+
+    id = Column(Integer, primary_key=True, autoincrement=False)
+    story_id = Column(Integer, ForeignKey("gcd_story.id"), nullable=False)
+    creator_id = Column(Integer, ForeignKey("gcd_creator_name_detail.id"), nullable=False)
+    credit_type_id = Column(Integer, ForeignKey("gcd_credit_type.id"), nullable=False)
+    credited_as = Column(String(255), nullable=False, default="")
+    credit_name = Column(String(255), nullable=False, default="")
+    is_credited = Column(Boolean, nullable=False, default=False)

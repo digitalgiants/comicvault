@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from typing import Iterable
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
@@ -17,21 +16,24 @@ from app.crud import (
     get_comic_by_upc, get_distinct_publishers, normalize_issue_number, normalize_search_query,
     split_legacy_number,
 )
-from app.gcd_models import Issue, Publisher, Series, Story, StoryType
+from app.gcd_models import (
+    CreatorNameDetail, CreditType, Issue, Publisher, Series, Story, StoryCredit, StoryType,
+)
 from app.schemas import ComicCreate, ExternalIssueSummary, ExternalSeriesResult
 
 SEARCH_LIMIT = 20
 COMIC_STORY_TYPE = "comic story"
+COVER_STORY_TYPE = "cover"
 
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (print_run, newstand, cover_artist, img). legacy_number is
-# derived from issue_number itself (see split_legacy_number), not a
-# separate GCD field, but is still fair game to blank-fill.
+# supplies (print_run, newstand, img). legacy_number is derived from
+# issue_number itself (see split_legacy_number), not a separate GCD field,
+# but is still fair game to blank-fill.
 ENRICHABLE_FIELDS = [
-    "publisher", "volume", "cover_date", "store_date",
-    "variant", "writer", "penciller", "inker", "average_price", "upc", "legacy_number",
+    "publisher", "volume", "cover_date", "store_date", "variant", "writer", "penciller", "inker",
+    "cover_artist", "average_price", "upc", "legacy_number",
 ]
 
 _DATE_RE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
@@ -271,16 +273,10 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         raise ValueError(f"No GCD issue with id {issue_id}")
     issue, series, publisher = row
 
-    stories = (
-        gcd_db.query(Story)
-        .join(StoryType, Story.type_id == StoryType.id)
-        .filter(Story.issue_id == issue.id, StoryType.name == COMIC_STORY_TYPE)
-        .order_by(Story.sequence_number)
-        .all()
-    )
-    writer = _join_credits(s.script for s in stories)
-    penciller = _join_credits(s.pencils for s in stories)
-    inker = _join_credits(s.inks for s in stories)
+    writer = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"script"})
+    penciller = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"pencils"})
+    inker = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"inks"})
+    cover_artist = _story_credits(gcd_db, issue.id, {COVER_STORY_TYPE}, {"pencils", "inks"})
     issue_number, legacy_number = split_legacy_number(issue.number)
 
     return ComicCreate(
@@ -298,15 +294,42 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         writer=writer,
         penciller=penciller,
         inker=inker,
-        cover_artist=None,
+        cover_artist=cover_artist,
         average_price=_parse_gcd_price(issue.price),
         upc=_extract_upc(issue.barcode),
         img=None,
     )
 
 
-def _join_credits(values: Iterable[str]) -> str | None:
-    names = [v.strip() for v in values if v and v.strip()]
+def _story_credits(
+    gcd_db: Session, issue_id: int, story_type_names: set[str], credit_type_names: set[str]
+) -> str | None:
+    """Names credited for any of `credit_type_names` (e.g. "pencils") on any
+    story of `issue_id` whose story type is in `story_type_names`. GCD's
+    actual credit data lives in gcd_story_credit -> gcd_creator_name_detail -
+    gcd_story's own script/pencils/inks columns are blank on virtually every
+    real entry (verified against live data), so those are never read.
+    credited_as (an issue-specific pen name/alias override) wins over the
+    creator's own name when GCD has one on file for this credit."""
+    rows = (
+        gcd_db.query(StoryCredit, CreatorNameDetail)
+        .join(Story, StoryCredit.story_id == Story.id)
+        .join(StoryType, Story.type_id == StoryType.id)
+        .join(CreditType, StoryCredit.credit_type_id == CreditType.id)
+        .join(CreatorNameDetail, StoryCredit.creator_id == CreatorNameDetail.id)
+        .filter(
+            Story.issue_id == issue_id,
+            StoryType.name.in_(story_type_names),
+            CreditType.name.in_(credit_type_names),
+        )
+        .all()
+    )
+    names = [
+        name.strip()
+        for credit, creator in rows
+        for name in [(credit.credited_as or creator.name)]
+        if name and name.strip()
+    ]
     return ", ".join(dict.fromkeys(names)) or None
 
 
