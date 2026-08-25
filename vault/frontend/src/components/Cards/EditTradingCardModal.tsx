@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { X, Trash2 } from 'lucide-react'
-import { updateUserTradingCard, deleteCardSale, updateCardSale, uploadCardPersonalPhoto } from '../../api/cards'
+import { updateUserTradingCard, deleteCardSale, updateCardSale, uploadCardPersonalPhoto, deleteUserTradingCard } from '../../api/cards'
 import { resolveImageUrl } from '../../api/client'
 import { availableCardCopies, type CardTransaction, type UserTradingCard, EDITABLE_CARD_FIELDS, visibleEditableCardFields } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
@@ -10,13 +10,15 @@ interface Props {
   item: UserTradingCard
   onClose: () => void
   onSaved: (updated: UserTradingCard) => void
+  onDeleted: () => void
 }
 
-export default function EditTradingCardModal({ item, onClose, onSaved }: Props) {
+export default function EditTradingCardModal({ item, onClose, onSaved, onDeleted }: Props) {
   const { user } = useAuth()
   const isCollector = !!user?.is_collector
   const [form, setForm] = useState<Record<string, unknown>>({})
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
   const [localSales, setLocalSales] = useState<CardTransaction[]>(item.sales ?? [])
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
@@ -88,6 +90,19 @@ export default function EditTradingCardModal({ item, onClose, onSaved }: Props) 
     setLocalSales(prev => prev.filter(s => s.id !== sale.id))
   }
 
+  const handleDeleteCard = async () => {
+    if (!confirm(`Permanently delete "${item.card.name}" from your collection?`)) return
+    setDeleting(true)
+    setError('')
+    try {
+      await deleteUserTradingCard(item.id)
+      onDeleted()
+    } catch {
+      setError('Failed to delete. Please try again.')
+      setDeleting(false)
+    }
+  }
+
   const avail = availableCardCopies({ ...item, sales: localSales })
 
   return (
@@ -101,9 +116,19 @@ export default function EditTradingCardModal({ item, onClose, onSaved }: Props) 
                 .filter(Boolean).join(' · ')}
             </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={handleDeleteCard}
+              disabled={deleting}
+              title="Delete"
+              className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-50"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">

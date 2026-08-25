@@ -69,6 +69,13 @@ export default function CardsPage() {
     setTotal(t => t - 1)
   }
 
+  const handleDeletedFromModal = () => {
+    if (!editing) return
+    setItems(prev => prev.filter(i => i.id !== editing.id))
+    setTotal(t => t - 1)
+    setEditing(null)
+  }
+
   const handleSaved = (updated: UserTradingCard) => {
     setItems(prev => prev.map(i => i.id === updated.id ? updated : i))
     setEditing(null)
@@ -245,6 +252,7 @@ export default function CardsPage() {
           item={editing}
           onClose={() => setEditing(null)}
           onSaved={handleSaved}
+          onDeleted={handleDeletedFromModal}
         />
       )}
       {selling && (
