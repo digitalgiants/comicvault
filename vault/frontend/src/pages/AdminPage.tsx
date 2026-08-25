@@ -429,19 +429,19 @@ export default function AdminPage() {
       <select
         value={tab}
         onChange={e => setTab(e.target.value as typeof tab)}
-        className="sm:hidden w-full mb-6 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+        className="md:hidden w-full mb-6 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
       >
         {TABS.map(t => (
           <option key={t} value={t}>{tabLabel(t)}</option>
         ))}
       </select>
 
-      <div className="hidden sm:flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit overflow-x-auto">
+      <div className="hidden md:flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+            className={`flex-1 flex-shrink-0 whitespace-nowrap text-center px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
             {tabLabel(t)}
           </button>
@@ -454,7 +454,7 @@ export default function AdminPage() {
             <div className="text-center text-gray-400 py-12">Loading…</div>
           ) : (
             <>
-              <div className="sm:hidden space-y-3">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
                 {users.map(user => {
                   const role = roleLabel(user)
                   return (
@@ -490,7 +490,7 @@ export default function AdminPage() {
                 })}
               </div>
 
-              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -693,7 +693,7 @@ export default function AdminPage() {
             <div className="text-center text-gray-500 py-12">No signups match "{signupSearch.trim()}".</div>
           ) : (
             <>
-              <div className="sm:hidden space-y-3">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
                 {filteredSignups.map(s => (
                   <div key={s.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -726,7 +726,7 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -796,7 +796,7 @@ export default function AdminPage() {
             <div className="text-center text-gray-500 py-12">No searches match "{searchLogFilter.trim()}".</div>
           ) : (
             <>
-              <div className="sm:hidden space-y-2">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-2">
                 {filteredSearchLogs.map(log => (
                   <div key={log.id} className="bg-gray-900 border border-gray-800 rounded-xl p-3.5">
                     <p className="text-white break-words">{log.query}</p>
@@ -805,7 +805,7 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -969,7 +969,7 @@ export default function AdminPage() {
                 </button>
               </div>
 
-              <div className="sm:hidden space-y-3">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
                 {publisherMismatches.map(m => (
                   <div key={m.local_publisher} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                     <label className="flex items-center gap-2.5">
@@ -992,7 +992,7 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -1084,7 +1084,7 @@ export default function AdminPage() {
             <div className="text-center text-gray-500 py-12">No malformed UPCs found.</div>
           ) : (
             <>
-              <div className="sm:hidden space-y-3">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
                 {upcIssues.map(i => (
                   <div key={i.comic_id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                     <p className="text-gray-300">
@@ -1116,7 +1116,7 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block bg-gray-900 rounded-2xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
@@ -1201,7 +1201,7 @@ export default function AdminPage() {
 
           {comicvineResults.length > 0 && (
             <>
-              <div className="sm:hidden space-y-3">
+              <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-3">
                 {comicvineResults.map((r, idx) => (
                   <div key={idx} className="bg-gray-950 border border-gray-800 rounded-xl p-3.5">
                     <p className="text-gray-300 truncate">{r.query}</p>
@@ -1224,7 +1224,7 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              <div className="hidden sm:block rounded-xl border border-gray-800 overflow-x-auto">
+              <div className="hidden lg:block rounded-xl border border-gray-800 overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
                     <tr>
