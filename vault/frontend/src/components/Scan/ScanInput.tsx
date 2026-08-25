@@ -2,12 +2,15 @@ import { useRef, useState } from 'react'
 import { ScanBarcode } from 'lucide-react'
 
 // Hardware scanners send no terminator key, so a brief pause is what
-// distinguishes "done" from "still scanning" - but a pause is only ever
-// treated as "done" automatically at 17 digits (a complete UPC12+EAN5).
-// A pause at exactly 12 is ambiguous - it could be a complete older-comic
-// UPC with no price add-on, or just the gap between two separately-scanned
-// barcode stripes on the same comic - so it never auto-submits; the user
-// has to press Enter (or Look Up) to accept a 12-digit code deliberately.
+// distinguishes "done" from "still scanning". A pause at 14 or 17 digits
+// auto-submits - both are complete, unambiguous codes (12-digit UPC plus a
+// 2-digit or 5-digit supplemental barcode, respectively; older comics
+// commonly used a 2-digit price/edition supplement before the industry
+// settled on 5 digits). A pause at exactly 12 is genuinely ambiguous - it
+// could be a complete older-comic UPC with no add-on at all, or just the
+// gap between two separately-scanned barcode stripes on the same comic -
+// so it never auto-submits; the user has to press Enter (or Look Up) to
+// accept a 12-digit code deliberately.
 const SETTLE_DELAY_MS = 150
 
 interface Props {
@@ -18,6 +21,10 @@ interface Props {
 function parseCode(raw: string): { upc12: string; ean5: string | null } | null {
   const digits = raw.replace(/\D/g, '')
   if (digits.length === 12) return { upc12: digits, ean5: null }
+  // The 2-digit supplement isn't a real EAN5 price add-on - GCD/Metron
+  // lookups only ever need the 12-digit UPC prefix, so it's just dropped
+  // rather than passed through as a mis-shaped ean5 value.
+  if (digits.length === 14) return { upc12: digits.slice(0, 12), ean5: null }
   if (digits.length === 17) return { upc12: digits.slice(0, 12), ean5: digits.slice(12) }
   return null
 }
@@ -44,7 +51,7 @@ export default function ScanInput({ onSubmit, disabled }: Props) {
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       const digits = next.replace(/\D/g, '')
-      if (digits.length === 17) {
+      if (digits.length === 17 || digits.length === 14) {
         submitIfValid(next)
       } else if (digits.length === 12) {
         // Complete-but-ambiguous - wait for Enter instead of guessing
@@ -69,7 +76,7 @@ export default function ScanInput({ onSubmit, disabled }: Props) {
             ref={inputRef}
             value={value}
             onChange={handleChange}
-            placeholder="Scan barcode, or type 12-digit UPC (or 17-digit UPC+EAN5)"
+            placeholder="Scan barcode, or type a 12-digit UPC (plus a 2 or 5-digit add-on if present)"
             inputMode="numeric"
             pattern="\d*"
             disabled={disabled}

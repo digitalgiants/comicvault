@@ -17,11 +17,14 @@ function parseLines(text: string): { upc12: string; ean5: string | null }[] {
   return text
     .split('\n')
     .map((line) => line.replace(/\D/g, ''))
-    .filter((digits) => digits.length === 12 || digits.length === 17)
+    .filter((digits) => digits.length === 12 || digits.length === 14 || digits.length === 17)
     .map((digits) =>
       digits.length === 17
         ? { upc12: digits.slice(0, 12), ean5: digits.slice(12) }
-        : { upc12: digits, ean5: null },
+        // 14 digits = 12-digit UPC + an older 2-digit supplement (not a
+        // real 5-digit EAN price add-on) - the supplement is dropped,
+        // GCD/Metron lookups only ever need the UPC prefix.
+        : { upc12: digits.slice(0, 12), ean5: null },
     )
 }
 

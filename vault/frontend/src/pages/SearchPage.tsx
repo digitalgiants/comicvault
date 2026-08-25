@@ -84,7 +84,7 @@ export default function SearchPage() {
     if (trimmed.length < 2) return
 
     const digits = trimmed.replace(/\D/g, '')
-    if (digits.length === 12 || digits.length === 17) {
+    if (digits.length === 12 || digits.length === 14 || digits.length === 17) {
       runUpcLookup(digits)
       return
     }
