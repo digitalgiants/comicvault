@@ -405,6 +405,20 @@ export default function AdminPage() {
     return { label: 'User', cls: 'bg-gray-700 text-gray-400' }
   }
 
+  const TABS = ['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc', 'comicvine'] as const
+
+  const tabLabel = (t: typeof TABS[number]) => (
+    t === 'users' ? `Users (${users.length})`
+    : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}`
+    : t === 'cards' ? 'Cards Sync'
+    : t === 'signups' ? `Kiosk Signups (${signups.length})`
+    : t === 'searches' ? 'Kiosk Searches'
+    : t === 'settings' ? 'Kiosk Settings'
+    : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}`
+    : t === 'upc' ? `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}`
+    : 'ComicVine Images'
+  )
+
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       <div className="flex items-center gap-3 mb-6 sm:mb-8">
@@ -412,14 +426,24 @@ export default function AdminPage() {
         <h1 className="text-xl sm:text-2xl font-bold">Admin Dashboard</h1>
       </div>
 
-      <div className="flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full sm:w-fit overflow-x-auto">
-        {(['users', 'bugs', 'cards', 'signups', 'searches', 'settings', 'publishers', 'upc', 'comicvine'] as const).map(t => (
+      <select
+        value={tab}
+        onChange={e => setTab(e.target.value as typeof tab)}
+        className="sm:hidden w-full mb-6 bg-gray-900 border border-gray-800 rounded-xl px-3 py-2.5 text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+      >
+        {TABS.map(t => (
+          <option key={t} value={t}>{tabLabel(t)}</option>
+        ))}
+      </select>
+
+      <div className="hidden sm:flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-fit overflow-x-auto">
+        {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+            className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
-            {t === 'users' ? `Users (${users.length})` : t === 'bugs' ? `Bug Reports${unresolvedCount ? ` (${unresolvedCount})` : ''}` : t === 'cards' ? 'Cards Sync' : t === 'signups' ? `Kiosk Signups (${signups.length})` : t === 'searches' ? 'Kiosk Searches' : t === 'settings' ? 'Kiosk Settings' : t === 'publishers' ? `Publishers${publisherMismatches.length ? ` (${publisherMismatches.length})` : ''}` : t === 'upc' ? `UPC Issues${upcIssues.length ? ` (${upcIssues.length})` : ''}` : 'ComicVine Images'}
+            {tabLabel(t)}
           </button>
         ))}
       </div>
