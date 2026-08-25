@@ -436,12 +436,12 @@ export default function AdminPage() {
         ))}
       </select>
 
-      <div className="hidden md:flex gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full overflow-x-auto">
+      <div className="hidden md:flex flex-wrap gap-1 mb-6 bg-gray-900 border border-gray-800 rounded-xl p-1 w-full">
         {TABS.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`flex-1 flex-shrink-0 whitespace-nowrap text-center px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
+            className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition ${tab === t ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-white'}`}
           >
             {tabLabel(t)}
           </button>
