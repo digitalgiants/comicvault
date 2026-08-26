@@ -7,6 +7,7 @@ import { Upload, CheckCircle, XCircle, FileText, HelpCircle, GitCompare, Search,
 import api from '../api/client'
 import { fetchCsvConflicts, acceptCsvConflict, rejectCsvConflict } from '../api/uploads'
 import { COLLECTION_COLUMNS, type CsvImportConflict } from '../types'
+import { useAuth } from '../hooks/useAuth'
 
 interface ImportResult {
   success: boolean
@@ -31,8 +32,10 @@ const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key
 // and the on-page Column Guide below - keeps the two from drifting apart.
 // Headers are matched case-insensitively with spaces/underscores stripped
 // (see csv_parser.py's _normalize_headers), so these can be readable
-// Title Case without breaking the actual import.
-const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolean }[] = [
+// Title Case without breaking the actual import. salesOnly columns are
+// dropped for Collector accounts (see visibleTemplateColumns) - same split
+// as the rest of the app (visibleCollectionColumns, visibleEditableFields).
+const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolean; salesOnly?: boolean }[] = [
   { header: 'Series', description: 'Required.', required: true },
   { header: 'Issue Number', description: 'Required.', required: true },
   { header: 'Volume', description: '' },
@@ -54,21 +57,24 @@ const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolea
   { header: 'Count', description: 'Defaults to 1' },
   { header: 'Condition', description: 'Standard CGC grade, e.g. "9.4 NM" (10 Gem Mint down to 0.5 Poor)' },
   { header: 'Paid Price', description: '' },
-  { header: 'Asking Price', description: '' },
+  { header: 'Asking Price', description: '', salesOnly: true },
   { header: 'Point of Purchase', description: '' },
   { header: 'Buy Date', description: 'YYYY-MM-DD' },
   { header: 'Signed', description: 'TRUE or FALSE' },
   { header: 'Remarked', description: 'TRUE or FALSE' },
   { header: 'Notes', description: '' },
-  { header: 'Do Not Sell', description: 'TRUE or FALSE' },
-  { header: 'Reserve Count', description: 'Defaults to 0' },
-  { header: 'Sell Price', description: 'If set, immediately records the copy as sold' },
-  { header: 'Sell Date', description: 'Defaults to today if Sell Price is set but this is blank' },
+  { header: 'Do Not Sell', description: 'TRUE or FALSE', salesOnly: true },
+  { header: 'Reserve Count', description: 'Defaults to 0', salesOnly: true },
+  { header: 'Sell Price', description: 'If set, immediately records the copy as sold', salesOnly: true },
+  { header: 'Sell Date', description: 'Defaults to today if Sell Price is set but this is blank', salesOnly: true },
 ]
 
-const downloadCsvTemplate = () => {
+const visibleTemplateColumns = (isCollector: boolean) =>
+  isCollector ? TEMPLATE_COLUMNS.filter(c => !c.salesOnly) : TEMPLATE_COLUMNS
+
+const downloadCsvTemplate = (columns: typeof TEMPLATE_COLUMNS) => {
   const escape = (v: string) => `"${v.replace(/"/g, '""')}"`
-  const csv = TEMPLATE_COLUMNS.map(c => escape(c.header)).join(',')
+  const csv = columns.map(c => escape(c.header)).join(',')
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -80,6 +86,9 @@ const downloadCsvTemplate = () => {
 
 export default function UploadPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const isCollector = !!user?.is_collector
+  const templateColumns = visibleTemplateColumns(isCollector)
   const [result, setResult] = useState<ImportResult | null>(null)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -167,7 +176,7 @@ export default function UploadPage() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={downloadCsvTemplate}
+              onClick={() => downloadCsvTemplate(templateColumns)}
               className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
             >
               <Download size={15} /> Download CSV Template
@@ -192,7 +201,7 @@ export default function UploadPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800">
-                {TEMPLATE_COLUMNS.map(c => (
+                {templateColumns.map(c => (
                   <tr key={c.header}>
                     <td className="py-1.5 pr-4 text-gray-300 whitespace-nowrap">
                       {c.header}{c.required && <span className="text-brand-400 ml-1">*</span>}
