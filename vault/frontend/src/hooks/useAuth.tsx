@@ -4,6 +4,7 @@ import api from '../api/client'
 interface User {
   id: number
   username: string
+  email: string | null
   is_admin: boolean
   is_kiosk: boolean
   is_collector: boolean
@@ -15,6 +16,7 @@ interface AuthCtx {
   loading: boolean
   login: (username: string, password: string) => Promise<void>
   signup: (username: string, password: string, isCollector: boolean) => Promise<void>
+  loginWithGoogle: (credential: string) => Promise<void>
   logout: () => void
 }
 
@@ -43,6 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signup = async (username: string, password: string, isCollector: boolean) => {
     await api.post('/auth/signup', { username, password, is_collector: isCollector })
     await login(username, password)
+  }
+
+  const loginWithGoogle = async (credential: string) => {
+    const { data } = await api.post('/auth/google-login', { credential })
+    localStorage.setItem('token', data.access_token)
+    const me = await api.get('/auth/me')
+    setUser(me.data)
   }
 
   const logout = () => {
@@ -87,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   )

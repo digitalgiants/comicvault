@@ -14,7 +14,14 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
-    password_hash = Column(String, nullable=False)
+    # Nullable - a Google-only account (see routes/users.py's /auth/google-login)
+    # has no password at all, not just an unset one. auth.py's login route
+    # guards against verifying a password against a None hash.
+    password_hash = Column(String, nullable=True)
+    # Nullable/unique - only set for accounts that have signed in with Google
+    # at least once (either created that way, or a password account that later
+    # links). Used to match a Google sign-in back to an existing account.
+    email = Column(String, unique=True, index=True, nullable=True)
     is_admin = Column(Boolean, default=False)
     is_kiosk = Column(Boolean, default=False)
     # Seller (default, full-featured) vs. Collector (sales/pricing tools

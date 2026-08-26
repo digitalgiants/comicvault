@@ -18,6 +18,9 @@ services:
       - VITE_API_URL=/api
       - VITE_PROXY_TARGET=http://backend:8000
       - VITE_ALLOWED_HOST=comicvaults.com
+      # Safe to expose client-side by design - see app/google_auth.py.
+      # Empty means the Google button just doesn't render (GoogleSignInButton.tsx).
+      - VITE_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     depends_on:
       - backend
 
@@ -44,6 +47,7 @@ services:
       - CORS_ORIGINS=https://comicvaults.com,http://localhost:3002
       - COMIC_SCRAPER_URL=http://comic-scraper:9095
       - TCG_SCRAPER_URL=http://tcg-scraper:9096
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres:
         condition: service_healthy

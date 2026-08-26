@@ -65,6 +65,31 @@ def create_user(db: Session, user_in: UserCreate) -> User:
     return user
 
 
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    return db.query(User).filter(User.email == email).first()
+
+
+def create_google_user(db: Session, email: str) -> User:
+    """First-time Google sign-in with no matching account on file - creates
+    one with no password (Google is the only way in) and a username derived
+    from the email's local part, deduplicated with a numeric suffix if
+    that's already taken. New Google accounts are always Collector - the
+    same account type the one open signup path (SignupPage.tsx) creates
+    today."""
+    base = re.sub(r"[^a-zA-Z0-9_.-]", "", email.split("@")[0]).lower() or "user"
+    username = base
+    suffix = 1
+    while get_user_by_username(db, username):
+        suffix += 1
+        username = f"{base}{suffix}"
+
+    user = User(username=username, password_hash=None, email=email, is_collector=True)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def delete_user(db: Session, user_id: int) -> bool:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:

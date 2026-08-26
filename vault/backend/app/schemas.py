@@ -17,9 +17,17 @@ class UserLogin(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    # The ID token JWT string Google Identity Services hands back to the
+    # frontend - verified server-side in routes/users.py, never trusted
+    # as-is (see google_auth.verify_google_id_token).
+    credential: str
+
+
 class UserOut(BaseModel):
     id: int
     username: str
+    email: Optional[str] = None
     is_admin: bool
     is_kiosk: bool
     is_collector: bool

@@ -187,6 +187,18 @@ MIGRATIONS = [
     ALTER TABLE kiosk_signups
         ADD COLUMN IF NOT EXISTS notes TEXT
     """,
+
+    # Google sign-in (see routes/users.py's /auth/google-login): an account
+    # can now exist with no password at all, and is matched to a Google
+    # login by email.
+    """
+    ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS email VARCHAR UNIQUE
+    """,
+    """
+    ALTER TABLE users
+        ALTER COLUMN password_hash DROP NOT NULL
+    """,
 ]
 
 

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { Link, useNavigate } from 'react-router-dom'
 import { BookOpen } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 interface FormData {
   username: string
@@ -78,6 +79,8 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+
+          <GoogleSignInButton onError={setError} />
         </form>
       </div>
     </div>
