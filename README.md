@@ -85,6 +85,7 @@ Root `.env` (loaded by `docker-compose.yml`):
 | `APITCG_API_KEY` | `tcg-scraper` | [apitcg.com](https://apitcg.com) API key |
 | `OLLAMA_VISION_MODEL` | `tcg-scraper` | Default `moondream` (small/CPU-friendly) — swap once a GPU is available, see `tcg-scraper/README.md` |
 | `GCD_USERNAME` / `GCD_PASSWORD` | `gcd-modifier` | [comics.org](https://www.comics.org) account credentials, used to log in and download the GCD data dump |
+| `GOOGLE_CLIENT_ID` | `backend`, `frontend` | Optional - enables "Sign in with Google". Leave blank to leave it disabled. See `.env.example` for how to create one |
 
 `vault/backend/.env.example`, `tcg-scraper/.env.example`, and `gcd-modifier/.env.example` document each service's full settings (most have working defaults already baked into `docker-compose.yml`).
 
