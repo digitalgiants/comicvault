@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Upload, BookOpen, Search } from 'lucide-react'
+import { Upload, BookOpen, Search, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import api from '../api/client'
 import CollectionGraph from '../components/Dashboard/CollectionGraph'
@@ -9,6 +9,9 @@ import BugReportButton from '../components/BugReportButton'
 export default function DashboardPage() {
   const { user } = useAuth()
   const [count, setCount] = useState<number | null>(null)
+  // Reappears each session on purpose (no localStorage) - it's a low-effort
+  // prompt for Collector accounts, not a one-time announcement.
+  const [showSellerBanner, setShowSellerBanner] = useState(true)
 
   useEffect(() => {
     api.get('/comics/collection', { params: { limit: 1 } })
@@ -18,6 +21,27 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
+      {user?.is_collector && showSellerBanner && (
+        <div className="mb-8 bg-brand-500/10 border border-brand-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
+          <p className="text-sm text-gray-200 flex-1">
+            <span className="font-semibold">Want to sell through ComicVault?</span>{' '}
+            Your account is currently set up for tracking your collection. To unlock pricing, listings, and
+            sales tools, email{' '}
+            <a href="mailto:andrew@comicvaults.com" className="text-brand-400 hover:text-brand-300 underline">
+              andrew@comicvaults.com
+            </a>{' '}
+            and we'll get you set up.
+          </p>
+          <button
+            onClick={() => setShowSellerBanner(false)}
+            title="Dismiss"
+            className="flex-shrink-0 text-gray-500 hover:text-gray-300 transition"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="mb-10">
         <CollectionGraph />
       </div>
