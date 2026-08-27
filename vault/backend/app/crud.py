@@ -24,7 +24,8 @@ SERIES_SEARCH_TTL = timedelta(hours=24)
 
 # The shop's own account - its photo of a comic is always the master image
 # for that catalog entry over anyone else's, per crud.recompute_comic_master_photo.
-MASTER_PHOTO_OWNER_USERNAME = "digitalgiant"
+# Was "digitalgiant"; the shop account moved to "drewfert" (Google sign-in).
+MASTER_PHOTO_OWNER_USERNAME = "drewfert"
 
 # --- Default columns shown for each page ---
 
