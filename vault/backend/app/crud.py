@@ -621,10 +621,15 @@ def get_user_collection_series_groups(
     series, drilling into get_user_collection(series_exact=...) for the
     full table. Loads the full filtered set into memory and groups in
     Python rather than a SQL GROUP BY, since picking a representative cover
-    image per group (the most recently added issue's) needs either a
-    window function or a second correlated query - for a personal
-    collection's scale, grouping a already-small filtered result set in
-    Python is simpler and equally correct."""
+    image per group needs either a window function or a second correlated
+    query - for a personal collection's scale, grouping an already-small
+    filtered result set in Python is simpler and equally correct.
+
+    Cover image preference: an owned copy of issue #1 wins whenever one has
+    a usable image on file (see _issue_one_cover_priority for the exact
+    tie-break among multiple #1 printings/variants), falling back to the
+    most recently added issue's cover otherwise - same as before this
+    preference existed."""
     q = (
         db.query(UserComic)
         .join(Comic)
@@ -639,12 +644,20 @@ def get_user_collection_series_groups(
     all_items = q.order_by(UserComic.created_at.desc()).all()
 
     groups: dict[tuple[str, Optional[str]], dict] = {}
+    # Lower wins - tracked per group alongside the group dict itself so a
+    # later (older, since all_items is newest-first) #1 copy never displaces
+    # an already-found better tier, but the first-seen (most recent) copy
+    # within the same tier does win.
+    best_cover_priority: dict[tuple[str, Optional[str]], int] = {}
+
     for uc in all_items:
         key = (uc.comic.series, uc.comic.publisher)
         group = groups.get(key)
         if group is None:
-            # First hit per key wins the cover - all_items is already
-            # ordered newest-first, so this is the most recently added copy.
+            # First hit per key wins as the fallback cover - all_items is
+            # already ordered newest-first, so this is the most recently
+            # added copy. Overridden below if any owned copy of issue #1
+            # turns out to have a usable image.
             group = {
                 "series": uc.comic.series,
                 "publisher": uc.comic.publisher,
@@ -656,10 +669,39 @@ def get_user_collection_series_groups(
             groups[key] = group
         group["issue_count"] += 1
 
+        priority = _issue_one_cover_priority(uc.comic)
+        if priority is not None and priority < best_cover_priority.get(key, 999):
+            best_cover_priority[key] = priority
+            group["cover_img"] = uc.comic.master_photo or uc.comic.img
+            group["cover_comic_id"] = uc.comic.id
+            group["cover_issue_number"] = uc.comic.issue_number
+
     group_list = sorted(groups.values(), key=lambda g: g["series"].lower())
     total = len(group_list)
     page = group_list[skip: skip + limit]
     return page, total
+
+
+def _issue_one_cover_priority(comic: Comic) -> Optional[int]:
+    """Priority tier for using this comic as its series group's cover image,
+    if it's a copy of issue #1 with a usable image on file - lower wins.
+    None if this comic isn't a usable #1 cover at all (wrong issue, or no
+    image), meaning the caller's normal "most recently added" fallback
+    applies instead.
+
+    The regular/non-variant printing wins over an explicit "Cover A", which
+    wins over any other cover of #1 - matches this app's existing
+    convention that GCD leaves a base printing's variant_name blank rather
+    than writing "Cover A" (see gcd_lookup.find_issue_by_series_issue)."""
+    if normalize_issue_number(comic.issue_number) != "1":
+        return None
+    if not (comic.master_photo or comic.img):
+        return None
+    if not comic.cover_letter and not comic.variant:
+        return 0
+    if (comic.cover_letter or "").strip().lower() == "a":
+        return 1
+    return 2
 
 
 def get_kiosk_collection(
