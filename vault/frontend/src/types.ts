@@ -516,6 +516,15 @@ export function latestCardSalePrice(uc: UserTradingCard): number | null {
   return uc.sales[uc.sales.length - 1].price ?? null
 }
 
+export interface CardSetGroup {
+  set_id: number
+  set_name: string
+  game_name: string | null
+  game_slug: string | null
+  card_count: number
+  cover_img: string | null
+}
+
 export const CARDS_COLUMNS: { key: string; label: string }[] = [
   { key: 'image_small', label: 'Image' },
   { key: 'name', label: 'Name' },

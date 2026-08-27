@@ -598,6 +598,15 @@ class CardGameOut(BaseModel):
         from_attributes = True
 
 
+class CardSetGroupOut(BaseModel):
+    set_id: int
+    set_name: str
+    game_name: Optional[str] = None
+    game_slug: Optional[str] = None
+    card_count: int
+    cover_img: Optional[str] = None
+
+
 class CardSetOut(BaseModel):
     id: int
     game_id: int

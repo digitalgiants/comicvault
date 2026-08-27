@@ -1,6 +1,6 @@
 import api from './client'
 import type {
-  CardGame, CardTransaction, ColumnVisibility, IdentifyScanResponse, TradingCard,
+  CardGame, CardSetGroup, CardTransaction, ColumnVisibility, IdentifyScanResponse, TradingCard,
   UserTradingCard, UserTradingCardUpdate,
 } from '../types'
 
@@ -11,6 +11,12 @@ const IDENTIFY_TIMEOUT_MS = 115_000
 
 export const getCardCollection = (params?: Record<string, string | number>) =>
   api.get<UserTradingCard[]>('/cards/collection', { params }).then(r => ({
+    items: r.data,
+    total: Number(r.headers['x-total-count'] ?? r.data.length),
+  }))
+
+export const getCardCollectionSetGroups = (params?: Record<string, string | number>) =>
+  api.get<CardSetGroup[]>('/cards/collection/groups', { params }).then(r => ({
     items: r.data,
     total: Number(r.headers['x-total-count'] ?? r.data.length),
   }))

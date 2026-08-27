@@ -337,6 +337,9 @@ def get_user_card_collection(
     user_id: int,
     name: Optional[str] = None,
     game_slug: Optional[str] = None,
+    card_number: Optional[str] = None,
+    set_id: Optional[int] = None,
+    set_name: Optional[str] = None,
     skip: int = 0,
     limit: int = 200,
 ) -> tuple[list[UserTradingCard], int]:
@@ -345,9 +348,75 @@ def get_user_card_collection(
         q = q.filter(TradingCard.name.ilike(f"%{name}%"))
     if game_slug:
         q = q.join(CardGame, TradingCard.game_id == CardGame.id).filter(CardGame.slug == game_slug)
+    if card_number:
+        # Exact match, not ilike - "1" shouldn't also pull "10", "11", "21"...
+        q = q.filter(TradingCard.card_number == card_number)
+    if set_id:
+        # Used by the desktop "drill into a set" view (CardsPage.tsx) - a
+        # real FK, unlike comics' denormalized series/publisher strings, so
+        # no fuzzy/exact-string matching is needed here.
+        q = q.filter(TradingCard.set_id == set_id)
+    if set_name:
+        # Fuzzy - lets the same "Filter Sets" input that drives the grouped
+        # landing view also narrow the flat table/mobile grid, so it's not
+        # dead UI on mobile (which never shows the grouped view at all).
+        q = q.join(CardSet, TradingCard.set_id == CardSet.id).filter(CardSet.name.ilike(f"%{set_name}%"))
     total = q.count()
     items = q.order_by(TradingCard.name, TradingCard.card_number).offset(skip).limit(limit).all()
     return items, total
+
+
+def get_user_card_collection_set_groups(
+    db: Session,
+    user_id: int,
+    set_name: Optional[str] = None,
+    game_slug: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 60,
+) -> tuple[list[dict], int]:
+    """Groups the user's card collection by Set for the desktop "browse by
+    set" landing view (CardsPage.tsx) - mirrors
+    crud.get_user_collection_series_groups's role for comics/series, except
+    cards have a real CardSet table to key groups off of (set_id) instead of
+    comics' denormalized series/publisher strings, so no tuple key or
+    no_publisher-style null-handling is needed."""
+    q = (
+        db.query(UserTradingCard)
+        .join(TradingCard, UserTradingCard.card_id == TradingCard.id)
+        .join(CardSet, TradingCard.set_id == CardSet.id)
+        .filter(UserTradingCard.user_id == user_id)
+    )
+    if set_name:
+        q = q.filter(CardSet.name.ilike(f"%{set_name}%"))
+    if game_slug:
+        q = q.join(CardGame, TradingCard.game_id == CardGame.id).filter(CardGame.slug == game_slug)
+    all_items = q.order_by(UserTradingCard.created_at.desc()).all()
+
+    groups: dict[int, dict] = {}
+    for uc in all_items:
+        set_id = uc.card.set_id
+        group = groups.get(set_id)
+        if group is None:
+            # First hit per key wins the cover - all_items is already
+            # ordered newest-first, so this is the most recently added card.
+            # master_photo already reflects the best known photo across all
+            # owners (see recompute_card_master_photo) - falls back through
+            # apitcg's own image sizes, same priority cardCoverImage() uses.
+            group = {
+                "set_id": set_id,
+                "set_name": uc.card.set_name,
+                "game_name": uc.card.game_name,
+                "game_slug": uc.card.game_slug,
+                "card_count": 0,
+                "cover_img": uc.card.master_photo or uc.card.image_large or uc.card.image_medium or uc.card.image_small,
+            }
+            groups[set_id] = group
+        group["card_count"] += 1
+
+    group_list = sorted(groups.values(), key=lambda g: (g["set_name"] or "").lower())
+    total = len(group_list)
+    page = group_list[skip: skip + limit]
+    return page, total
 
 
 def delete_user_trading_card(db: Session, user_id: int, uc_id: int) -> bool:

@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas import (
     CardBulkUpdateRequest, CardGameOut, CardSaleCreate, CardSaleUpdate, CardScanConfirmRequest,
-    CardTransactionOut, IdentifyScanResponse, ScanCandidateOut, TradingCardOut,
+    CardSetGroupOut, CardTransactionOut, IdentifyScanResponse, ScanCandidateOut, TradingCardOut,
     UserTradingCardCreate, UserTradingCardOut, UserTradingCardUpdate,
 )
 
@@ -68,13 +68,34 @@ def get_my_card_collection(
     response: Response,
     name: str | None = Query(None),
     game_slug: str | None = Query(None),
+    card_number: str | None = Query(None),
+    set_id: int | None = Query(None),
+    set_name: str | None = Query(None),
     skip: int = 0,
     limit: int = 200,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
     items, total = crud_cards.get_user_card_collection(
-        db, current_user.id, name=name, game_slug=game_slug, skip=skip, limit=limit,
+        db, current_user.id, name=name, game_slug=game_slug,
+        card_number=card_number, set_id=set_id, set_name=set_name, skip=skip, limit=limit,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    return items
+
+
+@router.get("/collection/groups", response_model=list[CardSetGroupOut])
+def get_my_card_collection_set_groups(
+    response: Response,
+    set_name: str | None = Query(None),
+    game_slug: str | None = Query(None),
+    skip: int = 0,
+    limit: int = 60,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_non_kiosk),
+):
+    items, total = crud_cards.get_user_card_collection_set_groups(
+        db, current_user.id, set_name=set_name, game_slug=game_slug, skip=skip, limit=limit,
     )
     response.headers["X-Total-Count"] = str(total)
     return items
