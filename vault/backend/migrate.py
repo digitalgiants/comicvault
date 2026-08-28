@@ -199,6 +199,15 @@ MIGRATIONS = [
     ALTER TABLE users
         ALTER COLUMN password_hash DROP NOT NULL
     """,
+
+    # Welcome tour (DashboardPage.tsx's WelcomeTourModal) - DEFAULT TRUE
+    # backfills every pre-existing account so the tour only ever shows for
+    # a genuinely new signup (crud.create_user/create_google_user override
+    # this to False explicitly).
+    """
+    ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT TRUE
+    """,
 ]
 
 

@@ -55,6 +55,17 @@ def refresh(current_user: User = Depends(get_current_user)):
     return {"access_token": create_access_token(current_user.id, current_user.is_kiosk)}
 
 
+@router.post("/tour-seen", response_model=UserOut)
+def mark_tour_seen(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Called once the welcome tour modal (DashboardPage.tsx) is dismissed,
+    skipped, or finished - any of those count as "seen", so it never shows
+    again for this account, on any device."""
+    current_user.has_seen_tour = True
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 @router.get("/snapshots", response_model=list[SnapshotOut])
 def get_snapshots(
     db: Session = Depends(get_db),

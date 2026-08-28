@@ -31,6 +31,7 @@ class UserOut(BaseModel):
     is_admin: bool
     is_kiosk: bool
     is_collector: bool
+    has_seen_tour: bool
     created_at: datetime
 
     class Config:

@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import api from '../api/client'
 import CollectionGraph from '../components/Dashboard/CollectionGraph'
 import BugReportButton from '../components/BugReportButton'
+import WelcomeTourModal from '../components/Dashboard/WelcomeTourModal'
 
 export default function DashboardPage() {
   const { user } = useAuth()
@@ -12,6 +13,8 @@ export default function DashboardPage() {
   // Reappears each session on purpose (no localStorage) - it's a low-effort
   // prompt for Collector accounts, not a one-time announcement.
   const [showSellerBanner, setShowSellerBanner] = useState(true)
+  // Persistent, per-account, one-time only - see User.has_seen_tour.
+  const [showTour, setShowTour] = useState(false)
 
   useEffect(() => {
     api.get('/comics/collection', { params: { limit: 1 } })
@@ -19,8 +22,14 @@ export default function DashboardPage() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (user && !user.has_seen_tour) setShowTour(true)
+  }, [user])
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
+      {showTour && <WelcomeTourModal onClose={() => setShowTour(false)} />}
+
       {user?.is_collector && showSellerBanner && (
         <div className="mb-8 bg-brand-500/10 border border-brand-500/30 rounded-xl px-4 py-3 flex items-start gap-3">
           <p className="text-sm text-gray-200 flex-1">

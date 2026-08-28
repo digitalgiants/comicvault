@@ -59,7 +59,10 @@ def get_all_users(db: Session, skip: int = 0, limit: int = 100) -> list[User]:
 
 
 def create_user(db: Session, user_in: UserCreate) -> User:
-    user = User(username=user_in.username, password_hash=hash_password(user_in.password), is_collector=user_in.is_collector)
+    user = User(
+        username=user_in.username, password_hash=hash_password(user_in.password),
+        is_collector=user_in.is_collector, has_seen_tour=False,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -84,7 +87,7 @@ def create_google_user(db: Session, email: str) -> User:
         suffix += 1
         username = f"{base}{suffix}"
 
-    user = User(username=username, password_hash=None, email=email, is_collector=True)
+    user = User(username=username, password_hash=None, email=email, is_collector=True, has_seen_tour=False)
     db.add(user)
     db.commit()
     db.refresh(user)

@@ -8,6 +8,7 @@ interface User {
   is_admin: boolean
   is_kiosk: boolean
   is_collector: boolean
+  has_seen_tour: boolean
   created_at: string
 }
 
@@ -17,6 +18,7 @@ interface AuthCtx {
   login: (username: string, password: string) => Promise<void>
   signup: (username: string, password: string, isCollector: boolean) => Promise<void>
   loginWithGoogle: (credential: string) => Promise<void>
+  markTourSeen: () => Promise<void>
   logout: () => void
 }
 
@@ -52,6 +54,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('token', data.access_token)
     const me = await api.get('/auth/me')
     setUser(me.data)
+  }
+
+  const markTourSeen = async () => {
+    const { data } = await api.post('/auth/tour-seen')
+    setUser(data)
   }
 
   const logout = () => {
@@ -96,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, loginWithGoogle, markTourSeen, logout }}>
       {children}
     </AuthContext.Provider>
   )

@@ -27,6 +27,11 @@ class User(Base):
     # Seller (default, full-featured) vs. Collector (sales/pricing tools
     # hidden throughout the app) - chosen once at signup, see SignupPage.tsx.
     is_collector = Column(Boolean, nullable=False, default=False)
+    # Defaults True (never shows the welcome tour) - crud.create_user and
+    # crud.create_google_user explicitly override this to False for a
+    # genuinely brand-new signup. migrate.py backfills every pre-existing
+    # account to True so the tour never surprises an existing user.
+    has_seen_tour = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
