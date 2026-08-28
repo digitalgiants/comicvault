@@ -14,9 +14,14 @@ export default function CollectionGraph() {
     getSnapshots().then(setData).finally(() => setLoading(false))
   }, [])
 
+  // Loading keeps the chart's eventual height (260px) as a placeholder, so
+  // there's no layout jump once real data arrives. The empty state has no
+  // chart coming - nothing will ever fill that reserved space on its own -
+  // so it stays compact instead of leaving a tall blank gap at the top of
+  // the dashboard.
   if (loading) return <div className="h-64 flex items-center justify-center text-gray-500 text-sm">Loading graph…</div>
   if (data.length === 0) return (
-    <div className="h-64 flex items-center justify-center text-gray-600 text-sm">
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl px-6 py-5 text-center text-gray-500 text-sm">
       Upload your collection to start tracking history.
     </div>
   )
