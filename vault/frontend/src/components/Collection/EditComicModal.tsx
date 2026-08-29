@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { X, Trash2, Search } from 'lucide-react'
 import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto, deleteUserComic } from '../../api/collection'
-import { findUpc, searchSeries } from '../../api/search'
+import { findUpc, searchSeries, getSeriesIssues } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
 import { availableCopies, type ExternalSeriesResult, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
@@ -38,6 +38,8 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
   const [seriesSearchResults, setSeriesSearchResults] = useState<ExternalSeriesResult[]>([])
   const [seriesSearching, setSeriesSearching] = useState(false)
   const [seriesSearchError, setSeriesSearchError] = useState('')
+  const [pendingSeriesImg, setPendingSeriesImg] = useState<string | null>(null)
+  const [fetchingSeriesImg, setFetchingSeriesImg] = useState(false)
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -61,6 +63,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
     setSeriesSearchOpen(false)
     setSeriesSearchResults([])
     setSeriesSearchError('')
+    setPendingSeriesImg(null)
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -114,11 +117,29 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
   // identity in this app's matching logic - applying both together (not
   // just the title) is what "put this book in the correct series" means.
   // Publisher is only overwritten when the picked result actually has one.
-  const pickSeriesResult = (result: ExternalSeriesResult) => {
+  const pickSeriesResult = async (result: ExternalSeriesResult) => {
     setSeriesValue(result.name)
     if (result.publisher) setPublisherValue(result.publisher)
     setSeriesSearchOpen(false)
     setSeriesSearchResults([])
+
+    // Blank-fill only - never overwrite a cover this comic already has.
+    // GCD itself has no cover image data at all (confirmed separately),
+    // so a GCD-sourced pick will come back with no image and this quietly
+    // no-ops; a ComicVine-sourced pick often does have one.
+    if (!item.comic.master_photo && !item.comic.img) {
+      setFetchingSeriesImg(true)
+      try {
+        const issues = await getSeriesIssues(result.provider, result.provider_series_id, { number: '1', seriesName: result.name })
+        const withImage = issues.find(i => i.image)
+        if (withImage?.image) setPendingSeriesImg(withImage.image)
+      } catch {
+        // Silent - this is a nice-to-have on top of the series/publisher
+        // pick, which already succeeded either way.
+      } finally {
+        setFetchingSeriesImg(false)
+      }
+    }
   }
 
   const handleSave = async () => {
@@ -136,7 +157,8 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
       const updated = await updateUserComic(item.id, payload)
 
       let comic = updated.comic
-      const metadataUpdates: { series?: string; upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null } = {}
+      const metadataUpdates: { series?: string; upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null; img?: string } = {}
+      if (pendingSeriesImg) metadataUpdates.img = pendingSeriesImg
       // Strips every non-digit character, not just leading/trailing
       // whitespace - a UPC pasted/typed with a space or dash between the
       // 12-digit code and 5-digit price add-on (as GCD sometimes displays
@@ -363,6 +385,28 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {fetchingSeriesImg && (
+                <p className="text-xs text-gray-500 mt-2">Checking issue #1 for a cover image…</p>
+              )}
+              {pendingSeriesImg && (
+                <div className="mt-2 flex items-center gap-2 bg-gray-800/60 border border-gray-700 rounded-lg p-2">
+                  <img
+                    src={resolveImageUrl(pendingSeriesImg) ?? undefined}
+                    alt=""
+                    className="w-8 h-11 object-cover rounded border border-gray-700"
+                  />
+                  <p className="text-xs text-gray-400 flex-1">Using issue #1's cover as this comic's image (it didn't have one).</p>
+                  <button
+                    type="button"
+                    onClick={() => setPendingSeriesImg(null)}
+                    title="Don't use this image"
+                    className="flex-shrink-0 text-gray-500 hover:text-red-400 transition"
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
               )}
             </div>
