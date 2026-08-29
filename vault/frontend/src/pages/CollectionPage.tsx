@@ -38,12 +38,9 @@ export default function CollectionPage() {
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
-  // Desktop browses the collection grouped by series (cards, drill in for a
-  // per-series table); mobile always shows the flat item-card grid built
-  // earlier, regardless of this. isDesktop tracks Tailwind's `sm` breakpoint
-  // (640px) so data-fetching only ever requests what the current viewport
-  // actually renders, instead of fetching both on every load.
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 640px)').matches)
+  // Browses the collection grouped by series (cards, drill in for a
+  // per-series table) at every screen size - same behavior on mobile,
+  // tablet, and desktop.
   const [drilledSeries, setDrilledSeries] = useState<{ series: string; publisher: string | null } | null>(null)
   const [seriesGroups, setSeriesGroups] = useState<SeriesGroup[]>([])
   const [groupsTotal, setGroupsTotal] = useState(0)
@@ -51,25 +48,9 @@ export default function CollectionPage() {
   const [groupsLoading, setGroupsLoading] = useState(true)
   const [groupsError, setGroupsError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)')
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
-
-  // Series drill-down only exists as a desktop concept (no UI sets it on
-  // mobile) - if a drilled-in desktop window gets resized down, fall back
-  // to mobile's normal unscoped browsing instead of leaving it stuck
-  // showing just that one series.
-  useEffect(() => {
-    if (!isDesktop) setDrilledSeries(null)
-  }, [isDesktop])
-
-  // No issue-number search and no series drilled into = the desktop
-  // landing view (series cards). Always false on mobile, which never
-  // shows the grouped view.
-  const groupedView = isDesktop && !issueFilter && !drilledSeries
+  // No issue-number search and no series drilled into = the series-card
+  // landing view.
+  const groupedView = !issueFilter && !drilledSeries
 
   useEffect(() => {
     getColumnPrefs('collection').then(p => setVisibility(p.columns))
@@ -309,7 +290,7 @@ export default function CollectionPage() {
         </div>
 
         {drilledSeries ? (
-          <div className="hidden sm:flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-6">
             <button
               type="button"
               onClick={() => { setDrilledSeries(null); setGroupsPage(1) }}
@@ -329,7 +310,7 @@ export default function CollectionPage() {
               <button
                 type="button"
                 onClick={backToSeries}
-                className="hidden sm:flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-3"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-3"
               >
                 <ChevronLeft size={16} /> Back to Series
               </button>
@@ -374,7 +355,7 @@ export default function CollectionPage() {
       </div>
 
       {groupedView ? (
-        <div className="hidden sm:block">
+        <div>
           {groupsLoading ? (
             <div className="text-center text-gray-400 py-16">Loading…</div>
           ) : groupsError ? (
@@ -393,7 +374,7 @@ export default function CollectionPage() {
               <p className="text-sm mt-1">Upload a CSV to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {seriesGroups.map(g => (
                 <div
                   key={`${g.series}|${g.publisher ?? ''}`}
@@ -427,7 +408,7 @@ export default function CollectionPage() {
                     type="button"
                     onClick={() => setFindingImage({ comicId: g.cover_comic_id, series: g.series, issueNumber: g.cover_issue_number })}
                     title="Find Image"
-                    className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-gray-950/80 text-gray-300 opacity-0 group-hover:opacity-100 hover:text-white hover:bg-gray-900 transition"
+                    className="absolute top-1.5 right-1.5 p-1.5 rounded-lg bg-gray-950/80 text-gray-300 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 hover:text-white hover:bg-gray-900 transition"
                   >
                     <ImageIcon size={14} />
                   </button>
@@ -623,7 +604,7 @@ export default function CollectionPage() {
 
       {groupedView ? (
         !groupsLoading && groupsTotal > 0 && (
-          <div className="hidden sm:flex items-center justify-between mt-4 text-sm text-gray-400">
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
             <span>
               Showing {(groupsPage - 1) * GROUP_PAGE_SIZE + 1}–{Math.min(groupsPage * GROUP_PAGE_SIZE, groupsTotal)} of {groupsTotal} series
             </span>

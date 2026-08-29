@@ -33,12 +33,10 @@ export default function CardsPage() {
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
   const [cardGames, setCardGames] = useState<CardGame[]>([])
 
-  // Desktop browses the collection grouped by set (cards, drill in for a
-  // per-set table); mobile always shows the flat item-card grid, regardless
-  // of this - mirrors CollectionPage.tsx's series-grouped browsing exactly,
-  // except cards group by Set (a real CardSet row) rather than comics'
-  // denormalized series/publisher strings.
-  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 640px)').matches)
+  // Browses the collection grouped by set (cards, drill in for a per-set
+  // table) at every screen size - mirrors CollectionPage.tsx's
+  // series-grouped browsing exactly, except cards group by Set (a real
+  // CardSet row) rather than comics' denormalized series/publisher strings.
   const [drilledSet, setDrilledSet] = useState<{ set_id: number; set_name: string; game_name: string | null } | null>(null)
   const [setGroups, setSetGroups] = useState<CardSetGroup[]>([])
   const [groupsTotal, setGroupsTotal] = useState(0)
@@ -46,26 +44,12 @@ export default function CardsPage() {
   const [groupsLoading, setGroupsLoading] = useState(true)
   const [groupsError, setGroupsError] = useState<string | null>(null)
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)')
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
-
-  // Set drill-down only exists as a desktop concept - if a drilled-in
-  // desktop window gets resized down, fall back to mobile's normal
-  // unscoped browsing instead of leaving it stuck showing just that set.
-  useEffect(() => {
-    if (!isDesktop) setDrilledSet(null)
-  }, [isDesktop])
-
   // Card name and Card # both jump straight to a specific card, which
   // doesn't make sense against a "which sets do I own" grouped query - so
   // (unlike Set/Game, which just narrow whichever view is active) either
   // one bypasses grouping into the flat table, same role issueFilter alone
   // plays on the comics page.
-  const groupedView = isDesktop && !search && !cardNumberFilter && !drilledSet
+  const groupedView = !search && !cardNumberFilter && !drilledSet
 
   useEffect(() => {
     getCardColumnPrefs('cards').then(p => setVisibility(p.columns))
@@ -246,7 +230,7 @@ export default function CardsPage() {
         </div>
 
         {drilledSet ? (
-          <div className="hidden sm:flex items-center gap-3 mb-6">
+          <div className="flex items-center gap-3 mb-6">
             <button
               type="button"
               onClick={() => { setDrilledSet(null); setGroupsPage(1) }}
@@ -266,7 +250,7 @@ export default function CardsPage() {
               <button
                 type="button"
                 onClick={backToSets}
-                className="hidden sm:flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-3"
+                className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition mb-3"
               >
                 <ChevronLeft size={16} /> Back to Sets
               </button>
@@ -324,7 +308,7 @@ export default function CardsPage() {
       </div>
 
       {groupedView ? (
-        <div className="hidden sm:block">
+        <div>
           {groupsLoading ? (
             <div className="text-center text-gray-400 py-16">Loading…</div>
           ) : groupsError ? (
@@ -343,7 +327,7 @@ export default function CardsPage() {
               <p className="text-sm mt-1">Click "Add Card" to get started.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
               {setGroups.map(g => (
                 <button
                   key={g.set_id}
@@ -520,7 +504,7 @@ export default function CardsPage() {
 
       {groupedView ? (
         !groupsLoading && groupsTotal > 0 && (
-          <div className="hidden sm:flex items-center justify-between mt-4 text-sm text-gray-400">
+          <div className="flex items-center justify-between mt-4 text-sm text-gray-400">
             <span>
               Showing {(groupsPage - 1) * GROUP_PAGE_SIZE + 1}–{Math.min(groupsPage * GROUP_PAGE_SIZE, groupsTotal)} of {groupsTotal} sets
             </span>
