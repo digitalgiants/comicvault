@@ -4,9 +4,10 @@ import { X, Trash2, Search } from 'lucide-react'
 import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto, deleteUserComic } from '../../api/collection'
 import { findUpc, searchSeries, getSeriesIssues } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
-import { availableCopies, type ExternalSeriesResult, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
+import { availableCopies, type Comic, type ExternalSeriesResult, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import PhotoCapture from './PhotoCapture'
+import FindImageModal from './FindImageModal'
 
 interface Props {
   item: UserComic
@@ -25,6 +26,8 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
   const [error, setError] = useState('')
   const [localSales, setLocalSales] = useState<Sale[]>(item.sales ?? [])
   const [personalImg, setPersonalImg] = useState<string | null>(item.personal_img)
+  const [comicImg, setComicImg] = useState<string | null>(item.comic.master_photo || item.comic.img)
+  const [findingImage, setFindingImage] = useState(false)
   const [upcValue, setUpcValue] = useState(item.comic.upc ?? '')
   const [coverArtistValue, setCoverArtistValue] = useState(item.comic.cover_artist ?? '')
   const [coverLetterValue, setCoverLetterValue] = useState(item.comic.cover_letter ?? '')
@@ -54,6 +57,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
     setForm(initial)
     setLocalSales(item.sales ?? [])
     setPersonalImg(item.personal_img)
+    setComicImg(item.comic.master_photo || item.comic.img)
     setUpcValue(item.comic.upc ?? '')
     setCoverArtistValue(item.comic.cover_artist ?? '')
     setCoverLetterValue(item.comic.cover_letter ?? '')
@@ -229,6 +233,12 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
     onItemChange?.({ ...item, sales: localSales, personal_img: null, comic: updated.comic })
   }
 
+  const handleImageSaved = (comic: Comic) => {
+    setComicImg(comic.master_photo || comic.img)
+    onItemChange?.({ ...item, sales: localSales, comic })
+    setFindingImage(false)
+  }
+
   const handleDeleteSale = async (sale: Sale) => {
     if (!confirm('Remove this sale record?')) return
     await deleteSale(item.id, sale.id)
@@ -281,13 +291,26 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
         <div className="px-6 py-4 border-b border-gray-800 bg-gray-800/40">
           <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Comic Info (read-only)</p>
           <div className="flex gap-4">
-            {(item.comic.master_photo || item.comic.img) && (
-              <img
-                src={resolveImageUrl(item.comic.master_photo || item.comic.img) ?? undefined}
-                alt=""
-                className="w-16 h-24 object-cover rounded-lg border border-gray-700 flex-shrink-0"
-              />
-            )}
+            <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+              {comicImg ? (
+                <img
+                  src={resolveImageUrl(comicImg) ?? undefined}
+                  alt=""
+                  className="w-16 h-24 object-cover rounded-lg border border-gray-700"
+                />
+              ) : (
+                <div className="w-16 h-24 rounded-lg border border-gray-700 bg-gray-800 flex items-center justify-center text-gray-600 text-[10px] text-center px-1">
+                  No Cover
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => setFindingImage(true)}
+                className="text-xs text-brand-400 hover:text-brand-300 transition"
+              >
+                Find Image
+              </button>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm flex-1">
               {[
                 ['Writer', item.comic.writer],
@@ -622,6 +645,16 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
           </button>
         </div>
       </div>
+
+      {findingImage && (
+        <FindImageModal
+          comicId={item.comic.id}
+          series={item.comic.series}
+          issueNumber={item.comic.issue_number}
+          onClose={() => setFindingImage(false)}
+          onSaved={handleImageSaved}
+        />
+      )}
     </div>
   )
 }
