@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, X } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Plus, X } from 'lucide-react'
 import { getCollection, getCollectionSeriesGroups, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
-import { availableCopies, coverImage, latestSalePrice, type Comic, type SeriesGroup, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
+import { availableCopies, coverImage, latestSalePrice, type Comic, type ScanComicFields, type SeriesGroup, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
 import { useAuth } from '../hooks/useAuth'
 import EditComicModal from '../components/Collection/EditComicModal'
 import BulkEditModal from '../components/Collection/BulkEditModal'
@@ -10,6 +10,18 @@ import FindImageModal from '../components/Collection/FindImageModal'
 import BulkFindImagesModal from '../components/Collection/BulkFindImagesModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
 import RecordSaleModal from '../components/Collection/RecordSaleModal'
+import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
+
+// All-blank seed for the on-the-fly "Add Comic" flow (CollectionPage.tsx) -
+// SeriesSearchAddModal is otherwise fed pre-filled fields from a GCD/Metron/
+// ComicVine lookup (SearchPage.tsx, ScanPage.tsx); here the user just types
+// everything in by hand. Only `series` is actually required before Save.
+const BLANK_COMIC_FIELDS: ScanComicFields = {
+  publisher: null, series: '', volume: null, issue_number: null, legacy_number: null,
+  cover_date: null, store_date: null, newstand: null, print_run: null, variant: null,
+  cover_letter: null, writer: null, penciller: null, inker: null, cover_artist: null,
+  average_price: null, upc: null, img: null,
+}
 
 const PAGE_SIZE = 200
 const GROUP_PAGE_SIZE = 60
@@ -35,6 +47,7 @@ export default function CollectionPage() {
   const [bulkFindingImages, setBulkFindingImages] = useState(false)
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
+  const [adding, setAdding] = useState(false)
 
   // Browses the collection grouped by series (cards, drill in for a
   // per-series table) at every screen size - same behavior on mobile,
@@ -278,6 +291,13 @@ export default function CollectionPage() {
                 </button>
               </>
             )}
+            <button
+              onClick={() => setAdding(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition"
+            >
+              <Plus size={15} />
+              Add Comic
+            </button>
             {!groupedView && (
               <div className="hidden sm:block">
                 <ColumnPicker page="collection" columns={columns} visibility={visibility} onChange={setVisibility} />
@@ -368,7 +388,7 @@ export default function CollectionPage() {
           ) : seriesGroups.length === 0 ? (
             <div className="text-center text-gray-400 py-16">
               <p className="text-lg">No series found.</p>
-              <p className="text-sm mt-1">Upload a CSV to get started.</p>
+              <p className="text-sm mt-1">Upload a CSV, or click "Add Comic" to get started.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -681,6 +701,13 @@ export default function CollectionPage() {
         <BulkFindImagesModal
           selected={selectedItems}
           onClose={() => { setBulkFindingImages(false); setSelected(new Set()); fetchCollection() }}
+        />
+      )}
+      {adding && (
+        <SeriesSearchAddModal
+          initial={BLANK_COMIC_FIELDS}
+          onClose={() => setAdding(false)}
+          onAdded={() => { setAdding(false); fetchCollection(); fetchGroups() }}
         />
       )}
       {zoomedImage && (
