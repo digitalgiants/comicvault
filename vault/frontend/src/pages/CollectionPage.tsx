@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Plus, X } from 'lucide-react'
+import { Search, Pencil, DollarSign, Trash2, ChevronLeft, ChevronRight, ChevronDown, Image as ImageIcon, Plus, Check, X } from 'lucide-react'
 import { getCollection, getCollectionSeriesGroups, recordSale, deleteUserComic, getColumnPrefs } from '../api/collection'
 import { resolveImageUrl } from '../api/client'
 import { availableCopies, coverImage, latestSalePrice, type Comic, type ScanComicFields, type SeriesGroup, type UserComic, type ColumnVisibility, visibleCollectionColumns } from '../types'
@@ -40,6 +40,11 @@ export default function CollectionPage() {
   const [writerFilter, setWriterFilter] = useState('')
   const [showMoreFilters, setShowMoreFilters] = useState(false)
   const [selected, setSelected] = useState<Set<number>>(new Set())
+  // Mobile-only - the card grid has no checkbox column like the desktop
+  // table does, so multi-select needs an explicit mode: tapping a card
+  // selects it instead of opening Edit while this is on. Entering/exiting
+  // both reset the selection to a clean slate.
+  const [mobileSelectMode, setMobileSelectMode] = useState(false)
   const [editing, setEditing] = useState<UserComic | null>(null)
   const [selling, setSelling] = useState<UserComic | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -118,6 +123,13 @@ export default function CollectionPage() {
 
   useEffect(() => { if (!groupedView) fetchCollection() }, [page, drilledSeries, groupedView])
   useEffect(() => { if (groupedView) fetchGroups() }, [groupsPage, groupedView])
+
+  // Selection is meaningless on the series-card landing view - drop out of
+  // select mode (and clear anything selected) rather than leaving it stuck
+  // active with no visible checkboxes to show for it.
+  useEffect(() => {
+    if (groupedView) { setMobileSelectMode(false); setSelected(new Set()) }
+  }, [groupedView])
 
   const runSearch = () => {
     if (groupedView) {
@@ -202,6 +214,11 @@ export default function CollectionPage() {
 
   const toggleAll = () => {
     setSelected(prev => prev.size === items.length ? new Set() : new Set(items.map(i => i.id)))
+  }
+
+  const toggleMobileSelectMode = () => {
+    setMobileSelectMode(v => !v)
+    setSelected(new Set())
   }
 
   const handleDelete = async (uc: UserComic) => {
@@ -289,6 +306,27 @@ export default function CollectionPage() {
                 >
                   <ImageIcon size={14} /> Find Images ({selected.size})
                 </button>
+              </>
+            )}
+            {!groupedView && (
+              <>
+                <button
+                  onClick={toggleMobileSelectMode}
+                  className={`sm:hidden flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition ${
+                    mobileSelectMode ? 'bg-gray-700 text-white' : 'border border-gray-700 hover:border-gray-500 text-gray-300'
+                  }`}
+                >
+                  <Check size={14} />
+                  {mobileSelectMode ? `Cancel${selected.size > 0 ? ` (${selected.size})` : ''}` : 'Select'}
+                </button>
+                {mobileSelectMode && drilledSeries && (
+                  <button
+                    onClick={toggleAll}
+                    className="sm:hidden px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
+                  >
+                    {selected.size === items.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
               </>
             )}
             <button
@@ -461,14 +499,20 @@ export default function CollectionPage() {
           <div className="sm:hidden grid grid-cols-2 gap-3">
             {items.map(uc => {
               const avail = availableCopies(uc)
+              const isSelected = selected.has(uc.id)
               return (
-                <div key={uc.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+                <div key={uc.id} className={`bg-gray-900 border rounded-xl overflow-hidden flex flex-col ${isSelected ? 'border-brand-500' : 'border-gray-800'}`}>
                   <button
                     type="button"
-                    onClick={() => setEditing(uc)}
-                    title="View / Edit"
-                    className="block w-full"
+                    onClick={() => mobileSelectMode ? toggleSelect(uc.id) : setEditing(uc)}
+                    title={mobileSelectMode ? 'Select' : 'View / Edit'}
+                    className="block w-full relative"
                   >
+                    {mobileSelectMode && (
+                      <div className={`absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded-full flex items-center justify-center border-2 ${isSelected ? 'bg-brand-500 border-brand-500' : 'bg-gray-950/70 border-gray-400'}`}>
+                        {isSelected && <Check size={12} className="text-white" />}
+                      </div>
+                    )}
                     {coverImage(uc) ? (
                       <img
                         src={resolveImageUrl(coverImage(uc)) ?? undefined}
@@ -504,24 +548,26 @@ export default function CollectionPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center justify-end gap-0.5 mt-auto pt-2 -mr-1">
-                      <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
-                        <ImageIcon size={14} />
-                      </button>
-                      {!isCollector && (
-                        <button
-                          onClick={() => setSelling(uc)}
-                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
-                          disabled={avail === 0 || uc.do_not_sell}
-                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          <DollarSign size={14} />
+                    {!mobileSelectMode && (
+                      <div className="flex items-center justify-end gap-0.5 mt-auto pt-2 -mr-1">
+                        <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                          <ImageIcon size={14} />
                         </button>
-                      )}
-                      <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition">
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                        {!isCollector && (
+                          <button
+                            onClick={() => setSelling(uc)}
+                            title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                            disabled={avail === 0 || uc.do_not_sell}
+                            className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            <DollarSign size={14} />
+                          </button>
+                        )}
+                        <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )
