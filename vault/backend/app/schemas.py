@@ -94,6 +94,7 @@ class ComicUpdate(BaseModel):
 class ComicMetadataUpdate(BaseModel):
     """Shared Comic fields any logged-in user may correct, as opposed to the
     admin-only ComicUpdate which allows editing the full record."""
+    series: Optional[str] = None
     upc: Optional[str] = None
     cover_artist: Optional[str] = None
     cover_letter: Optional[str] = None

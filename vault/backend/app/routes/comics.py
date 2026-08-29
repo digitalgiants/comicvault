@@ -53,6 +53,13 @@ def update_comic_metadata(
         raise HTTPException(status_code=404, detail="Comic not found")
 
     data = update.model_dump(exclude_unset=True)
+    if "series" in data:
+        # Comic.series is NOT NULL, unlike volume/publisher - a blank value
+        # here is a mistake, not "clear this field", so it's rejected
+        # outright rather than silently coerced to None like the others below.
+        data["series"] = data["series"].strip()
+        if not data["series"]:
+            raise HTTPException(status_code=400, detail="Series cannot be blank")
     if "upc" in data:
         # No standalone "UPC already taken" hard block anymore - a UPC
         # collision now flows through update_comic_metadata_with_merge,

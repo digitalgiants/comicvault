@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import axios from 'axios'
 import { X, Trash2, Search } from 'lucide-react'
 import { updateUserComic, updateComicMetadata, deleteSale, updateSale, uploadPersonalPhoto, deleteUserComic } from '../../api/collection'
-import { findUpc } from '../../api/search'
+import { findUpc, searchSeries } from '../../api/search'
 import { resolveImageUrl } from '../../api/client'
-import { availableCopies, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
+import { availableCopies, type ExternalSeriesResult, type Sale, type UserComic, EDITABLE_FIELDS, visibleEditableFields } from '../../types'
 import { useAuth } from '../../hooks/useAuth'
 import PhotoCapture from './PhotoCapture'
 
@@ -30,8 +30,14 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
   const [coverLetterValue, setCoverLetterValue] = useState(item.comic.cover_letter ?? '')
   const [volumeValue, setVolumeValue] = useState(item.comic.volume ?? '')
   const [publisherValue, setPublisherValue] = useState(item.comic.publisher ?? '')
+  const [seriesValue, setSeriesValue] = useState(item.comic.series)
   const [findingUpc, setFindingUpc] = useState(false)
   const [upcLookupMessage, setUpcLookupMessage] = useState('')
+  const [seriesSearchOpen, setSeriesSearchOpen] = useState(false)
+  const [seriesSearchQuery, setSeriesSearchQuery] = useState('')
+  const [seriesSearchResults, setSeriesSearchResults] = useState<ExternalSeriesResult[]>([])
+  const [seriesSearching, setSeriesSearching] = useState(false)
+  const [seriesSearchError, setSeriesSearchError] = useState('')
 
   useEffect(() => {
     const initial: Record<string, unknown> = {}
@@ -51,6 +57,10 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
     setCoverLetterValue(item.comic.cover_letter ?? '')
     setVolumeValue(item.comic.volume ?? '')
     setPublisherValue(item.comic.publisher ?? '')
+    setSeriesValue(item.comic.series)
+    setSeriesSearchOpen(false)
+    setSeriesSearchResults([])
+    setSeriesSearchError('')
   }, [item])
 
   const handleChange = (key: string, value: unknown) => {
@@ -78,6 +88,39 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
     }
   }
 
+  const openSeriesSearch = () => {
+    setSeriesSearchOpen(true)
+    setSeriesSearchQuery(seriesValue)
+    setSeriesSearchResults([])
+    setSeriesSearchError('')
+  }
+
+  const runSeriesSearch = async () => {
+    if (!seriesSearchQuery.trim()) return
+    setSeriesSearching(true)
+    setSeriesSearchError('')
+    try {
+      const { results } = await searchSeries(seriesSearchQuery.trim())
+      setSeriesSearchResults(results)
+      if (results.length === 0) setSeriesSearchError('No matching series found.')
+    } catch {
+      setSeriesSearchError('Series search failed. Please try again.')
+    } finally {
+      setSeriesSearching(false)
+    }
+  }
+
+  // GCD's series+publisher pairing is what actually defines a comic's
+  // identity in this app's matching logic - applying both together (not
+  // just the title) is what "put this book in the correct series" means.
+  // Publisher is only overwritten when the picked result actually has one.
+  const pickSeriesResult = (result: ExternalSeriesResult) => {
+    setSeriesValue(result.name)
+    if (result.publisher) setPublisherValue(result.publisher)
+    setSeriesSearchOpen(false)
+    setSeriesSearchResults([])
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setError('')
@@ -93,17 +136,22 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
       const updated = await updateUserComic(item.id, payload)
 
       let comic = updated.comic
-      const metadataUpdates: { upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null } = {}
+      const metadataUpdates: { series?: string; upc?: string | null; cover_artist?: string | null; cover_letter?: string | null; volume?: string | null; publisher?: string | null } = {}
       // Strips every non-digit character, not just leading/trailing
       // whitespace - a UPC pasted/typed with a space or dash between the
       // 12-digit code and 5-digit price add-on (as GCD sometimes displays
       // it) would otherwise save as a malformed value that never matches a
       // clean scan again.
+      const trimmedSeries = seriesValue.trim()
       const trimmedUpc = upcValue.replace(/\D/g, '') || null
       const trimmedCoverArtist = coverArtistValue.trim() || null
       const trimmedCoverLetter = coverLetterValue.trim() || null
       const trimmedVolume = volumeValue.trim() || null
       const trimmedPublisher = publisherValue.trim() || null
+      // Series is required (unlike the others, which clear to null when
+      // blank) - an accidentally-emptied field just gets left alone rather
+      // than sent as a blank update the backend would reject anyway.
+      if (trimmedSeries && trimmedSeries !== item.comic.series) metadataUpdates.series = trimmedSeries
       if (trimmedUpc !== (item.comic.upc ?? null)) metadataUpdates.upc = trimmedUpc
       if (trimmedCoverArtist !== (item.comic.cover_artist ?? null)) metadataUpdates.cover_artist = trimmedCoverArtist
       if (trimmedCoverLetter !== (item.comic.cover_letter ?? null)) metadataUpdates.cover_letter = trimmedCoverLetter
@@ -112,14 +160,14 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
 
       if (Object.keys(metadataUpdates).length > 0) {
         try {
-          // A volume/publisher change (or any other identity field) may
-          // merge this comic into a pre-existing catalog entry that
+          // A series/volume/publisher change (or any other identity field)
+          // may merge this comic into a pre-existing catalog entry that
           // already matches - the returned comic can be a different id
           // than item.comic.id.
           comic = await updateComicMetadata(item.comic.id, metadataUpdates)
         } catch (err) {
           const detail = axios.isAxiosError(err) ? err.response?.data?.detail : null
-          setError(detail || 'Failed to save UPC / Cover Artist / Cover Letter / Volume / Publisher. Please try again.')
+          setError(detail || 'Failed to save Series / UPC / Cover Artist / Cover Letter / Volume / Publisher. Please try again.')
           setSaving(false)
           onSaved({ ...updated, sales: localSales })
           return
@@ -242,6 +290,83 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
         <div className="overflow-y-auto px-6 py-4 flex-1">
           <div className="mb-6 pb-4 border-b border-gray-800">
             <p className="text-xs text-gray-500 uppercase tracking-wider mb-3">Shared Catalog Fields</p>
+
+            <div className="mb-4">
+              <label className="block text-sm text-gray-400 mb-1">Series</label>
+              <div className="flex gap-2">
+                <input
+                  value={seriesValue}
+                  onChange={e => setSeriesValue(e.target.value)}
+                  placeholder="e.g. Amazing Spider-Man"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={openSeriesSearch}
+                  title="Search GCD for the correct series"
+                  className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-sm text-gray-300 rounded-lg transition"
+                >
+                  <Search size={14} />
+                  Search GCD
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Changing this to match another comic already in the catalog merges into it - the entry you're editing now disappears.
+              </p>
+
+              {seriesSearchOpen && (
+                <div className="mt-2 bg-gray-800/60 border border-gray-700 rounded-lg p-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={seriesSearchQuery}
+                      onChange={e => setSeriesSearchQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && runSeriesSearch()}
+                      placeholder="Search series name…"
+                      autoFocus
+                      className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={runSeriesSearch}
+                      disabled={seriesSearching || !seriesSearchQuery.trim()}
+                      className="flex-shrink-0 px-3 py-1.5 bg-brand-500 hover:bg-brand-600 text-white text-sm font-medium rounded-lg transition disabled:opacity-50"
+                    >
+                      {seriesSearching ? 'Searching…' : 'Search'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSeriesSearchOpen(false)}
+                      title="Close"
+                      className="flex-shrink-0 px-2 py-1.5 text-gray-400 hover:text-white transition"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+
+                  {seriesSearchError && <p className="text-xs text-gray-500 mt-2">{seriesSearchError}</p>}
+
+                  {seriesSearchResults.length > 0 && (
+                    <div className="mt-2 max-h-48 overflow-y-auto space-y-1">
+                      {seriesSearchResults.map(result => (
+                        <button
+                          key={`${result.provider}-${result.provider_series_id}`}
+                          type="button"
+                          onClick={() => pickSeriesResult(result)}
+                          className="w-full text-left px-3 py-2 bg-gray-900 hover:bg-gray-700 border border-gray-700 rounded-lg transition"
+                        >
+                          <p className="text-sm text-white">{result.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {[result.publisher, result.start_year, result.issue_count ? `${result.issue_count} issues` : null]
+                              .filter(Boolean).join(' · ') || '—'}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">UPC</label>

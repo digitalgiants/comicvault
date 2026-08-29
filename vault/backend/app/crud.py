@@ -226,13 +226,16 @@ def update_comic_metadata(db: Session, comic_id: int, updates: dict) -> Optional
     return comic
 
 
-# Every field find_matching_comic requires to build an accurate candidate.
+# Every field find_matching_comic requires to build an accurate candidate,
+# besides series (handled separately in _find_identity_match - see below).
 # _COMIC_IDENTITY_FIELDS is the subset used to decide whether an edit needs
 # a merge-check at all - issue_number is included because the admin
 # legacy-number-split fix (see get_legacy_number_issues) edits it directly;
-# nothing else currently does, but it's a real identity field like the rest.
+# series is included because EditComicModal.tsx's GCD-search retitle flow
+# edits it; nothing else currently does, but they're real identity fields
+# like the rest.
 _COMIC_MATCH_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
-_COMIC_IDENTITY_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
+_COMIC_IDENTITY_FIELDS = ["series", "publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
 
 
 def _describe_comic(comic: Comic) -> str:
@@ -262,7 +265,7 @@ def _find_identity_match(db: Session, comic: Comic, updates: dict) -> Optional[C
         candidate_by_upc = get_comic_by_upc(db, effective_upc)
         if candidate_by_upc and candidate_by_upc.id != comic.id:
             return candidate_by_upc
-    candidate = {"series": comic.series, "upc": effective_upc}
+    candidate = {"series": updates.get("series", comic.series), "upc": effective_upc}
     for f in _COMIC_MATCH_FIELDS:
         candidate[f] = updates.get(f, getattr(comic, f))
     found = find_matching_comic(db, candidate)
