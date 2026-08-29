@@ -1,7 +1,8 @@
-import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag, CreditCard, Menu, X } from 'lucide-react'
+import { BookOpen, LogOut, Shield, Upload, Search, ScanBarcode, Library, Tag, CreditCard, Menu, X, Bug } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import BugReportModal from './BugReportModal'
 
 const NAV_LINKS = [
   { to: '/comics', label: 'Comics', icon: Search },
@@ -16,6 +17,7 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [bugReportOpen, setBugReportOpen] = useState(false)
 
   const handleLogout = () => {
     setMenuOpen(false)
@@ -65,6 +67,13 @@ export default function Navbar() {
                 </>
               )}
               <button
+                onClick={() => setBugReportOpen(true)}
+                className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
+              >
+                <Bug size={16} />
+                <span className="hidden lg:inline">Report a Bug</span>
+              </button>
+              <button
                 onClick={handleLogout}
                 className="flex items-center gap-1 px-3 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
               >
@@ -113,6 +122,13 @@ export default function Navbar() {
             </>
           )}
           <button
+            onClick={() => { setMenuOpen(false); setBugReportOpen(true) }}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
+          >
+            <Bug size={18} />
+            Report a Bug
+          </button>
+          <button
             onClick={handleLogout}
             className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition text-sm"
           >
@@ -121,6 +137,8 @@ export default function Navbar() {
           </button>
         </div>
       )}
+
+      <BugReportModal open={bugReportOpen} onClose={() => setBugReportOpen(false)} />
     </nav>
   )
 }

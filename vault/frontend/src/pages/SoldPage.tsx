@@ -3,7 +3,6 @@ import { Search } from 'lucide-react'
 import { getSold, getColumnPrefs } from '../api/collection'
 import { type SaleWithComic, type ColumnVisibility, SOLD_COLUMNS } from '../types'
 import ColumnPicker from '../components/Collection/ColumnPicker'
-import BugReportButton from '../components/BugReportButton'
 
 export default function SoldPage() {
   const [items, setItems] = useState<SaleWithComic[]>([])
@@ -95,8 +94,6 @@ export default function SoldPage() {
           </table>
         </div>
       )}
-
-      <BugReportButton />
     </div>
   )
 }

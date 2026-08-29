@@ -4,7 +4,6 @@ import { Upload, BookOpen, Search, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import api from '../api/client'
 import CollectionGraph from '../components/Dashboard/CollectionGraph'
-import BugReportButton from '../components/BugReportButton'
 import WelcomeTourModal from '../components/Dashboard/WelcomeTourModal'
 
 export default function DashboardPage() {
@@ -96,7 +95,6 @@ export default function DashboardPage() {
           <span className="text-gray-400 text-sm text-center">Filter by title, writer, publisher & more</span>
         </Link>
       </div>
-      <BugReportButton />
     </div>
   )
 }

@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { CheckCircle, PlusCircle, XCircle } from 'lucide-react'
-import BugReportButton from '../components/BugReportButton'
 import BarcodeScanner from '../components/Scan/BarcodeScanner'
 import ScanInput from '../components/Scan/ScanInput'
 import BatchPanel from '../components/Scan/BatchPanel'
@@ -195,8 +194,6 @@ export default function ScanPage() {
           </div>
         )}
       </div>
-
-      <BugReportButton />
 
       {reviewing && (
         <ReviewAddModal

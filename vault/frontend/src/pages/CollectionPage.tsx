@@ -9,7 +9,6 @@ import BulkEditModal from '../components/Collection/BulkEditModal'
 import FindImageModal from '../components/Collection/FindImageModal'
 import BulkFindImagesModal from '../components/Collection/BulkFindImagesModal'
 import ColumnPicker from '../components/Collection/ColumnPicker'
-import BugReportButton from '../components/BugReportButton'
 import RecordSaleModal from '../components/Collection/RecordSaleModal'
 
 const PAGE_SIZE = 200
@@ -36,7 +35,6 @@ export default function CollectionPage() {
   const [bulkFindingImages, setBulkFindingImages] = useState(false)
   const [zoomedImage, setZoomedImage] = useState<string | null>(null)
   const [visibility, setVisibility] = useState<ColumnVisibility>({})
-  const [activeComic, setActiveComic] = useState<UserComic | null>(null)
 
   // Browses the collection grouped by series (cards, drill in for a
   // per-series table) at every screen size - same behavior on mobile,
@@ -140,7 +138,6 @@ export default function CollectionPage() {
         const { items: single } = await getCollection(params)
         if (single.length === 1) {
           setEditing(single[0])
-          setActiveComic(single[0])
           return
         }
       } catch {
@@ -448,7 +445,7 @@ export default function CollectionPage() {
                 <div key={uc.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
                   <button
                     type="button"
-                    onClick={() => { setEditing(uc); setActiveComic(uc) }}
+                    onClick={() => setEditing(uc)}
                     title="View / Edit"
                     className="block w-full"
                   >
@@ -537,7 +534,7 @@ export default function CollectionPage() {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
-                        <button onClick={() => { setEditing(uc); setActiveComic(uc) }} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
+                        <button onClick={() => setEditing(uc)} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
                           <Pencil size={14} />
                         </button>
                       </div>
@@ -705,7 +702,6 @@ export default function CollectionPage() {
           />
         </div>
       )}
-      <BugReportButton activeComic={activeComic} />
     </div>
   )
 }

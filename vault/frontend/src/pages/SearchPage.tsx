@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, BookOpen, RotateCcw, Search as SearchIcon, X } from 'lucide-react'
-import BugReportButton from '../components/BugReportButton'
 import { getIssueFields, getSeriesIssues, searchSeries } from '../api/search'
 import { lookupBarcode } from '../api/scan'
 import { lookupResultToComicFields, type ExternalIssueSummary, type ExternalSeriesResult, type ScanComicFields } from '../types'
@@ -497,8 +496,6 @@ export default function SearchPage() {
           )}
         </>
       )}
-
-      <BugReportButton />
 
       {fields && (
         <SeriesSearchAddModal

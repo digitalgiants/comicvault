@@ -5,7 +5,6 @@ import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
 import { getCardGames } from '../api/cards'
 import type { BugReport, CardGame, KioskSearchLog, KioskSettings, KioskSignup } from '../types'
-import BugReportButton from '../components/BugReportButton'
 import EditSignupModal from '../components/Admin/EditSignupModal'
 
 // A full-catalog sync is many sequential apitcg.com calls proxied through
@@ -1412,8 +1411,6 @@ export default function AdminPage() {
           onSaved={updated => setSignups(prev => prev.map(s => s.id === updated.id ? updated : s))}
         />
       )}
-
-      <BugReportButton />
     </div>
   )
 }

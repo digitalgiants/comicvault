@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
-import BugReportButton from '../components/BugReportButton'
 import { useDropzone } from 'react-dropzone'
 import { Upload, CheckCircle, XCircle, FileText, HelpCircle, GitCompare, Search, Check, X, Download, ChevronDown } from 'lucide-react'
 import api from '../api/client'
@@ -373,8 +372,6 @@ export default function UploadPage() {
           </div>
         </div>
       )}
-
-      <BugReportButton />
 
       <div className="mt-8 bg-gray-900 rounded-xl p-5 border border-gray-800">
         <p className="text-xs text-gray-500">
