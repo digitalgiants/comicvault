@@ -234,7 +234,9 @@ export interface LookupResult {
 interface LookupAttemptBase {
   id: string
   upc12: string
-  ean5: string | null
+  // Whatever's left after the first 12 digits - a 2-digit older
+  // price/edition supplement, a 5-digit EAN add-on, or none at all.
+  ean: string | null
   timestamp: string
 }
 
@@ -247,13 +249,13 @@ export type LookupAttempt =
 export interface StagedItem {
   id: string
   upc12: string
-  ean5: string | null
+  ean: string | null
 }
 
 export interface BatchResultEvent {
   index: number
   upc12: string
-  ean5: string | null
+  ean: string | null
   status: 'success' | 'not_found' | 'error'
   result?: LookupResult
   message?: string
@@ -603,7 +605,7 @@ export interface IdentifyScanResponse {
   candidates: ScanCandidate[]
 }
 
-export function lookupResultToComicFields(result: LookupResult, upc12: string, ean5: string | null): ScanComicFields {
+export function lookupResultToComicFields(result: LookupResult, upc12: string, ean: string | null): ScanComicFields {
   return {
     publisher: result.publisher_name,
     series: result.series_name,
@@ -621,7 +623,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     inker: result.inkers.length ? result.inkers.join(', ') : null,
     cover_artist: result.cover_artists.length ? result.cover_artists.join(', ') : null,
     average_price: null,
-    upc: ean5 ? `${upc12}${ean5}` : upc12,
+    upc: ean ? `${upc12}${ean}` : upc12,
     img: result.image,
   }
 }

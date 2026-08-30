@@ -377,15 +377,17 @@ _UPC_SEPARATOR_RE = re.compile(r"[\s-]")
 
 def clean_upc(upc: str) -> Optional[str]:
     """Cleaned version of a stored UPC if it's fixable (a space/hyphen-
-    separated 12 or 17-digit value), else None - used both by the malformed-
-    UPC report and its single-comic fix action, so they can't drift out of
-    sync on what counts as "fixable"."""
+    separated 12, 14, or 17-digit value), else None - used both by the
+    malformed-UPC report and its single-comic fix action, so they can't
+    drift out of sync on what counts as "fixable". 14 covers the older
+    12-digit-UPC + 2-digit-supplement convention (see ScanInput.tsx),
+    alongside the bare 12-digit and 12+5-digit-EAN conventions."""
     digits = _UPC_SEPARATOR_RE.sub("", upc.strip())
-    return digits if digits.isdigit() and len(digits) in (12, 17) else None
+    return digits if digits.isdigit() and len(digits) in (12, 14, 17) else None
 
 
 def get_malformed_upc_comics(db: Session) -> list[dict]:
-    """Comics whose stored UPC isn't a clean 12 or 17-digit string - e.g. a
+    """Comics whose stored UPC isn't a clean 12, 14, or 17-digit string - e.g. a
     value typed/pasted/imported with a space or dash between the UPC and
     5-digit price add-on (as GCD sometimes displays it), which a clean scan
     or lookup will never exact-match again. See the admin UPC Issues report;

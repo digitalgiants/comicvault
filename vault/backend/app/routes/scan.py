@@ -21,16 +21,20 @@ LOOKUP_TIMEOUT = 15.0
 @router.get("/lookup/{upc12}")
 def lookup_barcode(
     upc12: str,
-    ean5: str | None = None,
+    ean: str | None = None,
     gcd_db: Session | None = Depends(get_gcd_db),
     current_user: User = Depends(get_current_non_kiosk),
 ):
     if gcd_db is not None:
-        gcd_result = _lookup_gcd(gcd_db, upc12, ean5)
+        gcd_result = _lookup_gcd(gcd_db, upc12, ean)
         if gcd_result is not None:
             return gcd_result
 
-    params = {"ean5": ean5} if ean5 else {}
+    # comic-scraper's own API still calls this param "ean5" (its external
+    # contract, a separate service/schema) - comicvault's own naming is
+    # "ean" throughout, translated at this boundary rather than renaming
+    # comic-scraper itself.
+    params = {"ean5": ean} if ean else {}
     try:
         resp = httpx.get(
             f"{settings.comic_scraper_url}/lookup/{upc12}",
@@ -47,7 +51,7 @@ def lookup_barcode(
     return resp.json()
 
 
-def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
+def _lookup_gcd(gcd_db: Session, upc12: str, ean: str | None) -> dict | None:
     """GCD-first barcode match. Returns None on a miss so the caller falls
     through to the existing comic-scraper (Metron) proxy unchanged. On a hit,
     builds a response shaped exactly like comic-scraper's own LookupResult
@@ -63,7 +67,7 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
     network call - just using more of the one response). Swallows failure
     since a missing image/backfill shouldn't block the add.
     """
-    issue = gcd_lookup.find_issue_by_upc(gcd_db, upc12, ean5)
+    issue = gcd_lookup.find_issue_by_upc(gcd_db, upc12, ean)
     if issue is None:
         return None
     fields = gcd_lookup.get_issue_fields(gcd_db, issue.id)
@@ -92,7 +96,7 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
     }
 
     try:
-        params = {"ean5": ean5} if ean5 else {}
+        params = {"ean5": ean} if ean else {}  # comic-scraper's own contract, see note above
         resp = httpx.get(
             f"{settings.comic_scraper_url}/lookup/{upc12}",
             params=params,
@@ -133,10 +137,10 @@ def lookup_barcode_batch(
         unresolved: list[tuple[int, dict]] = []
         for index, item in enumerate(items):
             upc12 = item.get("upc12")
-            ean5 = item.get("ean5")
-            gcd_result = _lookup_gcd(gcd_db, upc12, ean5) if gcd_db is not None else None
+            ean = item.get("ean")
+            gcd_result = _lookup_gcd(gcd_db, upc12, ean) if gcd_db is not None else None
             if gcd_result is not None:
-                event = {"index": index, "upc12": upc12, "ean5": ean5, "status": "success", "result": gcd_result}
+                event = {"index": index, "upc12": upc12, "ean": ean, "status": "success", "result": gcd_result}
                 yield f"data: {json.dumps(event)}\n\n".encode()
             else:
                 unresolved.append((index, item))
@@ -144,7 +148,13 @@ def lookup_barcode_batch(
         if not unresolved:
             return
 
-        sub_payload = {"items": [item for _, item in unresolved]}
+        # comic-scraper's own batch schema expects each item's add-on under
+        # its "ean5" key (external contract, unrelated to comicvault's own
+        # "ean" naming) - translated at this boundary rather than renaming
+        # comic-scraper itself.
+        sub_payload = {
+            "items": [{"upc12": item.get("upc12"), "ean5": item.get("ean")} for _, item in unresolved],
+        }
         try:
             with httpx.stream(
                 "POST",
@@ -158,11 +168,13 @@ def lookup_barcode_batch(
                     event = json.loads(line[len("data: "):])
                     original_index, _ = unresolved[event["index"]]
                     event["index"] = original_index
+                    if "ean5" in event:
+                        event["ean"] = event.pop("ean5")
                     yield f"data: {json.dumps(event)}\n\n".encode()
         except httpx.RequestError:
             for original_index, item in unresolved:
                 event = {
-                    "index": original_index, "upc12": item.get("upc12"), "ean5": item.get("ean5"),
+                    "index": original_index, "upc12": item.get("upc12"), "ean": item.get("ean"),
                     "status": "error", "message": "Lookup service unavailable",
                 }
                 yield f"data: {json.dumps(event)}\n\n".encode()

@@ -12,14 +12,17 @@ prepareZXingModule({
 const SCAN_INTERVAL_MS = 300
 
 interface Props {
-  onDetected: (upc12: string, ean5: string | null) => void
+  onDetected: (upc12: string, ean: string | null) => void
 }
 
 interface DetectedCode {
   upc12: string
-  ean5: string | null
+  ean: string | null
 }
 
+// Whatever add-on digits zxing reports are kept in full - it can return a
+// 2-digit EAN-2 or a 5-digit EAN-5 supplement, and clipping to a fixed
+// length would silently drop a shorter one (see ScanInput.tsx's parseCode).
 function extractCodes(hit: ReadResult): DetectedCode | null {
   let upc12 = hit.text
   if (hit.format === 'EAN13' && upc12.length === 13 && upc12.startsWith('0')) {
@@ -29,17 +32,17 @@ function extractCodes(hit: ReadResult): DetectedCode | null {
     return null
   }
 
-  let ean5: string | null = null
+  let ean: string | null = null
   try {
     const extra = JSON.parse(hit.extra || '{}') as { EanAddOn?: string }
-    if (extra.EanAddOn && /^\d{5}$/.test(extra.EanAddOn)) {
-      ean5 = extra.EanAddOn
+    if (extra.EanAddOn && /^\d+$/.test(extra.EanAddOn)) {
+      ean = extra.EanAddOn
     }
   } catch {
     // no add-on info in this read
   }
 
-  return { upc12, ean5 }
+  return { upc12, ean }
 }
 
 export default function BarcodeScanner({ onDetected }: Props) {
@@ -89,8 +92,8 @@ export default function BarcodeScanner({ onDetected }: Props) {
 
         if (userEditedRef.current) return
         setDetected((prev) =>
-          // Don't let a frame that missed the EAN-5 stomp one that already caught it.
-          prev && prev.upc12 === codes.upc12 && prev.ean5 && !codes.ean5 ? prev : codes,
+          // Don't let a frame that missed the add-on stomp one that already caught it.
+          prev && prev.upc12 === codes.upc12 && prev.ean && !codes.ean ? prev : codes,
         )
       } catch {
         // ignore decode errors on individual frames, camera feed continues
@@ -130,7 +133,7 @@ export default function BarcodeScanner({ onDetected }: Props) {
 
   function handleSubmit() {
     if (!detected) return
-    onDetected(detected.upc12, detected.ean5)
+    onDetected(detected.upc12, detected.ean)
     setDetected(null)
     userEditedRef.current = false
   }
@@ -143,7 +146,7 @@ export default function BarcodeScanner({ onDetected }: Props) {
   const canSubmit =
     detected !== null &&
     /^\d{12}$/.test(detected.upc12) &&
-    (detected.ean5 === null || /^\d{5}$/.test(detected.ean5))
+    (detected.ean === null || /^\d+$/.test(detected.ean))
 
   return (
     <div className="bg-gray-900 rounded-2xl p-5 border border-gray-800">
@@ -178,12 +181,12 @@ export default function BarcodeScanner({ onDetected }: Props) {
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <input
-            value={detected.ean5 ?? ''}
-            onChange={(e) => editDetected({ ean5: e.target.value.replace(/\D/g, '') || null })}
-            placeholder="EAN-5 (not found — type it in)"
+            value={detected.ean ?? ''}
+            onChange={(e) => editDetected({ ean: e.target.value.replace(/\D/g, '') || null })}
+            placeholder="EAN (not found — type it in)"
             inputMode="numeric"
             pattern="\d*"
-            aria-label="EAN-5"
+            aria-label="EAN"
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
           <button

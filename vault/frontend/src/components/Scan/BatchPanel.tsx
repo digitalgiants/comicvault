@@ -7,25 +7,22 @@ interface Props {
   maxItems: number
   submitting: boolean
   error: string | null
-  onAddPasted: (codes: { upc12: string; ean5: string | null }[]) => void
+  onAddPasted: (codes: { upc12: string; ean: string | null }[]) => void
   onRemove: (id: string) => void
-  onEdit: (id: string, upc12: string, ean5: string | null) => void
+  onEdit: (id: string, upc12: string, ean: string | null) => void
   onSubmit: () => void
 }
 
-function parseLines(text: string): { upc12: string; ean5: string | null }[] {
+// Whatever comes after the first 12 digits is kept in full, whatever its
+// length (a 2-digit older supplement, a 5-digit EAN add-on, or anything
+// else) - mirrors ScanInput.tsx's parseCode, since GCD's own barcode
+// matching does an exact match on the full digit string when one's given.
+function parseLines(text: string): { upc12: string; ean: string | null }[] {
   return text
     .split('\n')
     .map((line) => line.replace(/\D/g, ''))
-    .filter((digits) => digits.length === 12 || digits.length === 14 || digits.length === 17)
-    .map((digits) =>
-      digits.length === 17
-        ? { upc12: digits.slice(0, 12), ean5: digits.slice(12) }
-        // 14 digits = 12-digit UPC + an older 2-digit supplement (not a
-        // real 5-digit EAN price add-on) - the supplement is dropped,
-        // GCD/Metron lookups only ever need the UPC prefix.
-        : { upc12: digits.slice(0, 12), ean5: null },
-    )
+    .filter((digits) => digits.length >= 12)
+    .map((digits) => ({ upc12: digits.slice(0, 12), ean: digits.length > 12 ? digits.slice(12) : null }))
 }
 
 export default function BatchPanel({
@@ -58,7 +55,7 @@ export default function BatchPanel({
         <textarea
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
-          placeholder="Paste UPCs, one per line (12 or 17 digits each)"
+          placeholder="Paste UPCs, one per line (12 digits, plus any add-on digits)"
           rows={3}
           className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
         />
@@ -83,19 +80,19 @@ export default function BatchPanel({
             <li key={item.id} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
               <input
                 value={item.upc12}
-                onChange={(e) => onEdit(item.id, e.target.value.replace(/\D/g, ''), item.ean5)}
+                onChange={(e) => onEdit(item.id, e.target.value.replace(/\D/g, ''), item.ean)}
                 inputMode="numeric"
                 pattern="\d*"
                 aria-label="UPC"
                 className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <input
-                value={item.ean5 ?? ''}
+                value={item.ean ?? ''}
                 onChange={(e) => onEdit(item.id, item.upc12, e.target.value.replace(/\D/g, '') || null)}
-                placeholder="EAN-5"
+                placeholder="EAN"
                 inputMode="numeric"
                 pattern="\d*"
-                aria-label="EAN-5"
+                aria-label="EAN"
                 className="w-28 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <button

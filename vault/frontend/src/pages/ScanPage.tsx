@@ -18,13 +18,13 @@ export default function ScanPage() {
   const [reviewing, setReviewing] = useState<Extract<LookupAttempt, { status: 'success' }> | null>(null)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
 
-  const runLookup = useCallback(async (upc12: string, ean5: string | null) => {
+  const runLookup = useCallback(async (upc12: string, ean: string | null) => {
     const id = crypto.randomUUID()
     const timestamp = new Date().toISOString()
-    setAttempts((prev) => [{ id, upc12, ean5, timestamp, status: 'pending' }, ...prev])
+    setAttempts((prev) => [{ id, upc12, ean, timestamp, status: 'pending' }, ...prev])
 
     try {
-      const result = await lookupBarcode(upc12, ean5)
+      const result = await lookupBarcode(upc12, ean)
       setAttempts((prev) =>
         prev.map((a) => {
           if (a.id !== id) return a
@@ -38,17 +38,17 @@ export default function ScanPage() {
     }
   }, [])
 
-  const addStagedItem = useCallback((upc12: string, ean5: string | null) => {
+  const addStagedItem = useCallback((upc12: string, ean: string | null) => {
     setStagedItems((prev) =>
-      prev.length >= MAX_BATCH_SIZE ? prev : [...prev, { id: crypto.randomUUID(), upc12, ean5 }],
+      prev.length >= MAX_BATCH_SIZE ? prev : [...prev, { id: crypto.randomUUID(), upc12, ean }],
     )
   }, [])
 
-  function handleDetected(upc12: string, ean5: string | null) {
+  function handleDetected(upc12: string, ean: string | null) {
     if (batchMode) {
-      addStagedItem(upc12, ean5)
+      addStagedItem(upc12, ean)
     } else {
-      void runLookup(upc12, ean5)
+      void runLookup(upc12, ean)
     }
   }
 
@@ -63,14 +63,14 @@ export default function ScanPage() {
       ...stagedItems.map((item, i) => ({
         id: idsInOrder[i],
         upc12: item.upc12,
-        ean5: item.ean5,
+        ean: item.ean,
         timestamp,
         status: 'pending' as const,
       })),
       ...prev,
     ])
 
-    const items = stagedItems.map(({ upc12, ean5 }) => ({ upc12, ean5 }))
+    const items = stagedItems.map(({ upc12, ean }) => ({ upc12, ean }))
     setStagedItems([])
 
     try {
@@ -125,10 +125,10 @@ export default function ScanPage() {
             maxItems={MAX_BATCH_SIZE}
             submitting={batchSubmitting}
             error={batchError}
-            onAddPasted={(codes) => codes.forEach(({ upc12, ean5 }) => addStagedItem(upc12, ean5))}
+            onAddPasted={(codes) => codes.forEach(({ upc12, ean }) => addStagedItem(upc12, ean))}
             onRemove={(id) => setStagedItems((prev) => prev.filter((i) => i.id !== id))}
-            onEdit={(id, upc12, ean5) =>
-              setStagedItems((prev) => prev.map((i) => (i.id === id ? { ...i, upc12, ean5 } : i)))
+            onEdit={(id, upc12, ean) =>
+              setStagedItems((prev) => prev.map((i) => (i.id === id ? { ...i, upc12, ean } : i)))
             }
             onSubmit={() => void submitStagedBatch()}
           />
@@ -141,7 +141,7 @@ export default function ScanPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500 text-xs font-mono">
                     {a.upc12}
-                    {a.ean5 ? ` + ${a.ean5}` : ''}
+                    {a.ean ? ` + ${a.ean}` : ''}
                   </span>
                   {a.status === 'success' && addedIds.has(a.id) && (
                     <span className="flex items-center gap-1 text-xs text-green-400">
@@ -199,7 +199,7 @@ export default function ScanPage() {
         <ReviewAddModal
           result={reviewing.result}
           upc12={reviewing.upc12}
-          ean5={reviewing.ean5}
+          ean={reviewing.ean}
           onClose={() => setReviewing(null)}
           onAdded={() => setAddedIds((prev) => new Set(prev).add(reviewing.id))}
         />

@@ -1,10 +1,10 @@
 import api from './client'
 import type { BatchResultEvent, LookupResult, ScanAddRequest, UserComic } from '../types'
 
-export async function lookupBarcode(upc12: string, ean5: string | null): Promise<LookupResult | null> {
+export async function lookupBarcode(upc12: string, ean: string | null): Promise<LookupResult | null> {
   try {
     const { data } = await api.get<LookupResult>(`/scan/lookup/${upc12}`, {
-      params: ean5 ? { ean5 } : {},
+      params: ean ? { ean } : {},
     })
     return data
   } catch (e: unknown) {
@@ -23,7 +23,7 @@ export async function addScannedComic(payload: ScanAddRequest): Promise<UserComi
 // Streaming SSE response needs fetch, not axios — same approach comic-scraper's own
 // batchApi.ts uses (EventSource only supports GET, and this needs a request body).
 export async function submitScanBatch(
-  items: { upc12: string; ean5: string | null }[],
+  items: { upc12: string; ean: string | null }[],
   onEvent: (event: BatchResultEvent) => void,
 ): Promise<void> {
   const baseURL = api.defaults.baseURL || ''

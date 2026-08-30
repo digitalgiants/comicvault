@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 interface Props {
   result: LookupResult
   upc12: string
-  ean5: string | null
+  ean: string | null
   onClose: () => void
   onAdded: (uc: UserComic) => void
 }
@@ -30,10 +30,10 @@ const COMIC_FIELDS: { key: keyof ScanComicFields; label: string; type: string }[
   { key: 'average_price', label: 'Average Price ($)', type: 'number' },
 ]
 
-export default function ReviewAddModal({ result, upc12, ean5, onClose, onAdded }: Props) {
+export default function ReviewAddModal({ result, upc12, ean, onClose, onAdded }: Props) {
   const { user } = useAuth()
   const isCollector = !!user?.is_collector
-  const initialComic = lookupResultToComicFields(result, upc12, ean5)
+  const initialComic = lookupResultToComicFields(result, upc12, ean)
   const [comicForm, setComicForm] = useState<Record<string, unknown>>(
     Object.fromEntries(COMIC_FIELDS.map(({ key }) => [key, initialComic[key] ?? ''])),
   )
@@ -103,7 +103,7 @@ export default function ReviewAddModal({ result, upc12, ean5, onClose, onAdded }
               <h2 className="font-semibold text-lg">Add to Collection</h2>
               <p className="text-gray-400 text-sm">
                 {upc12}
-                {ean5 ? ` + ${ean5}` : ''}
+                {ean ? ` + ${ean}` : ''}
               </p>
             </div>
           </div>
