@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -26,72 +28,89 @@ router = APIRouter(prefix="/search", tags=["search"])
 TIMEOUT = 15.0
 
 
+def _fetch_metron_series(query: str) -> list[ExternalSeriesResult]:
+    resp = httpx.get(
+        f"{settings.comic_scraper_url}/series/search",
+        params={"name": query},
+        timeout=TIMEOUT,
+    )
+    resp.raise_for_status()
+    return [
+        ExternalSeriesResult(
+            provider="metron",
+            provider_series_id=str(item["id"]),
+            name=item["name"],
+            publisher=item.get("publisher_name"),
+            start_year=item.get("year_began"),
+            issue_count=item.get("issue_count"),
+            image=item.get("image"),
+        )
+        for item in resp.json()
+    ]
+
+
 def _search_metron_comicvine(query: str, db: Session) -> tuple[list[ExternalSeriesResult], list[str]]:
     """Metron + ComicVine series search, merged and cached - the fallback
     used both by the general series search (when GCD has nothing) and by
     the image-finding endpoints below (GCD never has images, so they always
-    go straight here rather than trying GCD first)."""
+    go straight here rather than trying GCD first).
+
+    The two providers are independent network calls and run concurrently
+    when both are cache misses, rather than one after another - only the
+    HTTP call itself happens off the calling thread; every `db` read/write
+    (cache lookups, cache writes, stale-fallback reads) stays on the calling
+    thread, since a SQLAlchemy Session isn't safe to share across threads."""
     normalized = crud.normalize_search_query(query)
     results: list[ExternalSeriesResult] = []
     warnings: list[str] = []
 
     metron_cached = crud.get_cached_series_search(db, "metron", normalized)
-    if metron_cached is not None:
-        results.extend(metron_cached)
-    else:
-        try:
-            resp = httpx.get(
-                f"{settings.comic_scraper_url}/series/search",
-                params={"name": query},
-                timeout=TIMEOUT,
-            )
-            resp.raise_for_status()
-            metron_results = [
-                ExternalSeriesResult(
-                    provider="metron",
-                    provider_series_id=str(item["id"]),
-                    name=item["name"],
-                    publisher=item.get("publisher_name"),
-                    start_year=item.get("year_began"),
-                    issue_count=item.get("issue_count"),
-                    image=item.get("image"),
-                )
-                for item in resp.json()
-            ]
-            results.extend(metron_results)
-            crud.save_series_search_cache(db, "metron", normalized, metron_results)
-        except Exception:
-            stale = crud.get_cached_series_search(db, "metron", normalized, ignore_ttl=True)
-            if stale:
-                results.extend(stale)
-                warnings.append("Metron is unavailable - showing cached results")
-            else:
-                warnings.append("Metron is unavailable")
-
     comicvine_cached = crud.get_cached_series_search(db, "comicvine", normalized)
-    if comicvine_cached is not None:
-        results.extend(comicvine_cached)
-    else:
-        try:
-            comicvine_results = comicvine.search_series(query)
-            results.extend(comicvine_results)
-            crud.save_series_search_cache(db, "comicvine", normalized, comicvine_results)
-        except ComicVineNotConfigured:
-            warnings.append("ComicVine is not configured")
-        except ComicVineRateLimitError:
-            stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
-            if stale:
-                results.extend(stale)
-                warnings.append("ComicVine rate limit reached - showing cached results")
-            else:
-                warnings.append("ComicVine rate limit reached, showing other results only")
-        except Exception:
-            stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
-            if stale:
-                results.extend(stale)
-                warnings.append("ComicVine search failed - showing cached results")
-            else:
-                warnings.append("ComicVine search failed")
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        metron_future = None if metron_cached is not None else pool.submit(_fetch_metron_series, query)
+        comicvine_future = (
+            None if comicvine_cached is not None else pool.submit(comicvine.search_series, query)
+        )
+
+        if metron_cached is not None:
+            results.extend(metron_cached)
+        else:
+            try:
+                metron_results = metron_future.result()
+                results.extend(metron_results)
+                crud.save_series_search_cache(db, "metron", normalized, metron_results)
+            except Exception:
+                stale = crud.get_cached_series_search(db, "metron", normalized, ignore_ttl=True)
+                if stale:
+                    results.extend(stale)
+                    warnings.append("Metron is unavailable - showing cached results")
+                else:
+                    warnings.append("Metron is unavailable")
+
+        if comicvine_cached is not None:
+            results.extend(comicvine_cached)
+        else:
+            try:
+                comicvine_results = comicvine_future.result()
+                results.extend(comicvine_results)
+                crud.save_series_search_cache(db, "comicvine", normalized, comicvine_results)
+            except ComicVineNotConfigured:
+                warnings.append("ComicVine is not configured")
+            except ComicVineRateLimitError:
+                stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
+                if stale:
+                    results.extend(stale)
+                    warnings.append("ComicVine rate limit reached - showing cached results")
+                else:
+                    warnings.append("ComicVine rate limit reached, showing other results only")
+            except Exception:
+                stale = crud.get_cached_series_search(db, "comicvine", normalized, ignore_ttl=True)
+                if stale:
+                    results.extend(stale)
+                    warnings.append("ComicVine search failed - showing cached results")
+                else:
+                    warnings.append("ComicVine search failed")
 
     # Rank exact/starts-with matches first, same as gcd_lookup.search_series -
     # otherwise a plain alphabetical sort can bury the actual series (e.g.
@@ -204,11 +223,27 @@ def _find_cover_images(
     target = crud.normalize_issue_number(issue_number)
     candidates: list[ImageCandidateOut] = []
     seen_images: set[str] = set(exclude) if exclude else set()
-    for series in series_results[:max_series]:
+
+    top_series = series_results[:max_series]
+    if not top_series:
+        return candidates
+
+    def _fetch(series: ExternalSeriesResult) -> list[ExternalIssueSummary]:
         try:
-            issues = _fetch_provider_issues(series.provider, series.provider_series_id, number=issue_number)
+            return _fetch_provider_issues(series.provider, series.provider_series_id, number=issue_number)
         except HTTPException:
-            continue  # provider unavailable/rate-limited for this series - try the next one
+            return []  # provider unavailable/rate-limited for this series - try the next one
+
+    # Concurrent, not sequential - each series is an independent provider
+    # call (Metron or ComicVine), and this used to be a plain for loop that
+    # paid every series' round trip one after another. `map` preserves the
+    # input order in its results, so output stays identical to before
+    # (same-publisher-first ranking, first-seen-image-wins dedup) - only the
+    # wall-clock time changes.
+    with ThreadPoolExecutor(max_workers=min(len(top_series), 8)) as pool:
+        issues_by_series = list(pool.map(_fetch, top_series))
+
+    for series, issues in zip(top_series, issues_by_series):
         for issue in issues:
             if crud.normalize_issue_number(issue.number) != target:
                 continue

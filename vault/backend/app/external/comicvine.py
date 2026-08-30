@@ -1,3 +1,4 @@
+import threading
 import time
 from collections import deque
 
@@ -15,6 +16,7 @@ RATE_LIMIT_PER_HOUR = 180
 _ISSUE_RESOURCE_PREFIX = "4000"
 
 _request_times: deque[float] = deque()
+_rate_limit_lock = threading.Lock()
 
 
 class ComicVineNotConfigured(Exception):
@@ -26,12 +28,17 @@ class ComicVineRateLimitError(Exception):
 
 
 def _check_rate_limit() -> None:
-    now = time.monotonic()
-    while _request_times and now - _request_times[0] > 3600:
-        _request_times.popleft()
-    if len(_request_times) >= RATE_LIMIT_PER_HOUR:
-        raise ComicVineRateLimitError("ComicVine hourly rate limit reached")
-    _request_times.append(now)
+    # Locked because search.py now fires several ComicVine calls concurrently
+    # per request (see _find_cover_images) - unlocked check-then-append here
+    # would let two threads both read a count just under the limit and both
+    # proceed, silently exceeding RATE_LIMIT_PER_HOUR.
+    with _rate_limit_lock:
+        now = time.monotonic()
+        while _request_times and now - _request_times[0] > 3600:
+            _request_times.popleft()
+        if len(_request_times) >= RATE_LIMIT_PER_HOUR:
+            raise ComicVineRateLimitError("ComicVine hourly rate limit reached")
+        _request_times.append(now)
 
 
 def _get(path: str, params: dict) -> dict:
