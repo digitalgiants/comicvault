@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -178,21 +179,42 @@ class BatchLookupRequest(BaseModel):
     items: list[BatchLookupItem]
 
 
-def _batch_event_stream(items: list[BatchLookupItem]) -> Iterator[str]:
-    for index, item in enumerate(items):
-        event: dict = {"index": index, "upc12": item.upc12, "ean5": item.ean5}
-        try:
-            result = state["service"].lookup(item.upc12, item.ean5)
-        except Exception as exc:  # noqa: BLE001 - one bad item shouldn't kill the whole stream
-            event["status"] = "error"
-            event["message"] = str(exc)
+MAX_BATCH_CONCURRENCY = 8
+
+
+def _lookup_one(item: BatchLookupItem) -> dict:
+    event: dict = {"upc12": item.upc12, "ean5": item.ean5}
+    try:
+        result = state["service"].lookup(item.upc12, item.ean5)
+    except Exception as exc:  # noqa: BLE001 - one bad item shouldn't kill the whole stream
+        event["status"] = "error"
+        event["message"] = str(exc)
+    else:
+        if result is None:
+            event["status"] = "not_found"
         else:
-            if result is None:
-                event["status"] = "not_found"
-            else:
-                event["status"] = "success"
-                event["result"] = result.model_dump()
-        yield f"data: {json.dumps(event)}\n\n"
+            event["status"] = "success"
+            event["result"] = result.model_dump()
+    return event
+
+
+def _batch_event_stream(items: list[BatchLookupItem]) -> Iterator[str]:
+    # Concurrent, not sequential - a plain for loop here meant one slow Metron
+    # miss anywhere in the batch delayed every item after it, even instant
+    # cache hits. Metron's own rate limiter (metron/ratelimit.py) is a shared,
+    # thread-safe lock, so this can't exceed Metron's real call budget - it
+    # just stops unrelated items from queuing behind each other. Events are
+    # yielded as they complete, not in submission order; the frontend already
+    # places results by event["index"], not arrival order (see comicvault's
+    # scan.py caller).
+    if not items:
+        return
+    with ThreadPoolExecutor(max_workers=min(len(items), MAX_BATCH_CONCURRENCY)) as pool:
+        futures = {pool.submit(_lookup_one, item): index for index, item in enumerate(items)}
+        for future in as_completed(futures):
+            event = future.result()
+            event["index"] = futures[future]
+            yield f"data: {json.dumps(event)}\n\n"
 
 
 @app.post("/lookup/batch")

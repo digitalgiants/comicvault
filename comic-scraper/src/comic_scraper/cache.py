@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import JSON, URL, DateTime, String, UniqueConstraint, create_engine, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 
@@ -45,4 +46,11 @@ class LookupCache:
                 session.add(record)
             record.payload = payload
             record.resolved_at = datetime.now(timezone.utc)
-            session.commit()
+            try:
+                session.commit()
+            except IntegrityError:
+                # Another thread in the same concurrent batch (see api.py's
+                # ThreadPoolExecutor) raced this exact upc12+ean5 pair and
+                # committed first - its payload is equally valid (same
+                # real-world issue), so there's nothing left to do here.
+                session.rollback()
