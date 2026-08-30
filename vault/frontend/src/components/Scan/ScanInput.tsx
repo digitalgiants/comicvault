@@ -2,15 +2,14 @@ import { useRef, useState } from 'react'
 import { ScanBarcode } from 'lucide-react'
 
 // Hardware scanners send no terminator key, so a brief pause is what
-// distinguishes "done" from "still scanning". A pause at 14 or 17 digits
-// auto-submits - both are complete, unambiguous codes (12-digit UPC plus a
-// 2-digit or 5-digit supplemental barcode, respectively; older comics
-// commonly used a 2-digit price/edition supplement before the industry
-// settled on 5 digits). A pause at exactly 12 is genuinely ambiguous - it
-// could be a complete older-comic UPC with no add-on at all, or just the
-// gap between two separately-scanned barcode stripes on the same comic -
-// so it never auto-submits; the user has to press Enter (or Look Up) to
-// accept a 12-digit code deliberately.
+// distinguishes "done" from "still scanning" - but auto-submit only ever
+// fires at 17 digits (a complete, unambiguous 12-digit UPC + 5-digit price
+// add-on). A pause at 12 or 14 is deliberately never auto-accepted, even
+// though both are otherwise-valid complete codes on their own (a 12-digit
+// UPC with no add-on, or the older 2-digit supplement some comics used) -
+// in practice a pause there is inconsistent/ambiguous (could just be the
+// gap between two separately-scanned barcode stripes on the same comic),
+// so the user has to press Enter (or Look Up) to accept either deliberately.
 const SETTLE_DELAY_MS = 150
 
 interface Props {
@@ -51,11 +50,11 @@ export default function ScanInput({ onSubmit, disabled }: Props) {
     window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       const digits = next.replace(/\D/g, '')
-      if (digits.length === 17 || digits.length === 14) {
+      if (digits.length === 17) {
         submitIfValid(next)
-      } else if (digits.length === 12) {
+      } else if (digits.length === 12 || digits.length === 14) {
         // Complete-but-ambiguous - wait for Enter instead of guessing
-        // whether a price add-on is still coming.
+        // whether more digits (a price add-on) are still coming.
         setAwaitingEnter(true)
       }
     }, SETTLE_DELAY_MS)
@@ -94,7 +93,7 @@ export default function ScanInput({ onSubmit, disabled }: Props) {
       </div>
       {awaitingEnter && (
         <p className="mt-1.5 text-xs text-amber-400">
-          12-digit UPC ready — press Enter to accept, or keep scanning for the price add-on.
+          Barcode ready — press Enter (or Look Up) to accept, or keep scanning if there's more to it.
         </p>
       )}
     </form>
