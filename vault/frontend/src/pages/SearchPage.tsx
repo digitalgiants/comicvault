@@ -12,10 +12,16 @@ const PROVIDER_BADGE: Record<string, string> = {
   gcd: 'bg-green-900/50 text-green-300',
 }
 
+// cover_artist is only ever populated for GCD issues (see the backend's
+// gcd_lookup.get_series_issues) - Metron/ComicVine results just never match.
+const matchesCoverArtist = (issue: ExternalIssueSummary, artist: string) =>
+  !!issue.cover_artist && issue.cover_artist.toLowerCase().includes(artist.toLowerCase())
+
 export default function SearchPage() {
   const [searchParams] = useSearchParams()
   const [query, setQuery] = useState('')
   const [issueNumber, setIssueNumber] = useState('')
+  const [coverArtist, setCoverArtist] = useState('')
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState<ExternalSeriesResult[]>([])
   const [warnings, setWarnings] = useState<string[]>([])
@@ -34,23 +40,28 @@ export default function SearchPage() {
   const [issueMatches, setIssueMatches] = useState<{ series: ExternalSeriesResult; issue: ExternalIssueSummary }[]>([])
   const [noIssueAnywhere, setNoIssueAnywhere] = useState(false)
   const [browseAllOverride, setBrowseAllOverride] = useState(false)
+  // Distinguishes "issue not found at all" from "found it, just not by that
+  // cover artist" - only ever true when a cover artist was actually typed.
+  const [issueFoundButArtistMismatch, setIssueFoundButArtistMismatch] = useState(false)
 
   const [fields, setFields] = useState<ScanComicFields | null>(null)
   const [detailLoading, setDetailLoading] = useState<string | null>(null)
 
   const requestId = useRef(0)
 
-  const runSearch = (queryOverride?: string, issueOverride?: string) => {
+  const runSearch = (queryOverride?: string, issueOverride?: string, coverArtistOverride?: string) => {
     const trimmed = (queryOverride ?? query).trim()
     if (trimmed.length < 2) return
 
     const trimmedNumber = (issueOverride ?? issueNumber).trim()
+    const trimmedArtist = (coverArtistOverride ?? coverArtist).trim()
     const id = ++requestId.current
     setSearching(true)
     setHasSearched(true)
     setSearchedWithNumber(!!trimmedNumber)
     setIssueMatches([])
     setNoIssueAnywhere(false)
+    setIssueFoundButArtistMismatch(false)
     setBrowseAllOverride(false)
     setHasMore(false)
     searchSeries(trimmed)
@@ -63,9 +74,10 @@ export default function SearchPage() {
 
         // With an issue number given, don't make the user pick a series at
         // all - hunt for that exact issue across the matching series and
-        // land directly on it.
+        // land directly on it. A cover artist further narrows among variants
+        // sharing that same number (see matchesCoverArtist).
         if (trimmedNumber && data.results.length > 0) {
-          await huntForIssue(data.results, trimmedNumber)
+          await huntForIssue(data.results, trimmedNumber, trimmedArtist)
         }
       })
       .catch(() => {
@@ -127,11 +139,12 @@ export default function SearchPage() {
   // the cost of checking every other candidate, and only then show a picker
   // - scoped to just the series that actually have that issue, never the
   // full series-name list.
-  const huntForIssue = async (candidates: ExternalSeriesResult[], number: string) => {
+  const huntForIssue = async (candidates: ExternalSeriesResult[], number: string, coverArtistFilter: string) => {
     setHuntingForIssue(true)
     try {
       const [top, ...rest] = candidates
-      const topHits = await getSeriesIssues(top.provider, top.provider_series_id, { number, seriesName: top.name })
+      const topHitsAll = await getSeriesIssues(top.provider, top.provider_series_id, { number, seriesName: top.name })
+      const topHits = coverArtistFilter ? topHitsAll.filter((i) => matchesCoverArtist(i, coverArtistFilter)) : topHitsAll
       if (topHits.length === 1) {
         await openIssue(top, topHits[0])
         return
@@ -143,17 +156,25 @@ export default function SearchPage() {
           return hits.map((issue) => ({ series, issue }))
         })
       )
-      const allMatches = [
-        ...topHits.map((issue) => ({ series: top, issue })),
+      const allMatchesAll = [
+        ...topHitsAll.map((issue) => ({ series: top, issue })),
         ...restHits.flat(),
       ]
+      const allMatches = coverArtistFilter
+        ? allMatchesAll.filter(({ issue }) => matchesCoverArtist(issue, coverArtistFilter))
+        : allMatchesAll
 
       if (allMatches.length === 1) {
         await openIssue(allMatches[0].series, allMatches[0].issue)
         return
       }
       if (allMatches.length === 0) {
-        setNoIssueAnywhere(true)
+        if (coverArtistFilter && allMatchesAll.length > 0) {
+          setIssueFoundButArtistMismatch(true)
+          setIssueMatches(allMatchesAll)
+        } else {
+          setNoIssueAnywhere(true)
+        }
       } else {
         setIssueMatches(allMatches)
       }
@@ -176,17 +197,22 @@ export default function SearchPage() {
     setIssuesLoading(true)
     try {
       const trimmedNumber = issueNumber.trim()
-      const data = await getSeriesIssues(series.provider, series.provider_series_id, {
+      const trimmedArtist = coverArtist.trim()
+      const dataAll = await getSeriesIssues(series.provider, series.provider_series_id, {
         number: trimmedNumber || undefined,
         seriesName: series.name,
       })
-      setIssues(data)
+      const data = trimmedNumber && trimmedArtist ? dataAll.filter((i) => matchesCoverArtist(i, trimmedArtist)) : dataAll
+      // Fall back to showing every variant for the number rather than an
+      // empty grid, same reasoning as huntForIssue - a typed cover artist
+      // that matched nothing shouldn't hide the issue entirely.
+      setIssues(data.length > 0 ? data : dataAll)
       if (trimmedNumber && data.length === 1) {
         setIssuesLoading(false)
         await selectIssue(data[0])
         return
       }
-      if (trimmedNumber && data.length === 0) {
+      if (trimmedNumber && dataAll.length === 0) {
         setNoIssueMatch(true)
       }
     } finally {
@@ -208,6 +234,7 @@ export default function SearchPage() {
     requestId.current++ // invalidate any in-flight search response
     setQuery('')
     setIssueNumber('')
+    setCoverArtist('')
     setHasSearched(false)
     setResults([])
     setWarnings([])
@@ -222,6 +249,7 @@ export default function SearchPage() {
     setHuntingForIssue(false)
     setIssueMatches([])
     setNoIssueAnywhere(false)
+    setIssueFoundButArtistMismatch(false)
     setBrowseAllOverride(false)
     setFields(null)
     setDetailLoading(null)
@@ -280,30 +308,38 @@ export default function SearchPage() {
                 : 'No issues found for this series.'}
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {issues.map((issue) => (
-                <button
-                  key={issue.provider_issue_id}
-                  onClick={() => selectIssue(issue)}
-                  disabled={detailLoading === issue.provider_issue_id}
-                  className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition disabled:opacity-50"
-                >
-                  <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
-                    {issue.image ? (
-                      <img src={issue.image} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <BookOpen size={28} className="text-gray-600" />
-                    )}
-                  </div>
-                  <div className="p-3">
-                    <p className="font-medium truncate">
-                      {issue.number ? `#${issue.number}` : 'Untitled'}
-                      {issue.legacy_number && <span className="text-gray-500"> (Legacy #{issue.legacy_number})</span>}
-                    </p>
-                    {issue.cover_date && <p className="text-xs text-gray-500">{issue.cover_date}</p>}
-                  </div>
-                </button>
-              ))}
+            <div>
+              {issueNumber.trim() && coverArtist.trim() && !issues.some((i) => matchesCoverArtist(i, coverArtist.trim())) && (
+                <p className="text-amber-400 text-xs mb-3">
+                  No cover by "{coverArtist.trim()}" found — showing every variant for issue #{issueNumber.trim()} instead.
+                </p>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {issues.map((issue) => (
+                  <button
+                    key={issue.provider_issue_id}
+                    onClick={() => selectIssue(issue)}
+                    disabled={detailLoading === issue.provider_issue_id}
+                    className="bg-gray-900 border border-gray-800 hover:border-gray-600 rounded-xl overflow-hidden text-left transition disabled:opacity-50"
+                  >
+                    <div className="aspect-[2/3] bg-gray-800 flex items-center justify-center">
+                      {issue.image ? (
+                        <img src={issue.image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <BookOpen size={28} className="text-gray-600" />
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <p className="font-medium truncate">
+                        {issue.number ? `#${issue.number}` : 'Untitled'}
+                        {issue.legacy_number && <span className="text-gray-500"> (Legacy #{issue.legacy_number})</span>}
+                      </p>
+                      {issue.cover_date && <p className="text-xs text-gray-500">{issue.cover_date}</p>}
+                      {issue.cover_artist && <p className="text-xs text-gray-500 truncate">Cover: {issue.cover_artist}</p>}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -327,6 +363,14 @@ export default function SearchPage() {
               placeholder="Issue # (optional)"
               className="w-full sm:w-40 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
+            <input
+              value={coverArtist}
+              onChange={(e) => setCoverArtist(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+              placeholder="Cover artist (optional)"
+              title="Only matches GCD results - narrows among variants sharing the same issue number"
+              className="w-full sm:w-48 bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
             <button
               onClick={() => runSearch()}
               disabled={searching || query.trim().length < 2}
@@ -337,6 +381,7 @@ export default function SearchPage() {
           </div>
           <p className="text-gray-500 text-xs mb-6">
             Add an issue number to jump straight to that exact issue — no need to pick a series first.
+            For variant covers, add the cover artist's name too (GCD results only) to narrow to that exact cover.
           </p>
 
           {warnings.length > 0 && (
@@ -372,7 +417,11 @@ export default function SearchPage() {
           ) : searchedWithNumber && !browseAllOverride && issueMatches.length > 0 ? (
             <div>
               <p className="text-gray-400 text-sm mb-4">
-                Found issue #{issueNumber.trim()} in {issueMatches.length} matching series:
+                {issueFoundButArtistMismatch ? (
+                  <>No cover by "{coverArtist.trim()}" found for issue #{issueNumber.trim()} — showing every variant found instead:</>
+                ) : (
+                  <>Found issue #{issueNumber.trim()} in {issueMatches.length} matching series:</>
+                )}
               </p>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {issueMatches.map(({ series, issue }) => (
@@ -398,6 +447,7 @@ export default function SearchPage() {
                         #{issue.number}
                         {issue.legacy_number && ` (Legacy #${issue.legacy_number})`}
                       </p>
+                      {issue.cover_artist && <p className="text-xs text-gray-500 truncate">Cover: {issue.cover_artist}</p>}
                     </div>
                   </button>
                 ))}

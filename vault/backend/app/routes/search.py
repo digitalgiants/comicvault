@@ -384,9 +384,10 @@ def get_series_issues(
     # been verified against a live call, so we always confirm the match
     # ourselves rather than assuming a small/empty result means it worked.
     if number:
-        hit = crud.find_cached_issue_by_number(db, provider, provider_series_id, number)
-        if hit:
-            return [hit]
+        hits = crud.find_cached_issues_by_number(db, provider, provider_series_id, number)
+        if hits:
+            hits.sort(key=lambda i: crud.issue_number_sort_key(i.number))
+            return hits
 
         fetched = _fetch_provider_issues(provider, provider_series_id, number=number, gcd_db=gcd_db)
         crud.bulk_upsert_issue_summaries(db, provider, provider_series_id, fetched)

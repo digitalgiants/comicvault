@@ -343,6 +343,9 @@ export interface ExternalIssueSummary {
   legacy_number: string | null
   cover_date: string | null
   image: string | null
+  // Only ever populated for GCD, and only when narrowed to a specific issue
+  // number - see the backend's gcd_lookup.get_series_issues.
+  cover_artist: string | null
 }
 
 // --- Kiosk (customer-facing) ---

@@ -266,6 +266,12 @@ def get_series_issues(gcd_db: Session, series_id: int, number: str | None = None
     if number:
         target = normalize_issue_number(number)
         split = [(issue, num, legacy) for issue, num, legacy in split if normalize_issue_number(num) == target]
+
+    # Cover artist is one extra join per issue - fine for a number-narrowed
+    # result (a handful of rows, typically variants sharing that number,
+    # which is exactly when a cover artist matters for telling them apart),
+    # but skipped entirely when browsing a whole series unfiltered to avoid
+    # an N+1 query hit against every issue GCD has for a long-running title.
     return [
         ExternalIssueSummary(
             provider="gcd",
@@ -274,6 +280,7 @@ def get_series_issues(gcd_db: Session, series_id: int, number: str | None = None
             legacy_number=legacy,
             cover_date=issue.key_date or None,
             image=None,
+            cover_artist=_story_credits(gcd_db, issue.id, {COVER_STORY_TYPE}, {"pencils", "inks"}) if number else None,
         )
         for issue, num, legacy in split
     ]

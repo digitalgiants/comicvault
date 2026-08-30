@@ -368,6 +368,11 @@ class ExternalIssueSummary(BaseModel):
     legacy_number: Optional[str] = None
     cover_date: Optional[str] = None
     image: Optional[str] = None
+    # Only ever populated for GCD, and only when narrowed to a specific issue
+    # number (see gcd_lookup.get_series_issues) - free there (one local-DB
+    # join per matched row), but Metron/ComicVine's issue *list* endpoints
+    # don't expose credits at all, so it stays None for those providers.
+    cover_artist: Optional[str] = None
 
 
 # --- CSV Import ---

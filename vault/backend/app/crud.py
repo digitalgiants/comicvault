@@ -1320,6 +1320,7 @@ def _cache_row_to_summary(row: ExternalIssueCache) -> ExternalIssueSummary:
         number=row.number,
         cover_date=row.cover_date,
         image=row.image,
+        cover_artist=row.cover_artist,
     )
 
 
@@ -1386,17 +1387,23 @@ def get_cached_issues(db: Session, provider: str, provider_series_id: str) -> li
     return summaries
 
 
-def find_cached_issue_by_number(
+def find_cached_issues_by_number(
     db: Session, provider: str, provider_series_id: str, number: str
-) -> Optional[ExternalIssueSummary]:
+) -> list[ExternalIssueSummary]:
     """Loose (normalized) match against whatever's already cached for this
     series - doesn't depend on the provider's own number filter having
-    worked, since that's never been verified against a live provider."""
+    worked, since that's never been verified against a live provider.
+
+    Returns every cached row matching the number, not just the first -
+    multiple variants can share one issue number (this is exactly the case a
+    cover-artist search is meant to disambiguate), and returning only one
+    would silently hide the rest from ever being compared or selected."""
     target = normalize_issue_number(number)
-    for summary in get_cached_issues(db, provider, provider_series_id):
-        if normalize_issue_number(summary.number) == target:
-            return summary
-    return None
+    return [
+        summary
+        for summary in get_cached_issues(db, provider, provider_series_id)
+        if normalize_issue_number(summary.number) == target
+    ]
 
 
 def bulk_upsert_issue_summaries(
@@ -1420,6 +1427,11 @@ def bulk_upsert_issue_summaries(
         row.number = issue.number
         row.cover_date = issue.cover_date
         row.image = issue.image
+        # Only ever set, never cleared - a plain full-series browse legitimately
+        # has no cover_artist to report (see gcd_lookup.get_series_issues), and
+        # must not stomp a value a previous number-narrowed fetch already found.
+        if issue.cover_artist:
+            row.cover_artist = issue.cover_artist
     db.commit()
 
 
