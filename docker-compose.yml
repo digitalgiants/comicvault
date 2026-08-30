@@ -114,6 +114,27 @@ services:
       postgres:
         condition: service_healthy
 
+  coverbrowser-fetcher:
+    build:
+      context: ./coverbrowser-fetcher
+      dockerfile: Dockerfile
+    # One-shot CLI (index/match subcommands), not a long-running server - no
+    # restart policy and no default command, invoked directly:
+    #   docker compose run --rm coverbrowser-fetcher index
+    #   docker compose run --rm coverbrowser-fetcher match
+    networks:
+      - comicvault
+    environment:
+      - POSTGRES_USER=comicvault
+      - POSTGRES_PASSWORD=comicvault
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=coverbrowser
+      - GCD_DATABASE_URL=postgresql+psycopg://comicvault:comicvault@postgres:5432/gcd
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ollama:
     image: ollama/ollama:latest
     restart: unless-stopped
