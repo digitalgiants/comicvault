@@ -66,8 +66,9 @@ def _extract_upc(barcode: str | None) -> str | None:
     return digits[:12]
 
 
-def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
-    """Matches gcd_issue.barcode against a scanned 12-digit UPC.
+def find_issue_by_upc(gcd_db: Session, upc12: str, ean5: str | None = None) -> Issue | None:
+    """Matches gcd_issue.barcode against a scanned 12-digit UPC (plus an
+    optional 5-digit supplement).
 
     GCD's barcode field stores either a bare 12-digit UPC, or UPC + 5-digit
     price supplement, concatenated or space/hyphen-separated (see
@@ -76,13 +77,28 @@ def find_issue_by_upc(gcd_db: Session, upc12: str) -> Issue | None:
     "978..." prefix) are intentionally excluded - a scanned code is never 13
     digits, so they'd never match a 12-digit prefix anyway.
 
-    Multiple matches (e.g. shared UPCs across variant printings) prefer an
-    exact-length match over a prefix match, else the lowest id, rather than
-    treating it as ambiguous - GCD is meant to be authoritative here.
+    A prefix match alone can return many candidates, not just variant
+    printings - some long-running series (e.g. Batman's #501-712 run) reuse
+    the exact same 12-digit UPC for the entire run and encode the actual
+    issue number in the 5-digit supplement instead, which a 12-digit-only
+    match can't see at all. So when `ean5` is given, an exact match against
+    the FULL upc12+ean5 digit string is tried first, before any other
+    tie-break - critical here, since without it every issue in a run like
+    that is equally "a prefix match" and the old fallback (lowest id) would
+    silently return the earliest issue in the series every time, regardless
+    of which one was actually scanned. Falls back to preferring a bare
+    12-digit match, else the lowest id, exactly as before when there's no
+    ean5 (e.g. an older comic scanned/typed as just 12 digits) or no exact
+    full-length match was found.
     """
     candidates = gcd_db.query(Issue).filter(Issue.barcode.like(f"{upc12}%")).all()
     if not candidates:
         return None
+    if ean5:
+        full = _clean_barcode_digits(upc12 + ean5)
+        exact_full = [i for i in candidates if _clean_barcode_digits(i.barcode) == full]
+        if exact_full:
+            return min(exact_full, key=lambda i: i.id)
     for issue in candidates:
         if _clean_barcode_digits(issue.barcode) == upc12:
             return issue

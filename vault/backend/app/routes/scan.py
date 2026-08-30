@@ -63,7 +63,7 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean5: str | None) -> dict | None:
     network call - just using more of the one response). Swallows failure
     since a missing image/backfill shouldn't block the add.
     """
-    issue = gcd_lookup.find_issue_by_upc(gcd_db, upc12)
+    issue = gcd_lookup.find_issue_by_upc(gcd_db, upc12, ean5)
     if issue is None:
         return None
     fields = gcd_lookup.get_issue_fields(gcd_db, issue.id)
