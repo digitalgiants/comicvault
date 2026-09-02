@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy, Pencil } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy, Pencil, Ban } from 'lucide-react'
 import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
@@ -21,6 +21,7 @@ interface AdminUser {
   username: string
   is_admin: boolean
   is_kiosk: boolean
+  is_suspended: boolean
   created_at: string
 }
 
@@ -424,6 +425,13 @@ export default function AdminPage() {
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_kiosk: !u.is_kiosk } : u))
   }
 
+  const toggleSuspend = async (user: AdminUser) => {
+    const next = !user.is_suspended
+    if (next && !confirm(`Suspend ${user.username}? They'll be logged out immediately and unable to sign back in until unsuspended.`)) return
+    await api.patch(`/admin/users/${user.id}`, { is_suspended: next })
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_suspended: next } : u))
+  }
+
   const deleteUser = async (user: AdminUser) => {
     if (!confirm(`Delete user ${user.username}? This cannot be undone.`)) return
     await api.delete(`/admin/users/${user.id}`)
@@ -506,9 +514,16 @@ export default function AdminPage() {
                       <div key={user.id} className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                         <div className="flex items-center justify-between gap-3">
                           <p className="font-medium text-white truncate">{user.username}</p>
-                          <span className={`flex-shrink-0 text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
-                            {role.label}
-                          </span>
+                          <div className="flex-shrink-0 flex items-center gap-1.5">
+                            {user.is_suspended && (
+                              <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-500/20 text-red-400">
+                                Suspended
+                              </span>
+                            )}
+                            <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
+                              {role.label}
+                            </span>
+                          </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-1 mb-3">Joined {new Date(user.created_at).toLocaleDateString()}</p>
                         <div className="flex items-center gap-1 -ml-2">
@@ -525,6 +540,13 @@ export default function AdminPage() {
                             className={`p-2 rounded-lg hover:bg-gray-800 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
                           >
                             <Monitor size={16} />
+                          </button>
+                          <button
+                            onClick={() => toggleSuspend(user)}
+                            title={user.is_suspended ? 'Unsuspend user' : 'Suspend user (forces logout)'}
+                            className={`p-2 rounded-lg hover:bg-gray-800 transition ${user.is_suspended ? 'text-red-400' : 'text-gray-400 hover:text-red-400'}`}
+                          >
+                            <Ban size={16} />
                           </button>
                           <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition">
                             <Trash2 size={16} />
@@ -552,9 +574,16 @@ export default function AdminPage() {
                           <tr key={user.id} className="hover:bg-gray-800/50 transition">
                             <td className="px-6 py-4">{user.username}</td>
                             <td className="px-6 py-4">
-                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
-                                {role.label}
-                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {user.is_suspended && (
+                                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-red-500/20 text-red-400">
+                                    Suspended
+                                  </span>
+                                )}
+                                <span className={`text-xs font-medium px-2 py-1 rounded-full ${role.cls}`}>
+                                  {role.label}
+                                </span>
+                              </div>
                             </td>
                             <td className="px-6 py-4 text-gray-400">{new Date(user.created_at).toLocaleDateString()}</td>
                             <td className="px-6 py-4 text-right">
@@ -572,6 +601,13 @@ export default function AdminPage() {
                                   className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_kiosk ? 'text-blue-400' : 'text-gray-400 hover:text-blue-400'}`}
                                 >
                                   <Monitor size={16} />
+                                </button>
+                                <button
+                                  onClick={() => toggleSuspend(user)}
+                                  title={user.is_suspended ? 'Unsuspend user' : 'Suspend user (forces logout)'}
+                                  className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_suspended ? 'text-red-400' : 'text-gray-400 hover:text-red-400'}`}
+                                >
+                                  <Ban size={16} />
                                 </button>
                                 <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
                                   <Trash2 size={16} />

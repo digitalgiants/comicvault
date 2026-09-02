@@ -31,6 +31,7 @@ class UserOut(BaseModel):
     is_admin: bool
     is_kiosk: bool
     is_collector: bool
+    is_suspended: bool
     has_seen_tour: bool
     created_at: datetime
 
@@ -417,6 +418,7 @@ class AdminUserOut(UserOut):
 class UserUpdate(BaseModel):
     is_admin: Optional[bool] = None
     is_kiosk: Optional[bool] = None
+    is_suspended: Optional[bool] = None
 
 
 # --- Search ---

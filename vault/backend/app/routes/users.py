@@ -23,6 +23,8 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
     user = crud.get_user_by_username(db, credentials.username)
     if not user or not user.password_hash or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+    if user.is_suspended:
+        raise HTTPException(status_code=403, detail="This account has been suspended")
     return {"access_token": create_access_token(user.id, user.is_kiosk)}
 
 
@@ -42,6 +44,8 @@ def google_login(payload: GoogleLoginRequest, db: Session = Depends(get_db)):
     user = crud.get_user_by_email(db, email)
     if user is None:
         user = crud.create_google_user(db, email)
+    if user.is_suspended:
+        raise HTTPException(status_code=403, detail="This account has been suspended")
     return {"access_token": create_access_token(user.id, user.is_kiosk)}
 
 

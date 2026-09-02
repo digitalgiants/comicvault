@@ -24,6 +24,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=True)
     is_admin = Column(Boolean, default=False)
     is_kiosk = Column(Boolean, default=False)
+    # Blocks login and invalidates any outstanding access token immediately
+    # (checked on every authenticated request, not just at login) - see
+    # auth.py's _get_user_from_token.
+    is_suspended = Column(Boolean, nullable=False, default=False)
     # Seller (default, full-featured) vs. Collector (sales/pricing tools
     # hidden throughout the app) - chosen once at signup, see SignupPage.tsx.
     is_collector = Column(Boolean, nullable=False, default=False)

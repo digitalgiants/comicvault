@@ -123,6 +123,16 @@ def set_user_kiosk(db: Session, user_id: int, is_kiosk: bool) -> Optional[User]:
     return user
 
 
+def set_user_suspended(db: Session, user_id: int, is_suspended: bool) -> Optional[User]:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    user.is_suspended = is_suspended
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # --- Comics ---
 
 def get_comic_by_upc(db: Session, upc: str) -> Optional[Comic]:

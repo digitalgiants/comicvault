@@ -53,6 +53,12 @@ def _get_user_from_token(token: str, db: Session) -> User:
     user = db.query(User).filter(User.id == int(user_id)).first()
     if user is None:
         raise credentials_exception
+    if user.is_suspended:
+        # Same 401 as an expired/invalid token so the frontend's existing
+        # response interceptor clears the token and redirects to /login -
+        # this is what actually forces out a session that's already
+        # holding a valid, unexpired JWT.
+        raise credentials_exception
     return user
 
 

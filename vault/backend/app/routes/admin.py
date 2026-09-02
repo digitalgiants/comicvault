@@ -104,8 +104,11 @@ def update_user(
     user_id: int,
     update: UserUpdate,
     db: Session = Depends(get_db),
-    _: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
+    if update.is_suspended and user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot suspend yourself")
+
     user = None
     if update.is_admin is not None:
         user = crud.set_user_admin(db, user_id, update.is_admin)
@@ -113,6 +116,10 @@ def update_user(
             raise HTTPException(status_code=404, detail="User not found")
     if update.is_kiosk is not None:
         user = crud.set_user_kiosk(db, user_id, update.is_kiosk)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+    if update.is_suspended is not None:
+        user = crud.set_user_suspended(db, user_id, update.is_suspended)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
     if user is None:

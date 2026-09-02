@@ -208,6 +208,13 @@ MIGRATIONS = [
     ALTER TABLE users
         ADD COLUMN IF NOT EXISTS has_seen_tour BOOLEAN NOT NULL DEFAULT TRUE
     """,
+
+    # Admin "suspend user" action (AdminPage.tsx) - see auth.py's
+    # _get_user_from_token for the login-block + forced-logout behavior.
+    """
+    ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE
+    """,
 ]
 
 
