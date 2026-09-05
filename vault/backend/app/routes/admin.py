@@ -122,6 +122,10 @@ def update_user(
         user = crud.set_user_suspended(db, user_id, update.is_suspended)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
+    if update.is_idle_exempt is not None:
+        user = crud.set_user_idle_exempt(db, user_id, update.is_idle_exempt)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
     if user is None:
         raise HTTPException(status_code=400, detail="Nothing to update")
     return user

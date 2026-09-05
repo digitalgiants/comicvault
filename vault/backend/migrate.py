@@ -215,6 +215,13 @@ MIGRATIONS = [
     ALTER TABLE users
         ADD COLUMN IF NOT EXISTS is_suspended BOOLEAN NOT NULL DEFAULT FALSE
     """,
+
+    # Admin "exempt from idle logout" action (AdminPage.tsx) - QA/testing
+    # toggle, see useAuth.tsx's idleTimeoutMs.
+    """
+    ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS is_idle_exempt BOOLEAN NOT NULL DEFAULT FALSE
+    """,
 ]
 
 

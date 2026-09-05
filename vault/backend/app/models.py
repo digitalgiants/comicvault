@@ -28,6 +28,12 @@ class User(Base):
     # (checked on every authenticated request, not just at login) - see
     # auth.py's _get_user_from_token.
     is_suspended = Column(Boolean, nullable=False, default=False)
+    # Admin-only QA/testing toggle - exempts this account from the 5-minute
+    # inactivity auto-logout in useAuth.tsx (kiosk accounts already get 8h
+    # there; this skips the idle check for this account entirely). Doesn't
+    # touch token expiry - the frontend's existing periodic /auth/refresh
+    # call while a tab is open is what actually keeps the session alive.
+    is_idle_exempt = Column(Boolean, nullable=False, default=False)
     # Seller (default, full-featured) vs. Collector (sales/pricing tools
     # hidden throughout the app) - chosen once at signup, see SignupPage.tsx.
     is_collector = Column(Boolean, nullable=False, default=False)

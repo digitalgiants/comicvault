@@ -133,6 +133,16 @@ def set_user_suspended(db: Session, user_id: int, is_suspended: bool) -> Optiona
     return user
 
 
+def set_user_idle_exempt(db: Session, user_id: int, is_idle_exempt: bool) -> Optional[User]:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return None
+    user.is_idle_exempt = is_idle_exempt
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 # --- Comics ---
 
 def get_comic_by_upc(db: Session, upc: str) -> Optional[Comic]:

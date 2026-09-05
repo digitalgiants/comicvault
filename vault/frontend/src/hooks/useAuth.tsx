@@ -8,6 +8,8 @@ interface User {
   is_admin: boolean
   is_kiosk: boolean
   is_collector: boolean
+  is_suspended: boolean
+  is_idle_exempt: boolean
   has_seen_tour: boolean
   created_at: string
 }
@@ -69,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) return
 
-    const idleTimeoutMs = user.is_kiosk ? 8 * 60 * 60 * 1000 : 5 * 60 * 1000
+    const idleTimeoutMs = user.is_idle_exempt ? Infinity : user.is_kiosk ? 8 * 60 * 60 * 1000 : 5 * 60 * 1000
     const refreshIntervalMs = 60 * 1000
     let lastActivity = Date.now()
     let lastRefresh = 0

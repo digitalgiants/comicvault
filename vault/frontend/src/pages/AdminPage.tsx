@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy, Pencil, Ban } from 'lucide-react'
+import { Shield, Trash2, UserCog, CheckCircle, Monitor, RefreshCw, Download, Copy, Pencil, Ban, Infinity as InfinityIcon } from 'lucide-react'
 import axios from 'axios'
 import api from '../api/client'
 import { getBugReports, resolveBugReport } from '../api/collection'
@@ -22,6 +22,7 @@ interface AdminUser {
   is_admin: boolean
   is_kiosk: boolean
   is_suspended: boolean
+  is_idle_exempt: boolean
   created_at: string
 }
 
@@ -432,6 +433,12 @@ export default function AdminPage() {
     setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_suspended: next } : u))
   }
 
+  const toggleIdleExempt = async (user: AdminUser) => {
+    const next = !user.is_idle_exempt
+    await api.patch(`/admin/users/${user.id}`, { is_idle_exempt: next })
+    setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_idle_exempt: next } : u))
+  }
+
   const deleteUser = async (user: AdminUser) => {
     if (!confirm(`Delete user ${user.username}? This cannot be undone.`)) return
     await api.delete(`/admin/users/${user.id}`)
@@ -548,6 +555,13 @@ export default function AdminPage() {
                           >
                             <Ban size={16} />
                           </button>
+                          <button
+                            onClick={() => toggleIdleExempt(user)}
+                            title={user.is_idle_exempt ? 'Re-enable 5-min idle logout' : 'Exempt from idle logout (testing)'}
+                            className={`p-2 rounded-lg hover:bg-gray-800 transition ${user.is_idle_exempt ? 'text-green-400' : 'text-gray-400 hover:text-green-400'}`}
+                          >
+                            <InfinityIcon size={16} />
+                          </button>
                           <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-800 transition">
                             <Trash2 size={16} />
                           </button>
@@ -608,6 +622,13 @@ export default function AdminPage() {
                                   className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_suspended ? 'text-red-400' : 'text-gray-400 hover:text-red-400'}`}
                                 >
                                   <Ban size={16} />
+                                </button>
+                                <button
+                                  onClick={() => toggleIdleExempt(user)}
+                                  title={user.is_idle_exempt ? 'Re-enable 5-min idle logout' : 'Exempt from idle logout (testing)'}
+                                  className={`p-2 rounded-lg hover:bg-gray-700 transition ${user.is_idle_exempt ? 'text-green-400' : 'text-gray-400 hover:text-green-400'}`}
+                                >
+                                  <InfinityIcon size={16} />
                                 </button>
                                 <button onClick={() => deleteUser(user)} title="Delete user" className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-gray-700 transition">
                                   <Trash2 size={16} />
