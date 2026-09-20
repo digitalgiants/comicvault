@@ -178,6 +178,15 @@ export default function CollectionPage() {
 
   const columns = visibleCollectionColumns(isCollector)
   const visibleCols = columns.filter(c => visibility[c.key] !== false)
+  // Cover and UPC read as a unit - the UPC is the barcode printed on that
+  // exact cover, so it's pinned directly under the image in the card grid
+  // below regardless of where "UPC"/"Cover" fall in the column picker's
+  // order everywhere else.
+  const cardCols = [
+    ...visibleCols.filter(c => c.key === 'img'),
+    ...visibleCols.filter(c => c.key === 'upc'),
+    ...visibleCols.filter(c => c.key !== 'img' && c.key !== 'upc'),
+  ]
 
   const toggleSelect = (id: number) => {
     setSelected(prev => {
@@ -597,7 +606,7 @@ export default function CollectionPage() {
                   </div>
 
                   <div className="text-sm space-y-1 min-w-0">
-                    {visibleCols.map(c => (
+                    {cardCols.map(c => (
                       <div key={c.key} className="min-w-0">
                         {c.key === 'available' ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
