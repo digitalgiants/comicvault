@@ -179,14 +179,18 @@ export default function CollectionPage() {
   const columns = visibleCollectionColumns(isCollector)
   const visibleCols = columns.filter(c => visibility[c.key] !== false)
   // Cover and UPC read as a unit - the UPC is the barcode printed on that
-  // exact cover, so it's pinned directly under the image in the card grid
-  // below regardless of where "UPC"/"Cover" fall in the column picker's
-  // order everywhere else.
-  const cardCols = [
-    ...visibleCols.filter(c => c.key === 'img'),
-    ...visibleCols.filter(c => c.key === 'upc'),
-    ...visibleCols.filter(c => c.key !== 'img' && c.key !== 'upc'),
-  ]
+  // exact cover, so it's pinned directly under the image at the top of each
+  // card in the grid below, ahead of every other selected field.
+  const imgCol = visibleCols.find(c => c.key === 'img')
+  const upcCol = visibleCols.find(c => c.key === 'upc')
+  // Everything else lays out two-per-row - it's short enough to share a
+  // half-width cell. Notes and the creator-credit fields are long-form
+  // (a paragraph, or a comma-joined name list) and would cramp badly at
+  // half width, so they get their own full-width row below the grid instead.
+  const WIDE_CARD_FIELDS = new Set(['notes', 'writer', 'penciller', 'inker', 'colorist', 'cover_artist'])
+  const otherCols = visibleCols.filter(c => c.key !== 'img' && c.key !== 'upc')
+  const compactCols = otherCols.filter(c => !WIDE_CARD_FIELDS.has(c.key))
+  const wideCols = otherCols.filter(c => WIDE_CARD_FIELDS.has(c.key))
 
   const toggleSelect = (id: number) => {
     setSelected(prev => {
@@ -605,36 +609,57 @@ export default function CollectionPage() {
                     </div>
                   </div>
 
-                  <div className="text-sm space-y-1 min-w-0">
-                    {cardCols.map(c => (
-                      <div key={c.key} className="min-w-0">
-                        {c.key === 'available' ? (
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
-                            {avail}/{uc.count ?? 1}
-                          </span>
-                        ) : c.key === 'img' ? (
-                          coverImage(uc) && (
-                            <button
-                              type="button"
-                              onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))}
-                              title="View larger"
-                              className="block"
-                            >
-                              <img
-                                src={resolveImageUrl(coverImage(uc)) ?? undefined}
-                                alt=""
-                                className="w-16 h-24 object-cover rounded border border-gray-700 hover:border-brand-500 transition cursor-zoom-in"
-                              />
-                            </button>
-                          )
-                        ) : (
-                          <>
+                  <div className="text-sm space-y-2 min-w-0">
+                    {imgCol && coverImage(uc) && (
+                      <button
+                        type="button"
+                        onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))}
+                        title="View larger"
+                        className="block"
+                      >
+                        <img
+                          src={resolveImageUrl(coverImage(uc)) ?? undefined}
+                          alt=""
+                          className="w-16 h-24 object-cover rounded border border-gray-700 hover:border-brand-500 transition cursor-zoom-in"
+                        />
+                      </button>
+                    )}
+                    {upcCol && (
+                      <div className="min-w-0">
+                        <span className="text-gray-500">UPC: </span>
+                        <span className="text-gray-300 break-words">{fmt(uc, 'upc')}</span>
+                      </div>
+                    )}
+
+                    {compactCols.length > 0 && (
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                        {compactCols.map(c => (
+                          <div key={c.key} className="min-w-0">
+                            {c.key === 'available' ? (
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                                {avail}/{uc.count ?? 1}
+                              </span>
+                            ) : (
+                              <>
+                                <span className="text-gray-500">{c.label}: </span>
+                                <span className="text-gray-300 break-words">{fmt(uc, c.key)}</span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {wideCols.length > 0 && (
+                      <div className="space-y-1">
+                        {wideCols.map(c => (
+                          <div key={c.key} className="min-w-0">
                             <span className="text-gray-500">{c.label}: </span>
                             <span className="text-gray-300 break-words">{fmt(uc, c.key)}</span>
-                          </>
-                        )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )

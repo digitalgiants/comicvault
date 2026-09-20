@@ -29,13 +29,20 @@ MASTER_PHOTO_OWNER_USERNAME = "drewfert"
 
 # --- Default columns shown for each page ---
 
+# Every key must be listed explicitly - the frontend treats a key that's
+# simply absent from a visibility dict as visible (`visibility[key] !== false`,
+# see CollectionPage.tsx), so an omitted key here would silently show up
+# anyway instead of being off by default.
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
-    "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
-    "cover_date": True, "store_date": True, "newstand": True, "publisher": True,
-    "count": True, "printing": True, "ratio": True, "print_run": True, "variant": True, "cover_letter": True, "legacy_number": True, "cover_artist": True,
-    "penciller": True, "inker": True, "colorist": True, "writer": True,
-    "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
-    "point_of_purchase": True, "signed": True, "remarked": True, "notes": True,
+    "upc": False, "img": True, "series": True, "volume": False, "issue_number": True,
+    "legacy_number": False, "cover_date": False, "store_date": False, "newstand": False,
+    "publisher": False, "count": True, "available": False,
+    "printing": True, "ratio": False, "print_run": False, "variant": False, "cover_letter": False,
+    "cover_artist": False, "penciller": False, "inker": False, "colorist": False, "writer": False,
+    "average_price": False, "paid_price": False, "asking_price": False, "buy_date": False,
+    "sell_price": False, "point_of_purchase": False,
+    "signed": True, "remarked": True, "condition": False, "notes": True,
+    "do_not_sell": False, "reserve_count": False,
 }
 
 DEFAULT_SOLD_COLUMNS: dict[str, bool] = {
