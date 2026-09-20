@@ -48,32 +48,43 @@ ComicVault is a web-based application for cataloging and managing personal comic
 ### Users Table
 ```
 id (PK)
-email (UNIQUE)
-password_hash
+username (UNIQUE, NOT NULL)
+password_hash (NULLABLE - a Google-only account has none)
+email (NULLABLE, UNIQUE - set once a Google sign-in occurs)
+is_admin (default: false)
+is_kiosk (default: false)
+is_suspended (default: false - blocks login, forces an immediate logout)
+is_idle_exempt (default: false - QA/testing, skips the 5-min idle auto-logout)
+is_collector (default: false - Collector vs. Seller profile, chosen at signup)
+has_seen_tour (default: true; false only for a brand-new signup)
 created_at
 updated_at
-is_admin (default: false)
 ```
 
 ### Comics Table (Shared Database)
 ```
 id (PK)
 upc (NULLABLE, UNIQUE if provided)
+img (lookup-sourced cover image URL)
+master_photo (an owner's own photo, when set, takes priority over img)
 publisher
-name (title)
+series (title, NOT NULL)
 volume
-number (issue number)
-print (printing edition)
-cover (cover number/edition)
+issue_number
+legacy_number (e.g. the "685" in "1 (685)" - a relaunched series' continuous count)
+cover_date
+store_date
+newstand (NULLABLE boolean: true = newsstand edition, false/NULL = direct market)
+printing (e.g. "1st", "2nd" - manual/CSV entry only, no lookup provider supplies this)
+print_run
 variant
-direct (boolean: direct sale vs. newsstand)
-writer
-artist
-pencils
+cover_letter (e.g. "A", "B" - manual/CSV entry only)
+cover_artist
+penciller
 inker
-coverArtist
-averagePrice (FLOAT, market value)
-printRatio (NULLABLE)
+colorist
+writer
+average_price (FLOAT, market value)
 created_at
 updated_at
 created_by_user_id (FK to Users, tracks who added it)
@@ -84,17 +95,22 @@ created_by_user_id (FK to Users, tracks who added it)
 id (PK)
 user_id (FK)
 comic_id (FK)
-numberOfBooks (INT, qty of this comic owned)
-pricePaid (FLOAT)
-pointOfPurchase (VARCHAR)
-buyDate (DATE, NULLABLE)
+count (INT, qty of this comic owned, default: 1)
+paid_price (FLOAT)
+asking_price (FLOAT)
+point_of_purchase (VARCHAR)
+buy_date
 signed (BOOLEAN, default: false)
 remarked (BOOLEAN, default: false)
+condition (e.g. "9.4 NM" - the CGC grading scale)
+personal_img (a photo of this specific copy)
 notes (TEXT)
-sellDate (DATE, NULLABLE, null = still owned)
+do_not_sell (BOOLEAN, default: false)
+reserve_count (INT, default: 0 - held back from "available" even if not do_not_sell)
 created_at
 updated_at
 ```
+Sales are a separate `Sales` table (one-to-many off UserComics, not a single `sellDate` column) - each row is one sale event (sell_date, sell_price, notes), since a copy can be resold/re-tracked over time.
 
 ### CSVImports Table (Audit Trail)
 ```
@@ -113,41 +129,48 @@ created_at
 ## CSV Upload Workflow
 
 ### Input Format
-User uploads CSV with these columns (exact order doesn't matter, header row required):
+User uploads CSV with these columns (exact order doesn't matter; headers are matched case/space/underscore-insensitively - see `csv_parser.py`'s `COLUMN_MAP`; `series` and `issue_number` are the only required ones). The same list, source-of-truth'd once in `UploadPage.tsx`'s `TEMPLATE_COLUMNS`, drives both the downloadable template and the on-page Column Guide:
 ```
-publisher, name, volume, number, print, cover, variant, direct,
-writer, artist, pencils, inker, coverArtist,
-numberOfBooks,
-pricePaid, pointOfPurchase, buyDate,
-averagePrice, printRatio,
-signed, remarked,
-notes, sellDate
+upc, img, series, volume, issue_number, legacy_number,
+cover_date, store_date, newstand, publisher, count,
+printing, print_run, variant, cover_letter,
+cover_artist, penciller, inker, colorist, writer, average_price,
+paid_price, asking_price, point_of_purchase, buy_date,
+sell_price, sell_date,
+signed, remarked, condition, notes,
+do_not_sell, reserve_count
 ```
 
 ### Processing Logic
 1. **Validate CSV**: Check headers, data types (dates, floats, booleans, integers)
-2. **Deduplicate Entries**: Group by (publisher, name, volume, number, variant, print) to identify potential duplicates within the upload
-3. **Match to Shared DB**: 
-   - For each row, search Comics table for exact match (publisher, name, volume, number, variant, print)
-   - If match found → create UserComics record pointing to existing comic
-   - If no match → create new Comics record + UserComics record
-4. **Error Handling**: Track validation errors, duplicates, mismatches → return summary to user
-5. **Rollback**: If critical errors, either skip those rows or rollback entire upload (TBD with user)
+2. **Match to Shared DB**: For each row, search the Comics table for an exact match on series + publisher + volume + issue_number + variant + cover_letter + print_run + printing (UPC narrows/overrides this further - see `crud.find_matching_comic`)
+   - If match found → link a UserComics record to the existing comic
+   - If no match → optionally GCD-enrich blank fields first (see `gcd_lookup.enrich_comic_from_gcd`), then create a new Comics record + UserComics record
+3. **Error Handling**: Track validation errors and GCD-vs-CSV field conflicts (queued for manual accept/reject, not auto-resolved) → return a summary to the user
+4. **Rollback**: Bad rows are skipped individually, not rolled back as a whole batch - the response's `errors` list reports which rows failed and why
 
 ### Response to User
 ```json
 {
   "success": true,
+  "filename": "collection.csv",
   "total_rows": 50,
   "imported": 48,
+  "failed": 2,
+  "new_comics_added_to_db": 5,
+  "existing_comics_linked": 43,
+  "sales_recorded": 3,
+  "conflicts_queued": 1,
   "errors": [
     { "row": 5, "comic": "Spider-Man #1", "error": "Invalid date format" },
     { "row": 12, "comic": "X-Men #101", "error": "Duplicate in upload (row 3)" }
   ],
-  "new_comics_added_to_db": 5,
-  "existing_comics_linked": 43
+  "declined": [
+    { "row": 20, "series": "Some Obscure Comic", "issue_number": "1" }
+  ]
 }
 ```
+(see `schemas.CSVImportResult` for the authoritative shape)
 
 ---
 
