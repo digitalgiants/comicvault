@@ -11,6 +11,12 @@ REQUIRED_COLUMNS = {"series", "issuenumber"}
 BOOLEAN_FIELDS = {"newstand", "signed", "remarked", "donotsell"}
 FLOAT_FIELDS = {"paidprice", "averageprice", "sellprice", "askingprice"}
 INT_FIELDS = {"count", "reservecount"}
+# Unlike count/reservecount, a blank cell here means "unknown", not zero -
+# a limited series' total issue count only applies to some comics, so it
+# must stay NULL rather than being coerced to 0 (see _parse_int's own
+# None-on-blank behavior, used directly below instead of INT_FIELDS'
+# `_parse_int(val) or 0` fallback).
+NULLABLE_INT_FIELDS = {"numberofbooks"}
 DATE_FIELDS = {"buydate", "coverdate", "storedate", "selldate"}
 # A UPC pasted/typed with a space or dash between the 12-digit code and
 # 5-digit price add-on (as GCD sometimes displays it) needs every non-digit
@@ -24,6 +30,7 @@ COLUMN_MAP = {
     "series": "series",
     "volume": "volume",
     "issuenumber": "issue_number",
+    "numberofbooks": "total_issues",
     "legacynumber": "legacy_number",
     "coverdate": "cover_date",
     "storedate": "store_date",
@@ -178,6 +185,8 @@ def parse_csv(file_bytes: bytes, filename: str) -> tuple[list[dict], list[dict]]
                     row[db_col] = _parse_int(val) or 1
                 elif csv_col in INT_FIELDS:
                     row[db_col] = _parse_int(val) or 0
+                elif csv_col in NULLABLE_INT_FIELDS:
+                    row[db_col] = _parse_int(val)
                 elif csv_col in DATE_FIELDS:
                     row[db_col] = _parse_date(val)
                 elif csv_col in UPC_FIELDS:

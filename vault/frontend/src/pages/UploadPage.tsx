@@ -37,6 +37,7 @@ const fieldLabel = (key: string) => FIELD_LABELS[key] ?? key
 const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolean; salesOnly?: boolean }[] = [
   { header: 'Series', description: 'Required.', required: true },
   { header: 'Issue Number', description: 'Required.', required: true },
+  { header: 'Number of Books', description: 'Total issues in a limited/mini-series, e.g. "8" (this is 4 of 8)' },
   { header: 'Volume', description: '' },
   { header: 'Publisher', description: '' },
   { header: 'Variant', description: '' },

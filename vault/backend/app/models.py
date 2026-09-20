@@ -68,6 +68,11 @@ class Comic(Base):
     series = Column(String, index=True, nullable=False)
     volume = Column(String, nullable=True)
     issue_number = Column(String, nullable=True, index=True)
+    # Total issue count of the limited/mini-series this issue belongs to
+    # (e.g. issue_number=4, total_issues=8 for "4 of 8") - not the quantity
+    # owned (see UserComic.count, a completely different concept). Manual/CSV
+    # entry only, like cover_letter - no lookup provider supplies this.
+    total_issues = Column(Integer, nullable=True)
     legacy_number = Column(String, nullable=True)
     cover_date = Column(Date, nullable=True)
     store_date = Column(Date, nullable=True)

@@ -59,6 +59,7 @@ async def upload_csv(
                 "series": row["series"],
                 "volume": row.get("volume"),
                 "issue_number": row.get("issue_number"),
+                "total_issues": row.get("total_issues"),
                 "legacy_number": row.get("legacy_number"),
                 "cover_date": row.get("cover_date"),
                 "store_date": row.get("store_date"),

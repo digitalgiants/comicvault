@@ -23,6 +23,7 @@ def _to_card(uc: UserComic) -> KioskCardOut:
         series=comic.series,
         volume=comic.volume,
         issue_number=comic.issue_number,
+        total_issues=comic.total_issues,
         legacy_number=comic.legacy_number,
         cover_date=comic.cover_date,
         publisher=comic.publisher,

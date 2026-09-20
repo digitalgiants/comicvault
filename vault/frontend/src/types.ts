@@ -7,6 +7,7 @@ export interface Comic {
   series: string
   volume: string | null
   issue_number: string | null
+  total_issues: number | null
   legacy_number: string | null
   cover_date: string | null
   store_date: string | null
@@ -110,6 +111,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'series', label: 'Series' },
   { key: 'volume', label: 'Volume' },
   { key: 'issue_number', label: 'Issue Number' },
+  { key: 'total_issues', label: 'Number of Books' },
   { key: 'legacy_number', label: 'Lgcy Number' },
   { key: 'cover_date', label: 'Cover Date' },
   { key: 'store_date', label: 'Store Date' },
@@ -275,6 +277,7 @@ export interface ScanComicFields {
   series: string
   volume: string | null
   issue_number: string | null
+  total_issues: number | null
   legacy_number: string | null
   cover_date: string | null
   store_date: string | null
@@ -365,6 +368,7 @@ export interface KioskCard {
   series: string
   volume: string | null
   issue_number: string | null
+  total_issues: number | null
   legacy_number: string | null
   cover_date: string | null
   publisher: string | null
@@ -627,6 +631,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     series: result.series_name,
     volume: result.series_volume != null ? String(result.series_volume) : null,
     issue_number: result.issue_number,
+    total_issues: null,
     legacy_number: result.legacy_number ?? null,
     cover_date: result.cover_date || null,
     store_date: result.store_date,

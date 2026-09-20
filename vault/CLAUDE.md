@@ -71,6 +71,7 @@ publisher
 series (title, NOT NULL)
 volume
 issue_number
+total_issues ("Number of Books" - total issues in a limited/mini-series, e.g. issue_number=4, total_issues=8 for "4 of 8"; NOT the quantity owned, see UserComics.count. Manual/CSV entry only)
 legacy_number (e.g. the "685" in "1 (685)" - a relaunched series' continuous count)
 cover_date
 store_date
@@ -132,7 +133,7 @@ created_at
 ### Input Format
 User uploads CSV with these columns (exact order doesn't matter; headers are matched case/space/underscore-insensitively - see `csv_parser.py`'s `COLUMN_MAP`; `series` and `issue_number` are the only required ones). The same list, source-of-truth'd once in `UploadPage.tsx`'s `TEMPLATE_COLUMNS`, drives both the downloadable template and the on-page Column Guide:
 ```
-upc, img, series, volume, issue_number, legacy_number,
+upc, img, series, volume, issue_number, total_issues, legacy_number,
 cover_date, store_date, newstand, publisher, count,
 printing, ratio, print_run, variant, cover_letter,
 cover_artist, penciller, inker, colorist, writer, average_price,

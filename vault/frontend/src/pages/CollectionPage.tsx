@@ -17,7 +17,7 @@ import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
 // ComicVine lookup (SearchPage.tsx, ScanPage.tsx); here the user just types
 // everything in by hand. Only `series` is actually required before Save.
 const BLANK_COMIC_FIELDS: ScanComicFields = {
-  publisher: null, series: '', volume: null, issue_number: null, legacy_number: null,
+  publisher: null, series: '', volume: null, issue_number: null, total_issues: null, legacy_number: null,
   cover_date: null, store_date: null, newstand: null, printing: null, ratio: null, print_run: null, variant: null,
   cover_letter: null, writer: null, penciller: null, inker: null, colorist: null, cover_artist: null,
   average_price: null, upc: null, img: null,

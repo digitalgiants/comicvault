@@ -313,6 +313,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm flex-1">
               {[
+                ['Number of Books', item.comic.total_issues],
                 ['Writer', item.comic.writer],
                 ['Penciller', item.comic.penciller],
                 ['Inker', item.comic.inker],

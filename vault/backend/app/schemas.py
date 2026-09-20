@@ -52,6 +52,7 @@ class ComicBase(BaseModel):
     series: str
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    total_issues: Optional[int] = None
     legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
@@ -81,6 +82,7 @@ class ComicUpdate(BaseModel):
     series: Optional[str] = None
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    total_issues: Optional[int] = None
     legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
@@ -539,6 +541,7 @@ class KioskCardOut(BaseModel):
     series: str
     volume: Optional[str] = None
     issue_number: Optional[str] = None
+    total_issues: Optional[int] = None
     legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     publisher: Optional[str] = None

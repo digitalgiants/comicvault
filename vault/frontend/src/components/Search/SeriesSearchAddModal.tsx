@@ -17,6 +17,7 @@ const COMIC_FIELDS: { key: keyof ScanComicFields; label: string; type: string }[
   { key: 'publisher', label: 'Publisher', type: 'text' },
   { key: 'volume', label: 'Volume', type: 'text' },
   { key: 'issue_number', label: 'Issue Number', type: 'text' },
+  { key: 'total_issues', label: 'Number of Books', type: 'number' },
   { key: 'legacy_number', label: 'Lgcy Number', type: 'text' },
   { key: 'cover_date', label: 'Cover Date', type: 'date' },
   { key: 'store_date', label: 'Store Date', type: 'date' },

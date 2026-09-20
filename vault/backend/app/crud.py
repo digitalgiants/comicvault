@@ -35,7 +35,7 @@ MASTER_PHOTO_OWNER_USERNAME = "drewfert"
 # anyway instead of being off by default.
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
     "upc": False, "img": True, "series": True, "volume": False, "issue_number": True,
-    "legacy_number": False, "cover_date": False, "store_date": False, "newstand": False,
+    "total_issues": False, "legacy_number": False, "cover_date": False, "store_date": False, "newstand": False,
     "publisher": False, "count": True, "available": False,
     "printing": True, "ratio": False, "print_run": False, "variant": False, "cover_letter": False,
     "cover_artist": False, "penciller": False, "inker": False, "colorist": False, "writer": False,

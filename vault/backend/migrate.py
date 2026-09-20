@@ -248,6 +248,13 @@ MIGRATIONS = [
     ALTER TABLE external_issue_cache
         ADD COLUMN IF NOT EXISTS ratio VARCHAR
     """,
+
+    # Total Issues ("Number of Books") - total issue count of a limited/mini
+    # series (e.g. "4 of 8"), manual/CSV-only - see models.py's Comic.
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS total_issues INTEGER
+    """,
 ]
 
 
