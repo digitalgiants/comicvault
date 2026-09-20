@@ -236,6 +236,18 @@ MIGRATIONS = [
         ADD COLUMN IF NOT EXISTS printing VARCHAR,
         ADD COLUMN IF NOT EXISTS colorist VARCHAR
     """,
+
+    # Ratio (incentive/variant ratio, e.g. "1:25") - manual/CSV-only like
+    # Printing, and paired with it - see models.py's Comic and
+    # ExternalIssueCache.
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS ratio VARCHAR
+    """,
+    """
+    ALTER TABLE external_issue_cache
+        ADD COLUMN IF NOT EXISTS ratio VARCHAR
+    """,
 ]
 
 

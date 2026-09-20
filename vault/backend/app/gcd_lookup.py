@@ -28,7 +28,7 @@ COVER_STORY_TYPE = "cover"
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (print_run, printing, newstand, img). legacy_number is derived
+# supplies (print_run, printing, ratio, newstand, img). legacy_number is derived
 # from issue_number itself (see split_legacy_number), not a separate GCD
 # field, but is still fair game to blank-fill.
 ENRICHABLE_FIELDS = [
@@ -314,6 +314,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         cover_date=_parse_gcd_date(issue.key_date),
         store_date=_parse_gcd_date(issue.on_sale_date),
         printing=None,
+        ratio=None,
         print_run=None,
         variant=(issue.variant_name or None) if issue.variant_of_id else None,
         cover_letter=None,

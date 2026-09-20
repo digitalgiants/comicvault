@@ -78,6 +78,9 @@ class Comic(Base):
     # like cover_letter, no lookup provider supplies this (manual/CSV entry
     # only).
     printing = Column(String, nullable=True)
+    # Incentive/variant ratio (e.g. "1:25", "1:50") - same manual/CSV-only
+    # sourcing as printing, and commonly paired with it.
+    ratio = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
     # The short cover designation (e.g. "A", "B", "1"), distinct from
@@ -332,6 +335,7 @@ class ExternalIssueCache(Base):
     volume = Column(String, nullable=True)
     store_date = Column(String, nullable=True)
     printing = Column(String, nullable=True)
+    ratio = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
     cover_letter = Column(String, nullable=True)

@@ -43,6 +43,7 @@ const TEMPLATE_COLUMNS: { header: string; description: string; required?: boolea
   { header: 'Cover Letter', description: 'e.g. "A", "B"' },
   { header: 'Legacy Number', description: '' },
   { header: 'Printing', description: 'e.g. "1st", "2nd"' },
+  { header: 'Ratio', description: 'Incentive/variant ratio, e.g. "1:25"' },
   { header: 'Print Run', description: '' },
   { header: 'UPC', description: '' },
   { header: 'Cover Date', description: 'YYYY-MM-DD' },

@@ -15,6 +15,7 @@ export interface LookupResult {
   writers: string[];
   pencillers: string[];
   inkers: string[];
+  colorists: string[];
   credits: CreditInfo[];
   matched_on: "base_upc" | "variant_upc";
   source: "cache" | "metron";

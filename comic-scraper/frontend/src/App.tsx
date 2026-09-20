@@ -166,6 +166,9 @@ export default function App() {
                       <div>Pencils: {a.result.pencillers.join(", ")}</div>
                     )}
                     {a.result.inkers.length > 0 && <div>Inks: {a.result.inkers.join(", ")}</div>}
+                    {a.result.colorists.length > 0 && (
+                      <div>Colors: {a.result.colorists.join(", ")}</div>
+                    )}
                     {a.result.cover_artists.length > 0 && (
                       <div>Cover: {a.result.cover_artists.join(", ")}</div>
                     )}

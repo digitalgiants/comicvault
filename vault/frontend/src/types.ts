@@ -12,6 +12,7 @@ export interface Comic {
   store_date: string | null
   newstand: boolean | null
   printing: string | null
+  ratio: string | null
   print_run: string | null
   variant: string | null
   cover_letter: string | null
@@ -117,6 +118,7 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'count', label: 'Count' },
   { key: 'available', label: 'Available' },
   { key: 'printing', label: 'Printing' },
+  { key: 'ratio', label: 'Ratio' },
   { key: 'print_run', label: 'Print Run' },
   { key: 'variant', label: 'Variant' },
   { key: 'cover_letter', label: 'Cover Letter' },
@@ -278,6 +280,7 @@ export interface ScanComicFields {
   store_date: string | null
   newstand: boolean | null
   printing: string | null
+  ratio: string | null
   print_run: string | null
   variant: string | null
   cover_letter: string | null
@@ -375,6 +378,7 @@ export interface KioskCard {
   writer: string | null
   newstand: boolean | null
   printing: string | null
+  ratio: string | null
   print_run: string | null
   signed: boolean
   remarked: boolean
@@ -628,6 +632,7 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     store_date: result.store_date,
     newstand: null,
     printing: null,
+    ratio: null,
     print_run: null,
     variant: result.variant_name,
     cover_letter: null,

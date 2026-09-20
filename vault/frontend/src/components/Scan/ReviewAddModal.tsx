@@ -23,6 +23,7 @@ const COMIC_FIELDS: { key: keyof ScanComicFields; label: string; type: string }[
   { key: 'variant', label: 'Variant', type: 'text' },
   { key: 'cover_letter', label: 'Cover Letter', type: 'text' },
   { key: 'printing', label: 'Printing', type: 'text' },
+  { key: 'ratio', label: 'Ratio', type: 'text' },
   { key: 'print_run', label: 'Print Run', type: 'text' },
   { key: 'writer', label: 'Writer', type: 'text' },
   { key: 'penciller', label: 'Penciller', type: 'text' },

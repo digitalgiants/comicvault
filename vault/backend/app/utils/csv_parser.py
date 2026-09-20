@@ -31,6 +31,7 @@ COLUMN_MAP = {
     "publisher": "publisher",
     "count": "count",
     "printing": "printing",
+    "ratio": "ratio",
     "printrun": "print_run",
     "variant": "variant",
     "coverletter": "cover_letter",

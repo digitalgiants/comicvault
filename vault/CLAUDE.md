@@ -76,6 +76,7 @@ cover_date
 store_date
 newstand (NULLABLE boolean: true = newsstand edition, false/NULL = direct market)
 printing (e.g. "1st", "2nd" - manual/CSV entry only, no lookup provider supplies this)
+ratio (incentive/variant ratio, e.g. "1:25" - manual/CSV entry only, same as printing)
 print_run
 variant
 cover_letter (e.g. "A", "B" - manual/CSV entry only)
@@ -133,7 +134,7 @@ User uploads CSV with these columns (exact order doesn't matter; headers are mat
 ```
 upc, img, series, volume, issue_number, legacy_number,
 cover_date, store_date, newstand, publisher, count,
-printing, print_run, variant, cover_letter,
+printing, ratio, print_run, variant, cover_letter,
 cover_artist, penciller, inker, colorist, writer, average_price,
 paid_price, asking_price, point_of_purchase, buy_date,
 sell_price, sell_date,
@@ -143,7 +144,7 @@ do_not_sell, reserve_count
 
 ### Processing Logic
 1. **Validate CSV**: Check headers, data types (dates, floats, booleans, integers)
-2. **Match to Shared DB**: For each row, search the Comics table for an exact match on series + publisher + volume + issue_number + variant + cover_letter + print_run + printing (UPC narrows/overrides this further - see `crud.find_matching_comic`)
+2. **Match to Shared DB**: For each row, search the Comics table for an exact match on series + publisher + volume + issue_number + variant + cover_letter + print_run + printing + ratio (UPC narrows/overrides this further - see `crud.find_matching_comic`)
    - If match found → link a UserComics record to the existing comic
    - If no match → optionally GCD-enrich blank fields first (see `gcd_lookup.enrich_comic_from_gcd`), then create a new Comics record + UserComics record
 3. **Error Handling**: Track validation errors and GCD-vs-CSV field conflicts (queued for manual accept/reject, not auto-resolved) → return a summary to the user
@@ -336,7 +337,7 @@ comicvault/
 
 1. **CSV Parsing**: Use pandas for quick prototyping, switch to csv module if performance needed
 2. **Validation**: Validate dates, floats (prices), booleans (signed, remarked) during upload
-3. **Null Handling**: Many fields are optional (direct, printRatio, averagePrice, etc.) — allow NULLs
+3. **Null Handling**: Many fields are optional (newstand, ratio, average_price, etc.) — allow NULLs
 4. **Duplicate Handling in Upload**: If user uploads same comic twice in one CSV, either merge or reject (TBD)
 5. **Imageability**: Consider storing comic cover image URLs for future lookups (not MVP)
 6. **Search Performance**: Index (publisher, name, volume, number) for fast lookups

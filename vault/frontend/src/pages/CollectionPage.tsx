@@ -18,7 +18,7 @@ import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
 // everything in by hand. Only `series` is actually required before Save.
 const BLANK_COMIC_FIELDS: ScanComicFields = {
   publisher: null, series: '', volume: null, issue_number: null, legacy_number: null,
-  cover_date: null, store_date: null, newstand: null, printing: null, print_run: null, variant: null,
+  cover_date: null, store_date: null, newstand: null, printing: null, ratio: null, print_run: null, variant: null,
   cover_letter: null, writer: null, penciller: null, inker: null, colorist: null, cover_artist: null,
   average_price: null, upc: null, img: null,
 }

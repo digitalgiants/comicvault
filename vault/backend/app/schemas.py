@@ -56,6 +56,7 @@ class ComicBase(BaseModel):
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
     printing: Optional[str] = None
+    ratio: Optional[str] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     cover_letter: Optional[str] = None
@@ -84,6 +85,7 @@ class ComicUpdate(BaseModel):
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
     printing: Optional[str] = None
+    ratio: Optional[str] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     cover_letter: Optional[str] = None
@@ -550,6 +552,7 @@ class KioskCardOut(BaseModel):
     writer: Optional[str] = None
     newstand: Optional[bool] = None
     printing: Optional[str] = None
+    ratio: Optional[str] = None
     print_run: Optional[str] = None
     signed: bool = False
     remarked: bool = False

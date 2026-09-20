@@ -64,6 +64,7 @@ async def upload_csv(
                 "store_date": row.get("store_date"),
                 "newstand": row.get("newstand"),
                 "printing": row.get("printing"),
+                "ratio": row.get("ratio"),
                 "print_run": row.get("print_run"),
                 "variant": row.get("variant"),
                 "cover_letter": row.get("cover_letter"),
@@ -92,6 +93,7 @@ async def upload_csv(
                     "variant": comic_data["variant"],
                     "print_run": comic_data["print_run"],
                     "printing": comic_data["printing"],
+                    "ratio": comic_data["ratio"],
                     "upc": comic_data["upc"],
                 })
 

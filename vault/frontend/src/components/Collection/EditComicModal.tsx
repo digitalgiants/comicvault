@@ -319,6 +319,7 @@ export default function EditComicModal({ item, onClose, onSaved, onItemChange, o
                 ['Colorist', item.comic.colorist],
                 ['Variant', item.comic.variant],
                 ['Printing', item.comic.printing],
+                ['Ratio', item.comic.ratio],
                 ['Print Run', item.comic.print_run],
                 ['Cover Date', item.comic.cover_date],
                 ['Store Date', item.comic.store_date],
