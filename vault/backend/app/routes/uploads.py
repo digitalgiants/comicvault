@@ -63,12 +63,14 @@ async def upload_csv(
                 "cover_date": row.get("cover_date"),
                 "store_date": row.get("store_date"),
                 "newstand": row.get("newstand"),
+                "printing": row.get("printing"),
                 "print_run": row.get("print_run"),
                 "variant": row.get("variant"),
                 "cover_letter": row.get("cover_letter"),
                 "writer": row.get("writer"),
                 "penciller": row.get("penciller"),
                 "inker": row.get("inker"),
+                "colorist": row.get("colorist"),
                 "cover_artist": row.get("cover_artist"),
                 "average_price": row.get("average_price"),
             }
@@ -89,6 +91,7 @@ async def upload_csv(
                     "issue_number": comic_data["issue_number"],
                     "variant": comic_data["variant"],
                     "print_run": comic_data["print_run"],
+                    "printing": comic_data["printing"],
                     "upc": comic_data["upc"],
                 })
 

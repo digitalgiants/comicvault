@@ -18,8 +18,8 @@ import SeriesSearchAddModal from '../components/Search/SeriesSearchAddModal'
 // everything in by hand. Only `series` is actually required before Save.
 const BLANK_COMIC_FIELDS: ScanComicFields = {
   publisher: null, series: '', volume: null, issue_number: null, legacy_number: null,
-  cover_date: null, store_date: null, newstand: null, print_run: null, variant: null,
-  cover_letter: null, writer: null, penciller: null, inker: null, cover_artist: null,
+  cover_date: null, store_date: null, newstand: null, printing: null, print_run: null, variant: null,
+  cover_letter: null, writer: null, penciller: null, inker: null, colorist: null, cover_artist: null,
   average_price: null, upc: null, img: null,
 }
 
@@ -179,31 +179,6 @@ export default function CollectionPage() {
   const columns = visibleCollectionColumns(isCollector)
   const visibleCols = columns.filter(c => visibility[c.key] !== false)
 
-  // UPC and Cover stay pinned to the left edge while scrolling horizontally
-  // through the rest of the (often very wide) column set. Their order is
-  // fixed by COLLECTION_COLUMNS (no column reordering exists), so img's
-  // offset only ever depends on whether upc is also visible before it.
-  const upcVisible = visibleCols.some(c => c.key === 'upc')
-  const imgVisible = visibleCols.some(c => c.key === 'img')
-  const lastFrozenKey = imgVisible ? 'img' : upcVisible ? 'upc' : null
-  const frozenWidth = (key: string) => (key === 'upc' ? 'w-28' : 'w-16')
-  const frozenLeft = (key: string) => (key === 'img' && upcVisible ? 'left-28' : 'left-0')
-  const frozenColClass = (key: string, zIndex = 'z-10') =>
-    key === 'upc' || key === 'img'
-      ? `sticky ${zIndex} ${frozenLeft(key)} ${frozenWidth(key)} ${key === lastFrozenKey ? 'border-r border-gray-700' : ''} ${key === 'upc' ? 'overflow-hidden text-ellipsis' : ''}`
-      : ''
-
-  // Sticky column header (sm:+ only - stacked/wrapping on mobile makes a
-  // sticky version too tall). The table wrapper below is given its own
-  // bounded height + overflow-auto, making it the scroll container for
-  // BOTH the frozen UPC/Cover columns (left) and this header row (top) -
-  // position: sticky resolves every inset against the same nearest
-  // scrolling ancestor, so top and left can't cleanly target two different
-  // containers (page vs. table) on the same cell. With the table owning
-  // its own scroll, top-0 here is simply "the top of that box", no pixel
-  // math against the search bar's height needed.
-  const STICKY_HEADER_OFFSET = 'sm:top-0'
-
   const toggleSelect = (id: number) => {
     setSelected(prev => {
       const next = new Set(prev)
@@ -323,6 +298,14 @@ export default function CollectionPage() {
                   <button
                     onClick={toggleAll}
                     className="sm:hidden px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
+                  >
+                    {selected.size === items.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+                {items.length > 0 && (
+                  <button
+                    onClick={toggleAll}
+                    className="hidden sm:inline-flex px-4 py-2 border border-gray-700 hover:border-gray-500 text-gray-300 text-sm font-medium rounded-lg transition"
                   >
                     {selected.size === items.length ? 'Deselect All' : 'Select All'}
                   </button>
@@ -574,52 +557,54 @@ export default function CollectionPage() {
             })}
           </div>
 
-          <div className="hidden sm:block overflow-auto rounded-xl border border-gray-800 sm:max-h-[calc(100vh-230px)]">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-800 text-gray-400 uppercase text-xs">
-              <tr>
-                <th className={`px-3 py-3 bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20`}>
-                  <input type="checkbox" checked={selected.size === items.length && items.length > 0} onChange={toggleAll} className="w-3.5 h-3.5 rounded accent-brand-500" />
-                </th>
-                {visibleCols.map(c => (
-                  <th
-                    key={c.key}
-                    className={`px-4 py-3 text-left whitespace-nowrap bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20 ${frozenColClass(c.key, 'z-10 sm:z-30')}`}
-                  >
-                    {c.label}
-                  </th>
-                ))}
-                <th className={`px-4 py-3 text-right bg-gray-800 sm:sticky ${STICKY_HEADER_OFFSET} sm:z-20`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {items.map(uc => {
-                const avail = availableCopies(uc)
-                return (
-                  <tr key={uc.id} className={`group hover:bg-gray-800/50 transition ${selected.has(uc.id) ? 'bg-gray-800/30' : ''}`}>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
-                        <button onClick={() => setEditing(uc)} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
-                          <Pencil size={14} />
+          {/* Card grid, not a wide table - every selected column stacks as a
+              label:value line inside each card instead of extending the row
+              sideways, so the item count and the column count both grow the
+              page vertically only. No column count ever needs horizontal
+              scrolling here, unlike the old sticky-frozen-column table this
+              replaced. */}
+          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            {items.map(uc => {
+              const avail = availableCopies(uc)
+              return (
+                <div
+                  key={uc.id}
+                  className={`bg-gray-900 border rounded-xl p-3 flex flex-col gap-2 ${selected.has(uc.id) ? 'border-brand-500' : 'border-gray-800'}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <input type="checkbox" checked={selected.has(uc.id)} onChange={() => toggleSelect(uc.id)} className="w-3.5 h-3.5 rounded accent-brand-500" />
+                    <div className="flex items-center gap-0.5 -mr-1.5">
+                      <button onClick={() => setEditing(uc)} title="Edit" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition">
+                        <ImageIcon size={14} />
+                      </button>
+                      {!isCollector && (
+                        <button
+                          onClick={() => setSelling(uc)}
+                          title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
+                          disabled={avail === 0 || uc.do_not_sell}
+                          className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-800 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          <DollarSign size={14} />
                         </button>
-                      </div>
-                    </td>
+                      )}
+                      <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="text-sm space-y-1 min-w-0">
                     {visibleCols.map(c => (
-                      <td
-                        key={c.key}
-                        className={`px-4 py-3 whitespace-nowrap text-gray-300 ${frozenColClass(c.key)} ${
-                          c.key === 'upc' || c.key === 'img'
-                            ? selected.has(uc.id) ? 'bg-gray-800' : 'bg-gray-950 group-hover:bg-gray-900'
-                            : ''
-                        }`}
-                      >
+                      <div key={c.key} className="min-w-0">
                         {c.key === 'available' ? (
                           <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${avail > 0 ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
                             {avail}/{uc.count ?? 1}
                           </span>
                         ) : c.key === 'img' ? (
-                          coverImage(uc) ? (
+                          coverImage(uc) && (
                             <button
                               type="button"
                               onClick={() => setZoomedImage(resolveImageUrl(coverImage(uc)))}
@@ -629,38 +614,22 @@ export default function CollectionPage() {
                               <img
                                 src={resolveImageUrl(coverImage(uc)) ?? undefined}
                                 alt=""
-                                className="w-8 h-11 object-cover rounded border border-gray-700 hover:border-brand-500 transition cursor-zoom-in"
+                                className="w-16 h-24 object-cover rounded border border-gray-700 hover:border-brand-500 transition cursor-zoom-in"
                               />
                             </button>
-                          ) : '—'
-                        ) : fmt(uc, c.key)}
-                      </td>
-                    ))}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setFindingImage({ comicId: uc.comic.id, series: uc.comic.series, issueNumber: uc.comic.issue_number })} title="Find Image" className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition">
-                          <ImageIcon size={14} />
-                        </button>
-                        {!isCollector && (
-                          <button
-                            onClick={() => setSelling(uc)}
-                            title={uc.do_not_sell ? 'Marked Do Not Sell' : 'Record Sale'}
-                            disabled={avail === 0 || uc.do_not_sell}
-                            className="p-1.5 text-gray-400 hover:text-green-400 hover:bg-gray-700 rounded-lg transition disabled:opacity-30 disabled:cursor-not-allowed"
-                          >
-                            <DollarSign size={14} />
-                          </button>
+                          )
+                        ) : (
+                          <>
+                            <span className="text-gray-500">{c.label}: </span>
+                            <span className="text-gray-300 break-words">{fmt(uc, c.key)}</span>
+                          </>
                         )}
-                        <button onClick={() => handleDelete(uc)} title="Delete" className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-700 rounded-lg transition">
-                          <Trash2 size={14} />
-                        </button>
                       </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </>
       )}

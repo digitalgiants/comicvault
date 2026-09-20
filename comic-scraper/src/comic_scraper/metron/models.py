@@ -72,3 +72,7 @@ class Issue(BaseModel):
     @property
     def inkers(self) -> list[str]:
         return self._creators_with_role("ink")
+
+    @property
+    def colorists(self) -> list[str]:
+        return self._creators_with_role("color")

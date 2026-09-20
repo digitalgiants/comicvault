@@ -90,6 +90,7 @@ def _lookup_gcd(gcd_db: Session, upc12: str, ean: str | None) -> dict | None:
         "writers": [fields.writer] if fields.writer else [],
         "pencillers": [fields.penciller] if fields.penciller else [],
         "inkers": [fields.inker] if fields.inker else [],
+        "colorists": [fields.colorist] if fields.colorist else [],
         "credits": [],
         "metron_id": None,
         "cv_id": None,

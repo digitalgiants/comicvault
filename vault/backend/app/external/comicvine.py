@@ -163,6 +163,7 @@ def get_issue_fields(issue_id: str) -> ComicCreate:
         writer=_credits_by_role(person_credits, "writer"),
         penciller=_credits_by_role(person_credits, "penciler"),
         inker=_credits_by_role(person_credits, "inker"),
+        colorist=_credits_by_role(person_credits, "colorist"),
         cover_artist=_credits_by_role(person_credits, "cover"),
         average_price=None,
         upc=None,

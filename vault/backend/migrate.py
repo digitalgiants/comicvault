@@ -222,6 +222,20 @@ MIGRATIONS = [
     ALTER TABLE users
         ADD COLUMN IF NOT EXISTS is_idle_exempt BOOLEAN NOT NULL DEFAULT FALSE
     """,
+
+    # Colorist (auto-filled from GCD/ComicVine/Metron like inker) and
+    # Printing (manual/CSV-only, like cover_letter) - see models.py's Comic
+    # and ExternalIssueCache.
+    """
+    ALTER TABLE comics
+        ADD COLUMN IF NOT EXISTS printing VARCHAR,
+        ADD COLUMN IF NOT EXISTS colorist VARCHAR
+    """,
+    """
+    ALTER TABLE external_issue_cache
+        ADD COLUMN IF NOT EXISTS printing VARCHAR,
+        ADD COLUMN IF NOT EXISTS colorist VARCHAR
+    """,
 ]
 
 

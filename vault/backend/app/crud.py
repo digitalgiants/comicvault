@@ -32,8 +32,8 @@ MASTER_PHOTO_OWNER_USERNAME = "drewfert"
 DEFAULT_COLLECTION_COLUMNS: dict[str, bool] = {
     "upc": True, "img": True, "series": True, "volume": True, "issue_number": True,
     "cover_date": True, "store_date": True, "newstand": True, "publisher": True,
-    "count": True, "print_run": True, "variant": True, "cover_letter": True, "legacy_number": True, "cover_artist": True,
-    "penciller": True, "inker": True, "writer": True,
+    "count": True, "printing": True, "print_run": True, "variant": True, "cover_letter": True, "legacy_number": True, "cover_artist": True,
+    "penciller": True, "inker": True, "colorist": True, "writer": True,
     "average_price": True, "paid_price": True, "sell_price": True, "buy_date": True,
     "point_of_purchase": True, "signed": True, "remarked": True, "notes": True,
 }
@@ -151,7 +151,7 @@ def get_comic_by_upc(db: Session, upc: str) -> Optional[Comic]:
 
 def find_matching_comic(db: Session, data: dict) -> Optional[Comic]:
     q = db.query(Comic).filter(Comic.series == data.get("series"))
-    for field in ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]:
+    for field in ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run", "printing"]:
         val = data.get(field)
         if val is not None:
             q = q.filter(getattr(Comic, field) == val)
@@ -199,6 +199,7 @@ def sync_comicvine_series_issues(
             "variant": None,
             "cover_letter": None,
             "print_run": None,
+            "printing": None,
         }
         match = find_matching_comic(db, candidate)
         if match:
@@ -254,8 +255,8 @@ def update_comic_metadata(db: Session, comic_id: int, updates: dict) -> Optional
 # series is included because EditComicModal.tsx's GCD-search retitle flow
 # edits it; nothing else currently does, but they're real identity fields
 # like the rest.
-_COMIC_MATCH_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
-_COMIC_IDENTITY_FIELDS = ["series", "publisher", "volume", "issue_number", "variant", "cover_letter", "print_run"]
+_COMIC_MATCH_FIELDS = ["publisher", "volume", "issue_number", "variant", "cover_letter", "print_run", "printing"]
+_COMIC_IDENTITY_FIELDS = ["series", "publisher", "volume", "issue_number", "variant", "cover_letter", "print_run", "printing"]
 
 
 def _describe_comic(comic: Comic) -> str:
@@ -275,8 +276,8 @@ def _find_identity_match(db: Session, comic: Comic, updates: dict) -> Optional[C
     one specific printing), so an exact UPC match wins even if some other
     field disagrees (e.g. one row has volume filled in and the other
     doesn't). Only falls back to find_matching_comic's series+publisher+
-    volume+variant+cover_letter+print_run matching when there's no UPC to
-    go on. Returns None if `updates` doesn't touch any identity field, or
+    volume+variant+cover_letter+print_run+printing matching when there's no
+    UPC to go on. Returns None if `updates` doesn't touch any identity field, or
     no match is found."""
     if "upc" not in updates and not any(f in updates for f in _COMIC_IDENTITY_FIELDS):
         return None
@@ -1352,12 +1353,14 @@ def cache_row_to_comic_create(row: ExternalIssueCache) -> ComicCreate:
         issue_number=row.number,
         cover_date=row.cover_date,
         store_date=row.store_date,
+        printing=row.printing,
         print_run=row.print_run,
         variant=row.variant,
         newstand=row.newstand,
         writer=row.writer,
         penciller=row.penciller,
         inker=row.inker,
+        colorist=row.colorist,
         cover_artist=row.cover_artist,
         average_price=row.average_price,
         upc=row.upc,
@@ -1480,12 +1483,14 @@ def update_issue_cache_fields(
     row.series = fields.series
     row.volume = fields.volume
     row.store_date = fields.store_date.isoformat() if hasattr(fields.store_date, "isoformat") else fields.store_date
+    row.printing = fields.printing
     row.print_run = fields.print_run
     row.variant = fields.variant
     row.newstand = fields.newstand
     row.writer = fields.writer
     row.penciller = fields.penciller
     row.inker = fields.inker
+    row.colorist = fields.colorist
     row.cover_artist = fields.cover_artist
     row.average_price = fields.average_price
     row.upc = fields.upc

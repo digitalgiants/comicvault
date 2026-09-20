@@ -89,6 +89,7 @@ class IssueFields(BaseModel):
     artist: str | None = None
     penciller: str | None = None
     inker: str | None = None
+    colorist: str | None = None
     cover_artist: str | None = None
     upc: str | None = None
     img: str | None = None
@@ -164,6 +165,7 @@ def issue_fields(issue_id: int) -> IssueFields:
         artist=None,
         penciller=joined(issue.pencillers),
         inker=joined(issue.inkers),
+        colorist=joined(issue.colorists),
         cover_artist=joined(issue.cover_artists),
         upc=issue.upc or None,
         img=issue.image,

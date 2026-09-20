@@ -28,11 +28,11 @@ COVER_STORY_TYPE = "cover"
 # Fields get_issue_fields() actually populates from GCD - the set CSV import
 # enrichment (enrich_comic_from_gcd) considers filling/comparing. Excludes
 # series/issue_number (used for matching itself) and the fields GCD never
-# supplies (print_run, newstand, img). legacy_number is derived from
-# issue_number itself (see split_legacy_number), not a separate GCD field,
-# but is still fair game to blank-fill.
+# supplies (print_run, printing, newstand, img). legacy_number is derived
+# from issue_number itself (see split_legacy_number), not a separate GCD
+# field, but is still fair game to blank-fill.
 ENRICHABLE_FIELDS = [
-    "publisher", "volume", "cover_date", "store_date", "variant", "writer", "penciller", "inker",
+    "publisher", "volume", "cover_date", "store_date", "variant", "writer", "penciller", "inker", "colorist",
     "cover_artist", "average_price", "upc", "legacy_number",
 ]
 
@@ -301,6 +301,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
     writer = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"script"})
     penciller = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"pencils"})
     inker = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"inks"})
+    colorist = _story_credits(gcd_db, issue.id, {COMIC_STORY_TYPE}, {"colors"})
     cover_artist = _story_credits(gcd_db, issue.id, {COVER_STORY_TYPE}, {"pencils", "inks"})
     issue_number, legacy_number = split_legacy_number(issue.number)
 
@@ -312,6 +313,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         legacy_number=legacy_number,
         cover_date=_parse_gcd_date(issue.key_date),
         store_date=_parse_gcd_date(issue.on_sale_date),
+        printing=None,
         print_run=None,
         variant=(issue.variant_name or None) if issue.variant_of_id else None,
         cover_letter=None,
@@ -319,6 +321,7 @@ def get_issue_fields(gcd_db: Session, issue_id: int) -> ComicCreate:
         writer=writer,
         penciller=penciller,
         inker=inker,
+        colorist=colorist,
         cover_artist=cover_artist,
         average_price=_parse_gcd_price(issue.price),
         upc=_extract_upc(issue.barcode),

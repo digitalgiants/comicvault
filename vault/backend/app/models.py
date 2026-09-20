@@ -74,6 +74,10 @@ class Comic(Base):
     # True = newsstand edition, False/None = direct market (the common case).
     # Renamed+inverted from the old `direct` column - see migrate.py.
     newstand = Column(Boolean, nullable=True)
+    # Which printing/edition (1st, 2nd, ...) - distinct from print_run, and
+    # like cover_letter, no lookup provider supplies this (manual/CSV entry
+    # only).
+    printing = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
     # The short cover designation (e.g. "A", "B", "1"), distinct from
@@ -83,6 +87,7 @@ class Comic(Base):
     cover_artist = Column(String, nullable=True)
     penciller = Column(String, nullable=True)
     inker = Column(String, nullable=True)
+    colorist = Column(String, nullable=True)
     writer = Column(String, nullable=True, index=True)
     average_price = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -326,6 +331,7 @@ class ExternalIssueCache(Base):
     series = Column(String, nullable=True)
     volume = Column(String, nullable=True)
     store_date = Column(String, nullable=True)
+    printing = Column(String, nullable=True)
     print_run = Column(String, nullable=True)
     variant = Column(String, nullable=True)
     cover_letter = Column(String, nullable=True)
@@ -333,6 +339,7 @@ class ExternalIssueCache(Base):
     writer = Column(String, nullable=True)
     penciller = Column(String, nullable=True)
     inker = Column(String, nullable=True)
+    colorist = Column(String, nullable=True)
     cover_artist = Column(String, nullable=True)
     average_price = Column(Float, nullable=True)
     upc = Column(String, nullable=True)

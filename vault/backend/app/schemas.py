@@ -55,6 +55,7 @@ class ComicBase(BaseModel):
     legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
+    printing: Optional[str] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     cover_letter: Optional[str] = None
@@ -62,6 +63,7 @@ class ComicBase(BaseModel):
     writer: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
+    colorist: Optional[str] = None
     cover_artist: Optional[str] = None
     average_price: Optional[float] = None
     upc: Optional[str] = None
@@ -81,6 +83,7 @@ class ComicUpdate(BaseModel):
     legacy_number: Optional[str] = None
     cover_date: Optional[date] = None
     store_date: Optional[date] = None
+    printing: Optional[str] = None
     print_run: Optional[str] = None
     variant: Optional[str] = None
     cover_letter: Optional[str] = None
@@ -88,6 +91,7 @@ class ComicUpdate(BaseModel):
     writer: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
+    colorist: Optional[str] = None
     cover_artist: Optional[str] = None
     upc: Optional[str] = None
     img: Optional[str] = None
@@ -542,8 +546,10 @@ class KioskCardOut(BaseModel):
     cover_artist: Optional[str] = None
     penciller: Optional[str] = None
     inker: Optional[str] = None
+    colorist: Optional[str] = None
     writer: Optional[str] = None
     newstand: Optional[bool] = None
+    printing: Optional[str] = None
     print_run: Optional[str] = None
     signed: bool = False
     remarked: bool = False

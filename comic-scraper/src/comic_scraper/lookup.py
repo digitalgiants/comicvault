@@ -34,6 +34,7 @@ class LookupResult(BaseModel):
     writers: list[str] = []
     pencillers: list[str] = []
     inkers: list[str] = []
+    colorists: list[str] = []
     credits: list[CreditInfo] = []
     metron_id: int | None = None
     cv_id: int | None = None
@@ -79,6 +80,7 @@ class UpcLookupService:
             writers=issue.writers,
             pencillers=issue.pencillers,
             inkers=issue.inkers,
+            colorists=issue.colorists,
             credits=[CreditInfo(creator=c.creator, roles=c.role_names) for c in issue.credits],
             matched_on=matched_on,
             source="metron",

@@ -11,12 +11,14 @@ export interface Comic {
   cover_date: string | null
   store_date: string | null
   newstand: boolean | null
+  printing: string | null
   print_run: string | null
   variant: string | null
   cover_letter: string | null
   cover_artist: string | null
   penciller: string | null
   inker: string | null
+  colorist: string | null
   writer: string | null
   average_price: number | null
   created_at: string
@@ -114,12 +116,14 @@ export const COLLECTION_COLUMNS: { key: string; label: string }[] = [
   { key: 'publisher', label: 'Publisher' },
   { key: 'count', label: 'Count' },
   { key: 'available', label: 'Available' },
+  { key: 'printing', label: 'Printing' },
   { key: 'print_run', label: 'Print Run' },
   { key: 'variant', label: 'Variant' },
   { key: 'cover_letter', label: 'Cover Letter' },
   { key: 'cover_artist', label: 'Cover Artist' },
   { key: 'penciller', label: 'Penciller' },
   { key: 'inker', label: 'Inker' },
+  { key: 'colorist', label: 'Colorist' },
   { key: 'writer', label: 'Writer' },
   { key: 'average_price', label: 'Average Price' },
   { key: 'paid_price', label: 'Paid Price' },
@@ -221,6 +225,7 @@ export interface LookupResult {
   writers: string[]
   pencillers: string[]
   inkers: string[]
+  colorists: string[]
   credits: CreditInfo[]
   matched_on: 'base_upc' | 'variant_upc'
   source: 'cache' | 'metron' | 'gcd'
@@ -272,12 +277,14 @@ export interface ScanComicFields {
   cover_date: string | null
   store_date: string | null
   newstand: boolean | null
+  printing: string | null
   print_run: string | null
   variant: string | null
   cover_letter: string | null
   writer: string | null
   penciller: string | null
   inker: string | null
+  colorist: string | null
   cover_artist: string | null
   average_price: number | null
   upc: string | null
@@ -364,8 +371,10 @@ export interface KioskCard {
   cover_artist: string | null
   penciller: string | null
   inker: string | null
+  colorist: string | null
   writer: string | null
   newstand: boolean | null
+  printing: string | null
   print_run: string | null
   signed: boolean
   remarked: boolean
@@ -618,12 +627,14 @@ export function lookupResultToComicFields(result: LookupResult, upc12: string, e
     cover_date: result.cover_date || null,
     store_date: result.store_date,
     newstand: null,
+    printing: null,
     print_run: null,
     variant: result.variant_name,
     cover_letter: null,
     writer: result.writers.length ? result.writers.join(', ') : null,
     penciller: result.pencillers.length ? result.pencillers.join(', ') : null,
     inker: result.inkers.length ? result.inkers.join(', ') : null,
+    colorist: result.colorists.length ? result.colorists.join(', ') : null,
     cover_artist: result.cover_artists.length ? result.cover_artists.join(', ') : null,
     average_price: null,
     upc: ean ? `${upc12}${ean}` : upc12,

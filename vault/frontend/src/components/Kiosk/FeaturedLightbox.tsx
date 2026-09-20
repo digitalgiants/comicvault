@@ -167,6 +167,7 @@ export default function FeaturedLightbox({ title, items, loading, error, browseA
                 {selected.writer && <p>Writer: {selected.writer}</p>}
                 {selected.penciller && <p>Pencils: {selected.penciller}</p>}
                 {selected.inker && <p>Inks: {selected.inker}</p>}
+                {selected.colorist && <p>Colors: {selected.colorist}</p>}
                 {selected.cover_artist && <p>Cover: {selected.cover_artist}</p>}
               </div>
             </div>
